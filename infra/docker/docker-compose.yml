@@ -1,0 +1,101 @@
+include:
+  - docker-compose.infra.yml
+
+services:
+  auth-service:
+    build:
+      context: ../../platform/ruleforge-auth-service
+    ports:
+      - "8081:8081"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ruleforge
+      SPRING_DATASOURCE_USERNAME: ruleforge
+      SPRING_DATASOURCE_PASSWORD: ruleforge_dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  management-service:
+    build:
+      context: ../../platform/ruleforge-management-service
+    ports:
+      - "8082:8082"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ruleforge
+      SPRING_DATASOURCE_USERNAME: ruleforge
+      SPRING_DATASOURCE_PASSWORD: ruleforge_dev
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  solver-service:
+    build:
+      context: ../../platform/ruleforge-solver-service
+    ports:
+      - "8083:8083"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ruleforge
+      SPRING_DATASOURCE_USERNAME: ruleforge
+      SPRING_DATASOURCE_PASSWORD: ruleforge_dev
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  event-service:
+    build:
+      context: ../../platform/ruleforge-event-service
+    ports:
+      - "8084:8084"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ruleforge
+      SPRING_DATASOURCE_USERNAME: ruleforge
+      SPRING_DATASOURCE_PASSWORD: ruleforge_dev
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  ai-service:
+    build:
+      context: ../../ai-service
+    ports:
+      - "8088:8000"
+    environment:
+      RULEFORGE_AI_MANAGEMENT_SERVICE_URL: http://management-service:8082
+
+  kong:
+    image: kong:3.6
+    ports:
+      - "8000:8000"
+      - "8443:8443"
+      - "8001:8001"
+    environment:
+      KONG_DATABASE: "off"
+      KONG_DECLARATIVE_CONFIG: /kong/kong.yml
+      KONG_PROXY_LISTEN: 0.0.0.0:8000
+      KONG_ADMIN_LISTEN: 0.0.0.0:8001
+    volumes:
+      - ../kong/kong.yml:/kong/kong.yml:ro
+    depends_on:
+      - auth-service
+      - management-service
+      - solver-service
+
+  frontend:
+    build:
+      context: ../../frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - kong

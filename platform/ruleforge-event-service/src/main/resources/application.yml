@@ -1,0 +1,36 @@
+spring:
+  application:
+    name: ruleforge-event-service
+  datasource:
+    url: jdbc:postgresql://localhost:5432/ruleforge
+    username: ruleforge
+    password: ruleforge_dev
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: event-service
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+
+server:
+  port: 8084
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,prometheus
+
+app:
+  jwt:
+    secret: "dGhpcyBpcyBhIHZlcnkgbG9uZyBzZWNyZXQga2V5IGZvciBITUFDLVNIQTUxMiB0aGF0IG11c3QgYmUgYXQgbGVhc3QgNjQgYnl0ZXMgbG9uZw=="
+    access-token-validity-ms: 900000
+    refresh-token-validity-ms: 604800000

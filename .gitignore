@@ -1,0 +1,61 @@
+# Java / Gradle
+build/
+.gradle/
+*.class
+*.jar
+*.war
+*.ear
+bin/
+out/
+
+# Gradle wrapper (keep gradlew, ignore cached distributions)
+!gradle/wrapper/gradle-wrapper.jar
+.gradle-wrapper/
+
+# Node / React
+node_modules/
+dist/
+.vite/
+*.tsbuildinfo
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+.venv/
+venv/
+*.egg-info/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+*.ipr
+*.iws
+.project
+.classpath
+.settings/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Environment / Secrets
+.env
+.env.local
+.env.*.local
+
+# Logs
+*.log
+logs/
+
+# Docker
+docker-compose.override.yml
+
+# Misc
+.claude/
+tmp/
