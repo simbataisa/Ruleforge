@@ -51,6 +51,24 @@ services:
           - /v1/ai
         strip_path: false
 
+  - name: scheduler-service
+    url: http://scheduler-service:8086
+    routes:
+      - name: scheduler-routes
+        paths:
+          - /v1/schedules
+          - /v1/batch
+        strip_path: false
+
+  - name: connector-service
+    url: http://connector-service:8087
+    routes:
+      - name: connector-routes
+        paths:
+          - /v1/connectors
+          - /v1/connections
+        strip_path: false
+
 plugins:
   - name: cors
     config:

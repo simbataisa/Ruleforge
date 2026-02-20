@@ -21,3 +21,7 @@ management:
     web:
       exposure:
         include: health,info,prometheus
+
+ruleforge:
+  encryption:
+    secret-key: ZGVmYXVsdC1kZXYta2V5LTMyLWJ5dGVzLS0tLS0=

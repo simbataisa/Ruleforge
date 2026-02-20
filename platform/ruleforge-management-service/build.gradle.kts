@@ -13,5 +13,7 @@ dependencies {
     implementation("org.flywaydb:flyway-core:${property("flywayVersion")}")
     implementation("org.flywaydb:flyway-database-postgresql:${property("flywayVersion")}")
 
+    implementation("org.apache.poi:poi-ooxml:5.2.3")
+
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }

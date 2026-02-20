@@ -17,6 +17,8 @@ interface CreateRuleModalProps {
 const ruleTypes: { value: RuleType; label: string }[] = [
   { value: 'TABLE', label: 'Decision Table' },
   { value: 'TREE', label: 'Decision Tree' },
+  { value: 'SCRIPT', label: 'Script (GraalVM JS)' },
+  { value: 'FLOW', label: 'Flow (DAG)' },
 ];
 
 export function CreateRuleModal({

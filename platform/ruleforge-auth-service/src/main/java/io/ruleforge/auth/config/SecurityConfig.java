@@ -38,6 +38,8 @@ public class SecurityConfig {
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/v1/auth/**").permitAll()
+                        .requestMatchers("/v1/sso/saml/**").permitAll()
+                        .requestMatchers("/v1/sso/oidc/**").permitAll()
                         .requestMatchers("/actuator/health").permitAll()
                         .requestMatchers("/internal/**").permitAll()
                         .anyRequest().authenticated()

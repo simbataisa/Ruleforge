@@ -24,8 +24,12 @@ import { useEditorStore } from '@/stores/editor.store';
 import { useToastStore } from '@/stores/toast.store';
 import { useTableEditorStore } from '@/stores/table-editor.store';
 import { useTreeEditorStore } from '@/stores/tree-editor.store';
+import { useScriptEditorStore } from '@/stores/script-editor.store';
+import { useFlowEditorStore } from '@/stores/flow-editor.store';
 import { TableEditor } from '@/features/table-editor/components/TableEditor';
 import { TreeEditor } from '@/features/tree-editor/components/TreeEditor';
+import { ScriptEditor } from '@/features/script-editor/components/ScriptEditor';
+import { FlowEditor } from '@/features/flow-editor/components/FlowEditor';
 import { TestBench } from '@/features/test-bench/components/TestBench';
 import type { RuleVersion } from '@/api/types/rule.types';
 
@@ -42,6 +46,8 @@ const statusColors: Record<string, string> = {
 const typeColors: Record<string, string> = {
   TABLE: 'bg-blue-100 text-blue-800',
   TREE: 'bg-purple-100 text-purple-800',
+  SCRIPT: 'bg-orange-100 text-orange-800',
+  FLOW: 'bg-cyan-100 text-cyan-800',
 };
 
 const tabs: { key: EditorTab; label: string; icon: React.ReactNode }[] = [
@@ -79,6 +85,9 @@ export function RuleEditorPage() {
   const treeToDefinition = useTreeEditorStore((s) => s.toDefinition);
   const loadTableDefinition = useTableEditorStore((s) => s.loadFromDefinition);
   const loadTreeDefinition = useTreeEditorStore((s) => s.loadFromDefinition);
+  const setScriptDefinition = useScriptEditorStore((s) => s.setDefinition);
+  const scriptState = useScriptEditorStore((s) => ({ scriptBody: s.scriptBody, language: s.language, timeout: s.timeout, maxMemoryMb: s.maxMemoryMb }));
+  const setFlowDefinition = useFlowEditorStore((s) => s.setDefinition);
 
   const rule = ruleData;
   const versions: RuleVersion[] = Array.isArray(versionsData) ? versionsData : [];
@@ -92,9 +101,19 @@ export function RuleEditorPage() {
       loadTableDefinition(currentVersion.definition);
     } else if (rule?.type === 'TREE') {
       loadTreeDefinition(currentVersion.definition);
+    } else if (rule?.type === 'SCRIPT') {
+      const def = currentVersion.definition as Record<string, unknown>;
+      setScriptDefinition({
+        scriptBody: (def.scriptBody as string) ?? '',
+        language: (def.language as string) ?? 'js',
+        timeout: (def.timeout as number) ?? 5000,
+        maxMemoryMb: (def.maxMemoryMb as number) ?? 64,
+      });
+    } else if (rule?.type === 'FLOW') {
+      setFlowDefinition(currentVersion.definition as unknown as Parameters<typeof setFlowDefinition>[0]);
     }
     setDirty(false);
-  }, [currentVersion?.id, rule?.type, loadTableDefinition, loadTreeDefinition, setDirty]);
+  }, [currentVersion?.id, rule?.type, loadTableDefinition, loadTreeDefinition, setScriptDefinition, setFlowDefinition, setDirty]);
 
   // Set default selected version
   useEffect(() => {
@@ -240,10 +259,23 @@ export function RuleEditorPage() {
       {/* Tab Content */}
       <div className="flex-1 overflow-hidden">
         {activeTab === 'definition' && (
-          <div className="h-full">
+          <div className="h-full p-4">
             {rule.type === 'TABLE' && <TableEditor />}
             {rule.type === 'TREE' && <TreeEditor />}
-            {rule.type !== 'TABLE' && rule.type !== 'TREE' && (
+            {rule.type === 'SCRIPT' && (
+              <ScriptEditor
+                scriptBody={scriptState.scriptBody}
+                language={scriptState.language}
+                timeout={scriptState.timeout}
+                maxMemoryMb={scriptState.maxMemoryMb}
+                onChange={(def) => {
+                  setScriptDefinition(def);
+                  setDirty(true);
+                }}
+              />
+            )}
+            {rule.type === 'FLOW' && <FlowEditor />}
+            {rule.type !== 'TABLE' && rule.type !== 'TREE' && rule.type !== 'SCRIPT' && rule.type !== 'FLOW' && (
               <div className="flex items-center justify-center h-full text-gray-500">
                 Editor for {rule.type} type is not yet supported.
               </div>

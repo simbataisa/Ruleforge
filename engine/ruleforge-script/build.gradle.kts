@@ -9,4 +9,6 @@ dependencies {
 
     // GraalVM SDK for polyglot script execution
     implementation("org.graalvm.sdk:graal-sdk:${property("graalvmVersion")}")
+    // Jackson for JSON serialization of working memory facts
+    implementation("com.fasterxml.jackson.core:jackson-databind:${property("jacksonVersion")}")
 }
