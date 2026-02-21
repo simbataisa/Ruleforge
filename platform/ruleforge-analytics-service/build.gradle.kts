@@ -13,7 +13,7 @@ dependencies {
     implementation("org.flywaydb:flyway-core:${property("flywayVersion")}")
     implementation("org.flywaydb:flyway-database-postgresql:${property("flywayVersion")}")
     implementation("org.springframework.kafka:spring-kafka")
-    // Elasticsearch client will be added in Phase 3
+    implementation("org.springframework.boot:spring-boot-starter-data-elasticsearch")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }

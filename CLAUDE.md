@@ -88,8 +88,8 @@ Key engine design:
 | solver-service | 8083 | Rule execution (L1 Caffeine → L2 Redis → PG) |
 | event-service | 8084 | Audit trail, webhooks (Kafka consumer) |
 | analytics-service | 8085 | Decision logs → Elasticsearch [Phase 3] |
-| scheduler-service | 8086 | Batch processing [Phase 2] |
-| connector-service | 8087 | DB/HTTP enrichment [Phase 2] |
+| scheduler-service | 8086 | Quartz-based batch scheduling |
+| connector-service | 8087 | JDBC/HTTP/Redis data enrichment |
 
 Shared module `ruleforge-common`: TenantContext, DTOs (ErrorResponse, PageResponse), Kafka schemas.
 
@@ -107,7 +107,7 @@ React 18 + TypeScript + Vite. Zustand for client state, React Query for server s
 
 ### API Gateway (Kong, port 8000)
 
-Routes `/v1/solve` → solver, `/v1/rules|folders|tags` → management, `/v1/auth|users|organizations|spaces|api-keys` → auth, `/v1/analytics` → analytics, `/v1/ai` → ai-service.
+Routes `/v1/solve` → solver, `/v1/rules|folders|tags` → management, `/v1/auth|users|organizations|spaces|api-keys` → auth, `/v1/analytics` → analytics, `/v1/ai` → ai-service, `/v1/sso` → auth, `/v1/schedules|batch` → scheduler, `/v1/connectors|connections` → connector.
 
 ### Multi-Tenancy
 
@@ -115,7 +115,7 @@ Organization → Space → Folder → Rule. PostgreSQL RLS on all tenant tables.
 
 ### Development Roadmap
 
-- **Phase 1 MVP**: Tables + Trees engine, Auth, Management, Solver, basic frontend
-- **Phase 2**: Scripting (GraalVM), Flows, Connectors, SSO
-- **Phase 3**: Analytics, Scorecard, Ensemble, SDKs
+- **Phase 1 MVP** (DONE): Tables + Trees engine, Auth, Management, Solver, Event, basic frontend
+- **Phase 2** (DONE): Scripting (GraalVM), Flows, Connectors, SSO config, Scheduler, Import/Export
+- **Phase 3** (NEXT): Analytics, Scorecard, Ensemble, SDKs, A/B Testing
 - **Phase 4**: AI Assistant, DMN, CEP, Embedded JAR, WASM

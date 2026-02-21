@@ -7,9 +7,8 @@ import { RuleListPage } from '@/features/rules/pages/RuleListPage';
 import { RuleEditorPage } from '@/features/rules/pages/RuleEditorPage';
 import { ApiKeysPage } from '@/features/api-keys/pages/ApiKeysPage';
 import { OrgSettingsPage } from '@/features/admin/pages/OrgSettingsPage';
-
-// Stub pages for routes that are not yet implemented
-const DashboardPage = () => <div className="p-8">Analytics Dashboard - Coming Soon</div>;
+import { AnalyticsDashboardPage } from '@/features/analytics/pages/AnalyticsDashboardPage';
+import { RuleStatsPage } from '@/features/analytics/pages/RuleStatsPage';
 
 export function AppRoutes() {
   return (
@@ -30,7 +29,8 @@ export function AppRoutes() {
         <Route path="/rules/:id/edit" element={<RuleEditorPage />} />
         <Route path="/api-keys" element={<ApiKeysPage />} />
         <Route path="/settings" element={<OrgSettingsPage />} />
-        <Route path="/analytics" element={<DashboardPage />} />
+        <Route path="/analytics" element={<AnalyticsDashboardPage />} />
+        <Route path="/analytics/rules/:ruleId" element={<RuleStatsPage />} />
       </Route>
 
       {/* Default redirect */}

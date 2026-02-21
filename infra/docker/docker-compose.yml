@@ -66,6 +66,52 @@ services:
       kafka:
         condition: service_healthy
 
+  analytics-service:
+    build:
+      context: ../../platform/ruleforge-analytics-service
+    ports:
+      - "8085:8085"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ruleforge
+      SPRING_DATASOURCE_USERNAME: ruleforge
+      SPRING_DATASOURCE_PASSWORD: ruleforge_dev
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+      SPRING_ELASTICSEARCH_URIS: http://elasticsearch:9200
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  scheduler-service:
+    build:
+      context: ../../platform/ruleforge-scheduler-service
+    ports:
+      - "8086:8086"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ruleforge
+      SPRING_DATASOURCE_USERNAME: ruleforge
+      SPRING_DATASOURCE_PASSWORD: ruleforge_dev
+      SPRING_KAFKA_BOOTSTRAP_SERVERS: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+
+  connector-service:
+    build:
+      context: ../../platform/ruleforge-connector-service
+    ports:
+      - "8087:8087"
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/ruleforge
+      SPRING_DATASOURCE_USERNAME: ruleforge
+      SPRING_DATASOURCE_PASSWORD: ruleforge_dev
+    depends_on:
+      postgres:
+        condition: service_healthy
+
   ai-service:
     build:
       context: ../../ai-service

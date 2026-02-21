@@ -12,6 +12,7 @@ services:
           - /v1/organizations
           - /v1/spaces
           - /v1/api-keys
+          - /v1/sso
         strip_path: false
 
   - name: management-service

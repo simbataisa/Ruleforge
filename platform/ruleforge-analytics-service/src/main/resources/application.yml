@@ -12,6 +12,15 @@ spring:
   flyway:
     enabled: true
     locations: classpath:db/migration
+  elasticsearch:
+    uris: http://localhost:9200
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: analytics-consumer-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
 server:
   port: 8085
@@ -21,3 +30,8 @@ management:
     web:
       exposure:
         include: health,info,prometheus
+
+ruleforge:
+  analytics:
+    index-prefix: ruleforge-decisions
+    retention-days: 90

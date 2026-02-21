@@ -1,0 +1,15 @@
+{
+  "name": "@ruleforge/sdk",
+  "version": "0.1.0",
+  "description": "Node.js client SDK for the RuleForge BRMS API",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "scripts": {
+    "build": "tsc",
+    "lint": "eslint src --ext .ts"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "license": "Apache-2.0"
+}

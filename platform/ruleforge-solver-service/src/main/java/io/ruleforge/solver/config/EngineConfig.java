@@ -1,7 +1,9 @@
 package io.ruleforge.solver.config;
 
 import io.ruleforge.core.RuleForgeEngine;
+import io.ruleforge.ensemble.EnsembleEngine;
 import io.ruleforge.flow.FlowEngine;
+import io.ruleforge.scorecard.ScorecardEngine;
 import io.ruleforge.script.ScriptingEngine;
 import io.ruleforge.table.DecisionTableEngine;
 import io.ruleforge.tree.DecisionTreeEngine;
@@ -25,6 +27,8 @@ public class EngineConfig {
                 .registerEngine(new DecisionTreeEngine())
                 .registerEngine(new ScriptingEngine())
                 .registerEngine(new FlowEngine())
+                .registerEngine(new ScorecardEngine())
+                .registerEngine(new EnsembleEngine())
                 .maxIterations(200)
                 .defaultTimeout(Duration.ofSeconds(10))
                 .build();
