@@ -6,31 +6,27 @@ import { Input } from '@/shared/components/Input';
 import { Select } from '@/shared/components/Select';
 import { Badge } from '@/shared/components/Badge';
 import { Modal } from '@/shared/components/Modal';
+import { Spinner } from '@/shared/components/Spinner';
 import { useToastStore } from '@/stores/toast.store';
 import { useAuthStore } from '@/stores/auth.store';
+import {
+  useOrganization,
+  useOrgMembers,
+  useOrgSpaces,
+  useInviteMember,
+  useUpdateMemberRole,
+  useCreateSpace,
+} from '@/api/org.api';
+import { SsoSettings } from '../components/SsoSettings';
 
-type SettingsTab = 'general' | 'members' | 'spaces';
+type SettingsTab = 'general' | 'members' | 'spaces' | 'sso';
 
 const tabs: { key: SettingsTab; label: string }[] = [
   { key: 'general', label: 'General' },
   { key: 'members', label: 'Members' },
   { key: 'spaces', label: 'Spaces' },
+  { key: 'sso', label: 'SSO' },
 ];
-
-// Local types for org settings (no separate API types exist)
-interface OrgMember {
-  id: string;
-  fullName: string;
-  email: string;
-  role: string;
-}
-
-interface OrgSpace {
-  id: string;
-  name: string;
-  slug: string;
-  ruleCount: number;
-}
 
 const roleColors: Record<string, string> = {
   OWNER: 'bg-red-100 text-red-700',
@@ -38,39 +34,6 @@ const roleColors: Record<string, string> = {
   EDITOR: 'bg-blue-100 text-blue-700',
   VIEWER: 'bg-gray-100 text-gray-600',
 };
-
-// Placeholder data - would come from API in production
-const MOCK_ORG = {
-  name: 'My Organization',
-  slug: 'my-org',
-};
-
-const MOCK_MEMBERS: OrgMember[] = [
-  {
-    id: '1',
-    fullName: 'John Doe',
-    email: 'john@example.com',
-    role: 'OWNER',
-  },
-  {
-    id: '2',
-    fullName: 'Jane Smith',
-    email: 'jane@example.com',
-    role: 'ADMIN',
-  },
-  {
-    id: '3',
-    fullName: 'Bob Wilson',
-    email: 'bob@example.com',
-    role: 'EDITOR',
-  },
-];
-
-const MOCK_SPACES: OrgSpace[] = [
-  { id: '1', name: 'Production', slug: 'production', ruleCount: 12 },
-  { id: '2', name: 'Development', slug: 'development', ruleCount: 8 },
-  { id: '3', name: 'Staging', slug: 'staging', ruleCount: 5 },
-];
 
 export function OrgSettingsPage() {
   const addToast = useToastStore((s) => s.addToast);
@@ -87,40 +50,51 @@ export function OrgSettingsPage() {
   // Create space form state
   const [spaceName, setSpaceName] = useState('');
 
-  // In a real app these would come from API hooks
-  const [members, setMembers] = useState<OrgMember[]>(MOCK_MEMBERS);
-  const [spaces] = useState<OrgSpace[]>(MOCK_SPACES);
+  // API hooks
+  const { data: org, isLoading: orgLoading } = useOrganization();
+  const { data: members, isLoading: membersLoading } = useOrgMembers();
+  const { data: spaces, isLoading: spacesLoading } = useOrgSpaces();
+  const inviteMember = useInviteMember();
+  const updateMemberRole = useUpdateMemberRole();
+  const createSpace = useCreateSpace();
 
-  const handleInvite = (e: React.FormEvent) => {
+  const handleInvite = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!inviteEmail.trim()) return;
-    // In production this would call an API
-    addToast({
-      type: 'success',
-      title: `Invitation sent to ${inviteEmail}`,
-    });
-    setInviteEmail('');
-    setInviteRole('EDITOR');
-    setShowInvite(false);
+    try {
+      await inviteMember.mutateAsync({ email: inviteEmail.trim(), role: inviteRole });
+      addToast({ type: 'success', title: `Invitation sent to ${inviteEmail}` });
+      setInviteEmail('');
+      setInviteRole('EDITOR');
+      setShowInvite(false);
+    } catch {
+      addToast({ type: 'error', title: 'Failed to send invitation' });
+    }
   };
 
-  const handleRoleChange = (memberId: string, newRole: string) => {
-    setMembers((prev) =>
-      prev.map((m) => (m.id === memberId ? { ...m, role: newRole } : m)),
-    );
-    addToast({ type: 'success', title: 'Role updated successfully' });
+  const handleRoleChange = async (memberId: string, newRole: string) => {
+    try {
+      await updateMemberRole.mutateAsync({ memberId, role: newRole });
+      addToast({ type: 'success', title: 'Role updated successfully' });
+    } catch {
+      addToast({ type: 'error', title: 'Failed to update role' });
+    }
   };
 
-  const handleCreateSpace = (e: React.FormEvent) => {
+  const handleCreateSpace = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!spaceName.trim()) return;
-    addToast({ type: 'success', title: `Space "${spaceName}" created` });
-    setSpaceName('');
-    setShowCreateSpace(false);
+    try {
+      await createSpace.mutateAsync({ name: spaceName.trim() });
+      addToast({ type: 'success', title: `Space "${spaceName}" created` });
+      setSpaceName('');
+      setShowCreateSpace(false);
+    } catch {
+      addToast({ type: 'error', title: 'Failed to create space' });
+    }
   };
 
-  const isOwnerOrAdmin =
-    user?.role === 'OWNER' || user?.role === 'ADMIN' || true; // Default to true for demo
+  const isOwnerOrAdmin = user?.role === 'OWNER' || user?.role === 'ADMIN';
 
   return (
     <div className="flex flex-col h-full">
@@ -150,164 +124,191 @@ export function OrgSettingsPage() {
         {/* General Tab */}
         {activeTab === 'general' && (
           <div className="max-w-lg space-y-6">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Organization Name
-              </label>
-              <Input value={MOCK_ORG.name} readOnly className="bg-gray-50" />
-              <p className="text-xs text-gray-400 mt-1">
-                Contact support to change your organization name.
-              </p>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Organization Slug
-              </label>
-              <Input value={MOCK_ORG.slug} readOnly className="bg-gray-50" />
-              <p className="text-xs text-gray-400 mt-1">
-                This is used in URLs and API endpoints. It cannot be changed.
-              </p>
-            </div>
+            {orgLoading ? (
+              <div className="flex justify-center py-8">
+                <Spinner />
+              </div>
+            ) : (
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Organization Name
+                  </label>
+                  <Input value={org?.name ?? ''} readOnly className="bg-gray-50" />
+                  <p className="text-xs text-gray-400 mt-1">
+                    Contact support to change your organization name.
+                  </p>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Organization Slug
+                  </label>
+                  <Input value={org?.slug ?? ''} readOnly className="bg-gray-50" />
+                  <p className="text-xs text-gray-400 mt-1">
+                    This is used in URLs and API endpoints. It cannot be changed.
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         )}
 
         {/* Members Tab */}
         {activeTab === 'members' && (
           <div className="max-w-3xl">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-gray-600">
-                {members.length} member{members.length !== 1 ? 's' : ''} in
-                your organization
-              </p>
-              {isOwnerOrAdmin && (
-                <Button size="sm" onClick={() => setShowInvite(true)}>
-                  <Plus className="h-4 w-4" />
-                  Invite Member
-                </Button>
-              )}
-            </div>
-            <div className="border border-gray-200 rounded-lg overflow-hidden">
-              <table className="w-full">
-                <thead>
-                  <tr className="bg-gray-50 border-b border-gray-200">
-                    <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Member
-                    </th>
-                    <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Email
-                    </th>
-                    <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                      Role
-                    </th>
-                    {isOwnerOrAdmin && (
-                      <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                        Actions
-                      </th>
-                    )}
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-200">
-                  {members.map((member) => (
-                    <tr key={member.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-3">
-                          <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
-                            <span className="text-xs font-semibold text-indigo-700">
-                              {member.fullName
-                                .split(' ')
-                                .map((n) => n[0])
-                                .join('')
-                                .toUpperCase()}
-                            </span>
-                          </div>
-                          <span className="text-sm font-medium text-gray-900">
-                            {member.fullName}
-                          </span>
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-1.5 text-sm text-gray-500">
-                          <Mail className="h-3.5 w-3.5" />
-                          {member.email}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <Badge
-                          className={
-                            roleColors[member.role] ?? 'bg-gray-100 text-gray-600'
-                          }
-                        >
-                          <Shield className="h-3 w-3" />
-                          {member.role}
-                        </Badge>
-                      </td>
-                      {isOwnerOrAdmin && (
-                        <td className="px-4 py-3">
-                          {member.role !== 'OWNER' && (
-                            <Select
-                              value={member.role}
-                              onChange={(e) =>
-                                handleRoleChange(member.id, e.target.value)
+            {membersLoading ? (
+              <div className="flex justify-center py-8">
+                <Spinner />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-sm text-gray-600">
+                    {members?.length ?? 0} member{(members?.length ?? 0) !== 1 ? 's' : ''} in
+                    your organization
+                  </p>
+                  {isOwnerOrAdmin && (
+                    <Button size="sm" onClick={() => setShowInvite(true)}>
+                      <Plus className="h-4 w-4" />
+                      Invite Member
+                    </Button>
+                  )}
+                </div>
+                <div className="border border-gray-200 rounded-lg overflow-hidden">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="bg-gray-50 border-b border-gray-200">
+                        <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Member
+                        </th>
+                        <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Email
+                        </th>
+                        <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                          Role
+                        </th>
+                        {isOwnerOrAdmin && (
+                          <th className="px-4 py-2.5 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                            Actions
+                          </th>
+                        )}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {(members ?? []).map((member) => (
+                        <tr key={member.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-3">
+                              <div className="h-8 w-8 rounded-full bg-indigo-100 flex items-center justify-center">
+                                <span className="text-xs font-semibold text-indigo-700">
+                                  {member.fullName
+                                    .split(' ')
+                                    .map((n) => n[0])
+                                    .join('')
+                                    .toUpperCase()}
+                                </span>
+                              </div>
+                              <span className="text-sm font-medium text-gray-900">
+                                {member.fullName}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <div className="flex items-center gap-1.5 text-sm text-gray-500">
+                              <Mail className="h-3.5 w-3.5" />
+                              {member.email}
+                            </div>
+                          </td>
+                          <td className="px-4 py-3">
+                            <Badge
+                              className={
+                                roleColors[member.role] ?? 'bg-gray-100 text-gray-600'
                               }
-                              className="text-xs h-7 w-28"
                             >
-                              <option value="ADMIN">Admin</option>
-                              <option value="EDITOR">Editor</option>
-                              <option value="VIEWER">Viewer</option>
-                            </Select>
+                              <Shield className="h-3 w-3" />
+                              {member.role}
+                            </Badge>
+                          </td>
+                          {isOwnerOrAdmin && (
+                            <td className="px-4 py-3">
+                              {member.role !== 'OWNER' && (
+                                <Select
+                                  value={member.role}
+                                  onChange={(e) =>
+                                    handleRoleChange(member.id, e.target.value)
+                                  }
+                                  className="text-xs h-7 w-28"
+                                >
+                                  <option value="ADMIN">Admin</option>
+                                  <option value="EDITOR">Editor</option>
+                                  <option value="VIEWER">Viewer</option>
+                                </Select>
+                              )}
+                            </td>
                           )}
-                        </td>
-                      )}
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </>
+            )}
           </div>
         )}
 
         {/* Spaces Tab */}
         {activeTab === 'spaces' && (
           <div className="max-w-3xl">
-            <div className="flex items-center justify-between mb-4">
-              <p className="text-sm text-gray-600">
-                {spaces.length} space{spaces.length !== 1 ? 's' : ''} in your
-                organization
-              </p>
-              {isOwnerOrAdmin && (
-                <Button size="sm" onClick={() => setShowCreateSpace(true)}>
-                  <Plus className="h-4 w-4" />
-                  Create Space
-                </Button>
-              )}
-            </div>
-            <div className="grid gap-3">
-              {spaces.map((space) => (
-                <div
-                  key={space.id}
-                  className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
-                >
-                  <div>
-                    <h3 className="text-sm font-medium text-gray-900">
-                      {space.name}
-                    </h3>
-                    <p className="text-xs text-gray-500 mt-0.5">
-                      Slug: {space.slug}
-                    </p>
-                  </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs text-gray-500">
-                      {space.ruleCount} rule{space.ruleCount !== 1 ? 's' : ''}
-                    </span>
-                    <Button size="sm" variant="outline">
-                      Manage
+            {spacesLoading ? (
+              <div className="flex justify-center py-8">
+                <Spinner />
+              </div>
+            ) : (
+              <>
+                <div className="flex items-center justify-between mb-4">
+                  <p className="text-sm text-gray-600">
+                    {spaces?.length ?? 0} space{(spaces?.length ?? 0) !== 1 ? 's' : ''} in your
+                    organization
+                  </p>
+                  {isOwnerOrAdmin && (
+                    <Button size="sm" onClick={() => setShowCreateSpace(true)}>
+                      <Plus className="h-4 w-4" />
+                      Create Space
                     </Button>
-                  </div>
+                  )}
                 </div>
-              ))}
-            </div>
+                <div className="grid gap-3">
+                  {(spaces ?? []).map((space) => (
+                    <div
+                      key={space.id}
+                      className="flex items-center justify-between p-4 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors"
+                    >
+                      <div>
+                        <h3 className="text-sm font-medium text-gray-900">
+                          {space.name}
+                        </h3>
+                        <p className="text-xs text-gray-500 mt-0.5">
+                          Slug: {space.slug}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-3">
+                        <span className="text-xs text-gray-500">
+                          {space.ruleCount} rule{space.ruleCount !== 1 ? 's' : ''}
+                        </span>
+                        <Button size="sm" variant="outline">
+                          Manage
+                        </Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
           </div>
         )}
+
+        {/* SSO Tab */}
+        {activeTab === 'sso' && <SsoSettings />}
       </div>
 
       {/* Invite Member Modal */}
@@ -359,7 +360,11 @@ export function OrgSettingsPage() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={!inviteEmail.trim()}>
+            <Button
+              type="submit"
+              loading={inviteMember.isPending}
+              disabled={!inviteEmail.trim()}
+            >
               Send Invitation
             </Button>
           </div>
@@ -397,7 +402,11 @@ export function OrgSettingsPage() {
             >
               Cancel
             </Button>
-            <Button type="submit" disabled={!spaceName.trim()}>
+            <Button
+              type="submit"
+              loading={createSpace.isPending}
+              disabled={!spaceName.trim()}
+            >
               Create Space
             </Button>
           </div>

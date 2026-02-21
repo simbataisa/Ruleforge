@@ -30,7 +30,7 @@ public sealed interface Expression permits
     /** Binary arithmetic: +, -, *, /, %. */
     record BinaryOp(String operator, Expression left, Expression right) implements Expression {}
 
-    /** Comparison: ==, !=, >, >=, <, <=, MATCHES, STARTS_WITH, ENDS_WITH, CONTAINS. */
+    /** Comparison: ==, !=, &gt;, &gt;=, &lt;, &lt;=, MATCHES, STARTS_WITH, ENDS_WITH, CONTAINS. */
     record Comparison(String operator, Expression left, Expression right) implements Expression {}
 
     /** Logical connectives: AND, OR. */

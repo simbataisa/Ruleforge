@@ -146,6 +146,79 @@ class RuleForgeClient:
             return data["data"]
         return data
 
+    # --- Analytics ---
+
+    def get_metrics(self) -> dict:
+        """Retrieve aggregated metrics for the current organization."""
+        response = self._http.get("/v1/analytics/metrics")
+        response.raise_for_status()
+        return response.json()
+
+    def get_rule_stats(self, rule_id: str) -> dict:
+        """Retrieve execution statistics for a specific rule."""
+        response = self._http.get(f"/v1/analytics/rules/{rule_id}/stats")
+        response.raise_for_status()
+        return response.json()
+
+    def get_decision_logs(
+        self,
+        rule_id: Optional[str] = None,
+        page: int = 0,
+        size: int = 20,
+    ) -> list[dict]:
+        """Retrieve decision log entries, optionally filtered by rule."""
+        params: dict = {"page": page, "size": size}
+        if rule_id:
+            params["ruleId"] = rule_id
+        response = self._http.get("/v1/analytics/decision-logs", params=params)
+        response.raise_for_status()
+        return response.json()
+
+    # --- Schedules ---
+
+    def list_schedules(self) -> list[dict]:
+        """List all schedules for the current organization."""
+        response = self._http.get("/v1/schedules")
+        response.raise_for_status()
+        return response.json()
+
+    def create_schedule(self, schedule: dict) -> dict:
+        """Create a new schedule."""
+        response = self._http.post("/v1/schedules", json=schedule)
+        response.raise_for_status()
+        return response.json()
+
+    def delete_schedule(self, schedule_id: str) -> None:
+        """Delete a schedule by its UUID."""
+        response = self._http.delete(f"/v1/schedules/{schedule_id}")
+        response.raise_for_status()
+
+    # --- AI ---
+
+    def explain_rule(self, rule_id: str) -> dict:
+        """Return a natural-language explanation of a rule."""
+        response = self._http.post("/v1/ai/explain", json={"ruleId": rule_id})
+        response.raise_for_status()
+        return response.json()
+
+    def generate_rule(self, prompt: str, rule_type: str) -> dict:
+        """Generate a rule definition from a natural-language prompt."""
+        response = self._http.post(
+            "/v1/ai/generate-rule",
+            json={"prompt": prompt, "ruleType": rule_type},
+        )
+        response.raise_for_status()
+        return response.json()
+
+    def generate_test_data(self, rule_id: str, count: int = 5) -> dict:
+        """Generate test data suitable for exercising a rule."""
+        response = self._http.post(
+            "/v1/ai/generate-test-data",
+            json={"ruleId": rule_id, "count": count},
+        )
+        response.raise_for_status()
+        return response.json()
+
     def close(self) -> None:
         """Close the underlying HTTP client and release connections."""
         self._http.close()

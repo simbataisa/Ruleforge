@@ -1,6 +1,8 @@
 package io.ruleforge.auth.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -28,8 +30,9 @@ public class ApiKeyEntity {
     @Column(name = "key_type", nullable = false)
     private String keyType;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
-    private String permissions;
+    private String permissions = "{}";
 
     @Column(nullable = false)
     private String name;

@@ -1,6 +1,9 @@
 package io.ruleforge.flow.executor;
 
 import io.ruleforge.core.RuleEvaluationException;
+import io.ruleforge.core.expression.ExpressionEvaluator;
+import io.ruleforge.core.expression.Expression;
+import io.ruleforge.core.expression.RflParser;
 import io.ruleforge.core.memory.WorkingMemory;
 import io.ruleforge.core.model.FactType;
 import io.ruleforge.core.model.PriorityVector;
@@ -8,6 +11,7 @@ import java.time.Instant;
 import io.ruleforge.core.result.MatchedRule;
 import io.ruleforge.core.result.RuleResult;
 import io.ruleforge.core.result.RuleResultMetadata;
+import io.ruleforge.core.spi.SubRuleInvoker;
 import io.ruleforge.flow.graph.*;
 
 import java.time.Duration;
@@ -20,9 +24,19 @@ import java.util.*;
 public final class FlowExecutor {
 
     private final String ruleId;
+    private final SubRuleInvoker subRuleInvoker;
+    private final ExpressionEvaluator expressionEvaluator;
+    private final RflParser rflParser;
 
     public FlowExecutor(String ruleId) {
+        this(ruleId, null);
+    }
+
+    public FlowExecutor(String ruleId, SubRuleInvoker subRuleInvoker) {
         this.ruleId = ruleId;
+        this.subRuleInvoker = subRuleInvoker;
+        this.expressionEvaluator = new ExpressionEvaluator();
+        this.rflParser = new RflParser();
     }
 
     public RuleResult execute(FlowGraph graph, WorkingMemory workingMemory) {
@@ -52,7 +66,6 @@ public final class FlowExecutor {
             switch (node) {
                 case ConditionFlowNode conditionNode -> {
                     boolean conditionResult = evaluateExpression(conditionNode.expression(), workingMemory);
-                    // Follow matching outgoing edges
                     for (FlowEdge edge : graph.getOutgoingEdges(nodeId)) {
                         if (shouldFollowEdge(edge, conditionResult)) {
                             queue.add(edge.toId());
@@ -60,37 +73,34 @@ public final class FlowExecutor {
                     }
                 }
                 case ActionFlowNode actionNode -> {
-                    // Collect outputs and assert them into working memory
                     for (Map.Entry<String, Object> entry : actionNode.outputs().entrySet()) {
                         collectedOutput.put(entry.getKey(), entry.getValue());
                         workingMemory.assertFact(entry.getKey(), entry.getValue(), FactType.ANY);
                     }
-                    // Continue to outgoing edges
                     for (FlowEdge edge : graph.getOutgoingEdges(nodeId)) {
                         queue.add(edge.toId());
                     }
                 }
                 case GateFlowNode gateNode -> {
-                    // Check if gate conditions are met (simplified: always pass)
-                    for (FlowEdge edge : graph.getOutgoingEdges(nodeId)) {
-                        queue.add(edge.toId());
+                    boolean gateResult = evaluateGate(gateNode, graph, visited, workingMemory);
+                    if (gateResult) {
+                        for (FlowEdge edge : graph.getOutgoingEdges(nodeId)) {
+                            queue.add(edge.toId());
+                        }
                     }
                 }
                 case ForkFlowNode forkNode -> {
-                    // Add all outgoing branches
                     for (FlowEdge edge : graph.getOutgoingEdges(nodeId)) {
                         queue.add(edge.toId());
                     }
                 }
                 case JoinFlowNode joinNode -> {
-                    // Continue after join
                     for (FlowEdge edge : graph.getOutgoingEdges(nodeId)) {
                         queue.add(edge.toId());
                     }
                 }
                 case SubRuleFlowNode subRuleNode -> {
-                    // Sub-rule invocation (stub: log and continue)
-                    collectedOutput.put("_subRuleInvoked", subRuleNode.ruleId());
+                    executeSubRule(subRuleNode, workingMemory, collectedOutput);
                     for (FlowEdge edge : graph.getOutgoingEdges(nodeId)) {
                         queue.add(edge.toId());
                     }
@@ -117,28 +127,72 @@ public final class FlowExecutor {
                 metadata, matchedRules, null);
     }
 
+    private void executeSubRule(SubRuleFlowNode subRuleNode, WorkingMemory workingMemory,
+                                Map<String, Object> collectedOutput) {
+        if (subRuleInvoker == null) {
+            collectedOutput.put("_subRuleInvoked", subRuleNode.ruleId());
+            return;
+        }
+        RuleResult subResult = subRuleInvoker.invoke(subRuleNode.ruleId(), workingMemory);
+        if (subResult != null && subResult.hasOutput()) {
+            for (Map.Entry<String, Object> entry : subResult.output().entrySet()) {
+                collectedOutput.put(entry.getKey(), entry.getValue());
+                workingMemory.assertFact(entry.getKey(), entry.getValue(), FactType.ANY);
+            }
+        }
+    }
+
+    private boolean evaluateGate(GateFlowNode gateNode, FlowGraph graph,
+                                  Set<String> visited, WorkingMemory workingMemory) {
+        List<FlowEdge> incomingEdges = graph.getIncomingEdges(gateNode.id());
+        if (incomingEdges.isEmpty()) {
+            return true;
+        }
+
+        String gateType = gateNode.gateType();
+        if ("AND".equalsIgnoreCase(gateType)) {
+            // All incoming source nodes must have been visited
+            for (FlowEdge edge : incomingEdges) {
+                if (!visited.contains(edge.fromId())) {
+                    return false;
+                }
+            }
+            return true;
+        } else {
+            // OR gate: at least one incoming source node visited
+            for (FlowEdge edge : incomingEdges) {
+                if (visited.contains(edge.fromId())) {
+                    return true;
+                }
+            }
+            return false;
+        }
+    }
+
     private boolean evaluateExpression(String expression, WorkingMemory workingMemory) {
         if (expression == null || expression.isBlank() || expression.equals("true")) return true;
         if (expression.equals("false")) return false;
 
-        // Try to resolve simple fact path lookups like "input.approved"
-        var fact = workingMemory.getFact(expression);
-        if (fact != null) {
-            Object val = fact.value();
-            if (val instanceof Boolean b) return b;
-            if (val instanceof Number n) return n.doubleValue() != 0;
-            return val != null;
+        try {
+            Expression ast = rflParser.parse(expression);
+            return expressionEvaluator.evaluateAsBoolean(ast, workingMemory);
+        } catch (Exception e) {
+            // Fallback: try simple fact path lookup
+            var fact = workingMemory.getFact(expression);
+            if (fact != null) {
+                Object val = fact.value();
+                if (val instanceof Boolean b) return b;
+                if (val instanceof Number n) return n.doubleValue() != 0;
+                return val != null;
+            }
+            return true;
         }
-
-        // For compound expressions, default to true (full RFL evaluation requires engine integration)
-        return true;
     }
 
     private boolean shouldFollowEdge(FlowEdge edge, boolean conditionResult) {
         String condition = edge.condition();
         if (condition == null || condition.equals("true")) return true;
-        if (condition.equals("false")) return !conditionResult; // false edge when condition is false
-        // Named conditions: "yes"/"no" style
+        if (condition.equals("false")) return !conditionResult;
         return conditionResult;
     }
 }

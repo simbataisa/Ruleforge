@@ -1,9 +1,15 @@
 package io.ruleforge.management.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ruleforge.common.exception.EntityNotFoundException;
+import io.ruleforge.core.RuleForgeEngine;
+import io.ruleforge.core.model.RuleDefinition;
+import io.ruleforge.core.model.RuleMetadata;
+import io.ruleforge.core.model.RuleType;
+import io.ruleforge.core.result.RuleResult;
 import io.ruleforge.management.dto.TestResultDto;
 import io.ruleforge.management.dto.TestRuleRequest;
 import io.ruleforge.management.dto.ValidationResultDto;
@@ -20,15 +26,11 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
 
-/**
- * Basic structural validation of rule definitions.
- * Actual engine integration (compile + evaluate) will be wired
- * when the Solver service is built.
- */
 @Service
 public class RuleValidationService {
 
@@ -37,13 +39,16 @@ public class RuleValidationService {
     private final RuleRepository ruleRepository;
     private final RuleVersionRepository ruleVersionRepository;
     private final ObjectMapper objectMapper;
+    private final RuleForgeEngine ruleForgeEngine;
 
     public RuleValidationService(RuleRepository ruleRepository,
                                  RuleVersionRepository ruleVersionRepository,
-                                 ObjectMapper objectMapper) {
+                                 ObjectMapper objectMapper,
+                                 RuleForgeEngine ruleForgeEngine) {
         this.ruleRepository = ruleRepository;
         this.ruleVersionRepository = ruleVersionRepository;
         this.objectMapper = objectMapper;
+        this.ruleForgeEngine = ruleForgeEngine;
     }
 
     @Transactional(readOnly = true)
@@ -115,8 +120,6 @@ public class RuleValidationService {
 
         long start = System.currentTimeMillis();
 
-        // Basic test execution: parse the definition and echo back input as output.
-        // Real engine evaluation will be integrated when the Solver service is built.
         try {
             if (versionEntity.getDefinition() == null || versionEntity.getDefinition().isBlank()) {
                 return new TestResultDto(
@@ -128,20 +131,45 @@ public class RuleValidationService {
                 );
             }
 
-            objectMapper.readTree(versionEntity.getDefinition());
+            // Parse the definition JSON into a Map
+            Map<String, Object> definitionMap = objectMapper.readValue(
+                    versionEntity.getDefinition(), new TypeReference<Map<String, Object>>() {});
 
-            // Stub: echo input as output until engine is wired
-            Map<String, Object> output = Map.of(
-                    "result", "stub_evaluation",
-                    "input_echo", request.input(),
-                    "rule_type", rule.getType(),
-                    "version", versionEntity.getVersion()
+            // Map the entity type string to the engine RuleType enum
+            RuleType ruleType = mapRuleType(rule.getType());
+
+            // Build a RuleDefinition for the engine
+            RuleDefinition ruleDefinition = new RuleDefinition(
+                    ruleId.toString(),
+                    rule.getName(),
+                    rule.getAlias(),
+                    ruleType,
+                    versionEntity.getVersion(),
+                    RuleMetadata.defaults(),
+                    null,
+                    null,
+                    definitionMap
             );
 
+            // Compile and evaluate using the engine
+            var compiledRule = ruleForgeEngine.compile(ruleDefinition);
+            RuleResult result = ruleForgeEngine.evaluate(
+                    ruleId.toString(), versionEntity.getVersion(), request.input());
+
+            List<String> logs = new ArrayList<>();
+            logs.add("Engine evaluation completed successfully");
+            if (result.metadata() != null) {
+                logs.add("Rules evaluated: " + result.metadata().rulesEvaluated());
+                logs.add("Rules fired: " + result.metadata().rulesFired());
+                if (result.metadata().executionTime() != null) {
+                    logs.add("Engine execution time: " + result.metadata().executionTime().toMillis() + "ms");
+                }
+            }
+
             return new TestResultDto(
-                    output,
+                    result.output(),
                     System.currentTimeMillis() - start,
-                    List.of("Stub evaluation completed. Engine integration pending."),
+                    logs,
                     true,
                     null
             );
@@ -153,7 +181,31 @@ public class RuleValidationService {
                     false,
                     "Invalid rule definition JSON: " + e.getMessage()
             );
+        } catch (Exception e) {
+            log.error("Engine evaluation failed for rule {} v{}", ruleId, version, e);
+            return new TestResultDto(
+                    Map.of(),
+                    System.currentTimeMillis() - start,
+                    List.of("Engine evaluation failed: " + e.getMessage()),
+                    false,
+                    e.getMessage()
+            );
         }
+    }
+
+    private RuleType mapRuleType(String type) {
+        return switch (type) {
+            case "DECISION_TABLE" -> RuleType.DECISION_TABLE;
+            case "DECISION_TREE" -> RuleType.DECISION_TREE;
+            case "EXPRESSION" -> RuleType.SCRIPTING_RULE;
+            case "SCRIPT" -> RuleType.SCRIPTING_RULE;
+            case "FLOW" -> RuleType.RULE_FLOW;
+            case "SCORECARD" -> RuleType.SCORECARD;
+            case "ENSEMBLE" -> RuleType.ENSEMBLE;
+            case "DMN" -> RuleType.DMN_RULE;
+            case "CEP" -> RuleType.CEP_RULE;
+            default -> throw new IllegalArgumentException("Unsupported rule type: " + type);
+        };
     }
 
     private void validateStructure(String ruleType, JsonNode definition,
@@ -195,6 +247,26 @@ public class RuleValidationService {
                 if (!definition.has("edges")) {
                     warnings.add(new WarningDto("definition.edges", "Flow rule has no edges defined",
                             "MISSING_EDGES"));
+                }
+            }
+            case "SCORECARD" -> {
+                if (!definition.has("characteristics")) {
+                    errors.add(new ErrorDto("definition.characteristics",
+                            "Scorecard must have characteristics", "MISSING_CHARACTERISTICS"));
+                }
+                if (!definition.has("initialScore")) {
+                    warnings.add(new WarningDto("definition.initialScore",
+                            "Scorecard has no initial score defined", "MISSING_INITIAL_SCORE"));
+                }
+            }
+            case "ENSEMBLE" -> {
+                if (!definition.has("subRules")) {
+                    errors.add(new ErrorDto("definition.subRules",
+                            "Ensemble must have sub-rules defined", "MISSING_SUB_RULES"));
+                }
+                if (!definition.has("strategy")) {
+                    warnings.add(new WarningDto("definition.strategy",
+                            "Ensemble has no aggregation strategy defined", "MISSING_STRATEGY"));
                 }
             }
             default -> warnings.add(new WarningDto("type",

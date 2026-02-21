@@ -9,6 +9,9 @@ import { ApiKeysPage } from '@/features/api-keys/pages/ApiKeysPage';
 import { OrgSettingsPage } from '@/features/admin/pages/OrgSettingsPage';
 import { AnalyticsDashboardPage } from '@/features/analytics/pages/AnalyticsDashboardPage';
 import { RuleStatsPage } from '@/features/analytics/pages/RuleStatsPage';
+import { SchedulerPage } from '@/features/scheduler/pages/SchedulerPage';
+import { ConnectorsPage } from '@/features/connectors/pages/ConnectorsPage';
+import { AbTestListPage } from '@/features/ab-testing/pages/AbTestListPage';
 
 export function AppRoutes() {
   return (
@@ -31,6 +34,9 @@ export function AppRoutes() {
         <Route path="/settings" element={<OrgSettingsPage />} />
         <Route path="/analytics" element={<AnalyticsDashboardPage />} />
         <Route path="/analytics/rules/:ruleId" element={<RuleStatsPage />} />
+        <Route path="/schedules" element={<SchedulerPage />} />
+        <Route path="/connectors" element={<ConnectorsPage />} />
+        <Route path="/ab-tests" element={<AbTestListPage />} />
       </Route>
 
       {/* Default redirect */}

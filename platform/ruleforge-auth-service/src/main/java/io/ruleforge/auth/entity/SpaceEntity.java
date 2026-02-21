@@ -1,6 +1,8 @@
 package io.ruleforge.auth.entity;
 
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -19,8 +21,9 @@ public class SpaceEntity {
     @Column(nullable = false)
     private String name;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
-    private String limits;
+    private String limits = "{}";
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;

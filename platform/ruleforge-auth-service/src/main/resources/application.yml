@@ -7,11 +7,10 @@ spring:
     password: ruleforge_dev
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     open-in-view: false
   flyway:
-    enabled: true
-    locations: classpath:db/migration
+    enabled: false
 
 server:
   port: 8081
@@ -24,6 +23,6 @@ management:
 
 ruleforge:
   jwt:
-    secret: dGhpc0lzQVZlcnlMb25nU2VjcmV0S2V5Rm9yUnVsZUZvcmdlRGV2ZWxvcG1lbnRPbmx5
+    secret: "dGhpcyBpcyBhIHZlcnkgbG9uZyBzZWNyZXQga2V5IGZvciBITUFDLVNIQTUxMiB0aGF0IG11c3QgYmUgYXQgbGVhc3QgNjQgYnl0ZXMgbG9uZw=="
     access-token-validity-ms: 3600000
     refresh-token-validity-ms: 604800000

@@ -2,6 +2,7 @@ package io.ruleforge.core.engine;
 
 import io.ruleforge.core.memory.WorkingMemory;
 import io.ruleforge.core.spi.EvaluationContext;
+import io.ruleforge.core.spi.SubRuleInvoker;
 
 import java.util.Collections;
 import java.util.HashMap;
@@ -20,6 +21,7 @@ public class DefaultEvaluationContext implements EvaluationContext {
     private final Map<String, String> hierarchyContext;
     private final Map<String, Object> properties;
     private final int depth;
+    private final SubRuleInvoker subRuleInvoker;
 
     /**
      * Creates a new evaluation context.
@@ -29,12 +31,14 @@ public class DefaultEvaluationContext implements EvaluationContext {
      * @param hierarchyContext context keys for cascading/hierarchical evaluation
      * @param properties       custom configuration properties
      * @param depth            current evaluation depth (for nested rule invocations)
+     * @param subRuleInvoker   optional invoker for sub-rule delegation (may be null)
      */
     public DefaultEvaluationContext(WorkingMemory workingMemory,
                                     String correlationId,
                                     Map<String, String> hierarchyContext,
                                     Map<String, Object> properties,
-                                    int depth) {
+                                    int depth,
+                                    SubRuleInvoker subRuleInvoker) {
         this.workingMemory = Objects.requireNonNull(workingMemory, "workingMemory must not be null");
         this.correlationId = correlationId;
         this.hierarchyContext = hierarchyContext == null
@@ -44,13 +48,25 @@ public class DefaultEvaluationContext implements EvaluationContext {
                 ? Map.of()
                 : Collections.unmodifiableMap(new HashMap<>(properties));
         this.depth = depth;
+        this.subRuleInvoker = subRuleInvoker;
+    }
+
+    /**
+     * Creates a new evaluation context without a sub-rule invoker.
+     */
+    public DefaultEvaluationContext(WorkingMemory workingMemory,
+                                    String correlationId,
+                                    Map<String, String> hierarchyContext,
+                                    Map<String, Object> properties,
+                                    int depth) {
+        this(workingMemory, correlationId, hierarchyContext, properties, depth, null);
     }
 
     /**
      * Convenience constructor for simple evaluations at depth 0 with no hierarchy or properties.
      */
     public DefaultEvaluationContext(WorkingMemory workingMemory, String correlationId) {
-        this(workingMemory, correlationId, Map.of(), Map.of(), 0);
+        this(workingMemory, correlationId, Map.of(), Map.of(), 0, null);
     }
 
     @Override
@@ -78,11 +94,16 @@ public class DefaultEvaluationContext implements EvaluationContext {
         return depth;
     }
 
+    @Override
+    public SubRuleInvoker getSubRuleInvoker() {
+        return subRuleInvoker;
+    }
+
     /**
      * Returns a new context with the depth incremented by one, suitable for nested invocations.
      */
     public DefaultEvaluationContext withIncrementedDepth() {
         return new DefaultEvaluationContext(
-                workingMemory, correlationId, hierarchyContext, properties, depth + 1);
+                workingMemory, correlationId, hierarchyContext, properties, depth + 1, subRuleInvoker);
     }
 }

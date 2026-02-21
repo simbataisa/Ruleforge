@@ -56,6 +56,27 @@ public class RuleForgeClient {
         return new RulesApi(baseUrl, apiKey, jwtToken);
     }
 
+    /**
+     * Returns the analytics API for metrics and decision logs.
+     */
+    public AnalyticsApi analytics() {
+        return new AnalyticsApi(baseUrl, apiKey, jwtToken);
+    }
+
+    /**
+     * Returns the schedules API for managing batch schedules.
+     */
+    public SchedulesApi schedules() {
+        return new SchedulesApi(baseUrl, apiKey, jwtToken);
+    }
+
+    /**
+     * Returns the AI API for rule explanation and generation.
+     */
+    public AiApi ai() {
+        return new AiApi(baseUrl, apiKey, jwtToken);
+    }
+
     public String getBaseUrl() {
         return baseUrl;
     }

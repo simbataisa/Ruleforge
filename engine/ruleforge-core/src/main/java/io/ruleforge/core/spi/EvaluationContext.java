@@ -25,4 +25,12 @@ public interface EvaluationContext {
      * Get the current evaluation depth (for nested rule invocations).
      */
     int getDepth();
+
+    /**
+     * Get the sub-rule invoker for delegating evaluation to other rules.
+     * May return {@code null} if sub-rule invocation is not supported in this context.
+     */
+    default SubRuleInvoker getSubRuleInvoker() {
+        return null;
+    }
 }

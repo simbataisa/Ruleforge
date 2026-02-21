@@ -1,4 +1,15 @@
-import { RuleForgeClientOptions, SolveResponse } from './types';
+import {
+  RuleForgeClientOptions,
+  SolveResponse,
+  MetricsResponse,
+  RuleStats,
+  DecisionLog,
+  Schedule,
+  CreateScheduleRequest,
+  ExplainRuleResponse,
+  GenerateRuleResponse,
+  GenerateTestDataResponse,
+} from './types';
 
 /**
  * RuleForge API client for Node.js (>=18) using the built-in fetch API.
@@ -103,6 +114,71 @@ export class RuleForgeClient {
     });
     await this.assertOk(response);
     return response.json();
+  }
+
+  // --- Analytics ---
+
+  async getMetrics(): Promise<MetricsResponse> {
+    const url = `${this.baseUrl}/v1/analytics/metrics`;
+    return this.get(url) as Promise<MetricsResponse>;
+  }
+
+  async getRuleStats(ruleId: string): Promise<RuleStats> {
+    const url = `${this.baseUrl}/v1/analytics/rules/${ruleId}/stats`;
+    return this.get(url) as Promise<RuleStats>;
+  }
+
+  async getDecisionLogs(ruleId?: string, page = 0, size = 20): Promise<DecisionLog[]> {
+    const params = new URLSearchParams({ page: String(page), size: String(size) });
+    if (ruleId) params.set('ruleId', ruleId);
+    const url = `${this.baseUrl}/v1/analytics/decision-logs?${params}`;
+    return this.get(url) as Promise<DecisionLog[]>;
+  }
+
+  // --- Schedules ---
+
+  async listSchedules(): Promise<Schedule[]> {
+    const url = `${this.baseUrl}/v1/schedules`;
+    return this.get(url) as Promise<Schedule[]>;
+  }
+
+  async createSchedule(schedule: CreateScheduleRequest): Promise<Schedule> {
+    const url = `${this.baseUrl}/v1/schedules`;
+    return this.post(url, schedule) as Promise<Schedule>;
+  }
+
+  async deleteSchedule(scheduleId: string): Promise<void> {
+    const url = `${this.baseUrl}/v1/schedules/${scheduleId}`;
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: this.buildHeaders(),
+    });
+    await this.assertOk(response);
+  }
+
+  // --- AI ---
+
+  async explainRule(ruleId: string): Promise<ExplainRuleResponse> {
+    const url = `${this.baseUrl}/v1/ai/explain`;
+    return this.post(url, { ruleId }) as Promise<ExplainRuleResponse>;
+  }
+
+  async generateRule(prompt: string, ruleType: string): Promise<GenerateRuleResponse> {
+    const url = `${this.baseUrl}/v1/ai/generate-rule`;
+    return this.post(url, { prompt, ruleType }) as Promise<GenerateRuleResponse>;
+  }
+
+  async generateTestData(ruleId: string, count: number): Promise<GenerateTestDataResponse> {
+    const url = `${this.baseUrl}/v1/ai/generate-test-data`;
+    return this.post(url, { ruleId, count }) as Promise<GenerateTestDataResponse>;
+  }
+
+  private async delete(url: string): Promise<void> {
+    const response = await fetch(url, {
+      method: 'DELETE',
+      headers: this.buildHeaders(),
+    });
+    await this.assertOk(response);
   }
 
   private async assertOk(response: Response): Promise<void> {

@@ -7,19 +7,16 @@ spring:
     password: ruleforge_dev
   jpa:
     hibernate:
-      ddl-auto: validate
+      ddl-auto: update
     open-in-view: false
   flyway:
-    enabled: true
-    locations: classpath:db/migration
-
-server:
-  port: 8086
-
-spring:
+    enabled: false
   quartz:
     job-store-type: memory
     auto-startup: true
+
+server:
+  port: 8086
 
 management:
   endpoints:

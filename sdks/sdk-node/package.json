@@ -6,10 +6,17 @@
   "types": "dist/index.d.ts",
   "scripts": {
     "build": "tsc",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "lint": "eslint src --ext .ts"
   },
   "engines": {
     "node": ">=18.0.0"
+  },
+  "devDependencies": {
+    "vitest": "^1.6.0",
+    "msw": "^2.3.0",
+    "typescript": "^5.4.0"
   },
   "license": "Apache-2.0"
 }

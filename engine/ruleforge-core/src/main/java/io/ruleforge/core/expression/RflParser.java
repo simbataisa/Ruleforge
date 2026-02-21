@@ -8,7 +8,7 @@ import java.util.List;
 /**
  * Hand-written recursive-descent parser for the RFL expression language.
  *
- * <h3>Precedence (lowest to highest):</h3>
+ * <p><strong>Precedence (lowest to highest):</strong></p>
  * <ol>
  *   <li>Null coalescing ({@code ??})</li>
  *   <li>Logical OR</li>

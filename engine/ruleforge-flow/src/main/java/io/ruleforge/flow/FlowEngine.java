@@ -47,7 +47,8 @@ public final class FlowEngine implements RuleTypeEngine {
                     rule.ruleId(),
                     "Expected CompiledFlowRule but got " + rule.getClass().getSimpleName());
         }
-        return new FlowExecutor(flowRule.ruleId()).execute(flowRule.graph(), workingMemory);
+        return new FlowExecutor(flowRule.ruleId(), ctx.getSubRuleInvoker())
+                .execute(flowRule.graph(), workingMemory);
     }
 
     @Override

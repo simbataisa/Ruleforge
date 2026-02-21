@@ -6,6 +6,8 @@ import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -33,6 +35,7 @@ public class AuditEventEntity {
     @Column(name = "resource_id")
     private String resourceId;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "changes", columnDefinition = "jsonb")
     private String changes;
 

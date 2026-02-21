@@ -13,6 +13,7 @@ dependencies {
     implementation("org.flywaydb:flyway-core:${property("flywayVersion")}")
     implementation("org.flywaydb:flyway-database-postgresql:${property("flywayVersion")}")
     implementation("org.springframework.boot:spring-boot-starter-security")
+    implementation("org.springframework.security:spring-security-saml2-service-provider")
     implementation("io.jsonwebtoken:jjwt-api:${property("jjwtVersion")}")
     runtimeOnly("io.jsonwebtoken:jjwt-impl:${property("jjwtVersion")}")
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:${property("jjwtVersion")}")

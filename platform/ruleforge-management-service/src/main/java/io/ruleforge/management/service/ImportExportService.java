@@ -1,6 +1,7 @@
 package io.ruleforge.management.service;
 
 import com.fasterxml.jackson.core.type.TypeReference;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ruleforge.management.dto.ExportFormat;
 import io.ruleforge.management.dto.ImportResult;
@@ -8,12 +9,21 @@ import io.ruleforge.management.entity.RuleEntity;
 import io.ruleforge.management.entity.RuleVersionEntity;
 import io.ruleforge.management.repository.RuleRepository;
 import io.ruleforge.management.repository.RuleVersionRepository;
+import org.apache.poi.ss.usermodel.Cell;
+import org.apache.poi.ss.usermodel.CellStyle;
+import org.apache.poi.ss.usermodel.Font;
+import org.apache.poi.ss.usermodel.Row;
+import org.apache.poi.ss.usermodel.Sheet;
+import org.apache.poi.ss.usermodel.Workbook;
+import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.io.ByteArrayOutputStream;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -140,12 +150,173 @@ public class ImportExportService {
         return new ImportResult(totalRules, importedCount, skippedCount, failedCount, errors);
     }
 
-    /**
-     * Excel export is stubbed for Phase 2; full implementation requires Apache POI.
-     */
-    public byte[] exportRuleToExcel(UUID ruleId, UUID spaceId) {
-        // TODO: Phase 2 - implement Excel export using Apache POI
-        throw new UnsupportedOperationException("Excel export is not yet implemented. Use JSON format.");
+    @Transactional(readOnly = true)
+    public byte[] exportRuleToExcel(UUID ruleId, UUID spaceId) throws Exception {
+        RuleEntity rule = ruleRepository.findById(ruleId)
+            .orElseThrow(() -> new RuntimeException("Rule not found: " + ruleId));
+        List<RuleVersionEntity> versions = ruleVersionRepository.findByRuleId(ruleId);
+
+        try (Workbook workbook = new XSSFWorkbook();
+             ByteArrayOutputStream out = new ByteArrayOutputStream()) {
+
+            CellStyle headerStyle = createHeaderStyle(workbook);
+
+            // Sheet 1: Rule Metadata
+            Sheet metadataSheet = workbook.createSheet("Metadata");
+            writeMetadataSheet(metadataSheet, rule, headerStyle);
+
+            // Sheet 2: Versions
+            Sheet versionsSheet = workbook.createSheet("Versions");
+            writeVersionsSheet(versionsSheet, versions, headerStyle);
+
+            // Sheet 3: Definition (for the latest version)
+            if (!versions.isEmpty()) {
+                RuleVersionEntity latestVersion = versions.get(versions.size() - 1);
+                if (latestVersion.getDefinition() != null && !latestVersion.getDefinition().isBlank()) {
+                    Sheet definitionSheet = workbook.createSheet("Definition");
+                    writeDefinitionSheet(definitionSheet, rule.getType(), latestVersion.getDefinition(), headerStyle);
+                }
+            }
+
+            workbook.write(out);
+            return out.toByteArray();
+        }
+    }
+
+    private CellStyle createHeaderStyle(Workbook workbook) {
+        CellStyle style = workbook.createCellStyle();
+        Font font = workbook.createFont();
+        font.setBold(true);
+        style.setFont(font);
+        return style;
+    }
+
+    private void writeMetadataSheet(Sheet sheet, RuleEntity rule, CellStyle headerStyle) {
+        String[][] metadata = {
+            {"Property", "Value"},
+            {"ID", rule.getId().toString()},
+            {"Name", rule.getName()},
+            {"Alias", rule.getAlias()},
+            {"Type", rule.getType()},
+            {"Status", rule.getStatus()},
+            {"Latest Version", String.valueOf(rule.getLatestVersion())},
+            {"Locked", String.valueOf(rule.isLocked())},
+            {"Created At", rule.getCreatedAt() != null ? rule.getCreatedAt().toString() : ""},
+            {"Updated At", rule.getUpdatedAt() != null ? rule.getUpdatedAt().toString() : ""}
+        };
+
+        for (int i = 0; i < metadata.length; i++) {
+            Row row = sheet.createRow(i);
+            for (int j = 0; j < metadata[i].length; j++) {
+                Cell cell = row.createCell(j);
+                cell.setCellValue(metadata[i][j]);
+                if (i == 0) {
+                    cell.setCellStyle(headerStyle);
+                }
+            }
+        }
+        sheet.autoSizeColumn(0);
+        sheet.autoSizeColumn(1);
+    }
+
+    private void writeVersionsSheet(Sheet sheet, List<RuleVersionEntity> versions, CellStyle headerStyle) {
+        String[] headers = {"Version", "Status", "Change Note", "Created At", "Published At"};
+        Row headerRow = sheet.createRow(0);
+        for (int i = 0; i < headers.length; i++) {
+            Cell cell = headerRow.createCell(i);
+            cell.setCellValue(headers[i]);
+            cell.setCellStyle(headerStyle);
+        }
+
+        for (int i = 0; i < versions.size(); i++) {
+            RuleVersionEntity v = versions.get(i);
+            Row row = sheet.createRow(i + 1);
+            row.createCell(0).setCellValue(v.getVersion());
+            row.createCell(1).setCellValue(v.getStatus());
+            row.createCell(2).setCellValue(v.getChangeNote() != null ? v.getChangeNote() : "");
+            row.createCell(3).setCellValue(v.getCreatedAt() != null ? v.getCreatedAt().toString() : "");
+            row.createCell(4).setCellValue(v.getPublishedAt() != null ? v.getPublishedAt().toString() : "");
+        }
+
+        for (int i = 0; i < headers.length; i++) {
+            sheet.autoSizeColumn(i);
+        }
+    }
+
+    private void writeDefinitionSheet(Sheet sheet, String ruleType, String definitionJson, CellStyle headerStyle) {
+        try {
+            JsonNode definition = objectMapper.readTree(definitionJson);
+
+            if ("DECISION_TABLE".equals(ruleType) && definition.has("columns") && definition.has("rows")) {
+                writeDecisionTableDefinition(sheet, definition, headerStyle);
+            } else {
+                // Generic JSON key-value dump
+                writeGenericDefinition(sheet, definition, headerStyle);
+            }
+        } catch (Exception e) {
+            Row row = sheet.createRow(0);
+            row.createCell(0).setCellValue("Failed to parse definition: " + e.getMessage());
+        }
+    }
+
+    private void writeDecisionTableDefinition(Sheet sheet, JsonNode definition, CellStyle headerStyle) {
+        JsonNode columns = definition.get("columns");
+        JsonNode rows = definition.get("rows");
+
+        // Write column headers
+        Row headerRow = sheet.createRow(0);
+        for (int i = 0; i < columns.size(); i++) {
+            JsonNode col = columns.get(i);
+            Cell cell = headerRow.createCell(i);
+            String headerText = col.has("name") ? col.get("name").asText() : "Column " + i;
+            if (col.has("type")) {
+                headerText += " (" + col.get("type").asText() + ")";
+            }
+            cell.setCellValue(headerText);
+            cell.setCellStyle(headerStyle);
+        }
+
+        // Write data rows
+        for (int r = 0; r < rows.size(); r++) {
+            Row dataRow = sheet.createRow(r + 1);
+            JsonNode rowNode = rows.get(r);
+            JsonNode cells = rowNode.has("cells") ? rowNode.get("cells") : rowNode;
+
+            if (cells.isArray()) {
+                for (int c = 0; c < cells.size(); c++) {
+                    dataRow.createCell(c).setCellValue(cells.get(c).asText());
+                }
+            }
+        }
+
+        for (int i = 0; i < columns.size(); i++) {
+            sheet.autoSizeColumn(i);
+        }
+    }
+
+    private void writeGenericDefinition(Sheet sheet, JsonNode definition, CellStyle headerStyle) {
+        Row headerRow = sheet.createRow(0);
+        Cell keyHeader = headerRow.createCell(0);
+        keyHeader.setCellValue("Key");
+        keyHeader.setCellStyle(headerStyle);
+        Cell valueHeader = headerRow.createCell(1);
+        valueHeader.setCellValue("Value");
+        valueHeader.setCellStyle(headerStyle);
+
+        int rowIndex = 1;
+        Iterator<Map.Entry<String, JsonNode>> fields = definition.fields();
+        while (fields.hasNext()) {
+            Map.Entry<String, JsonNode> entry = fields.next();
+            Row row = sheet.createRow(rowIndex++);
+            row.createCell(0).setCellValue(entry.getKey());
+            String value = entry.getValue().isTextual()
+                    ? entry.getValue().asText()
+                    : entry.getValue().toString();
+            row.createCell(1).setCellValue(value);
+        }
+
+        sheet.autoSizeColumn(0);
+        sheet.autoSizeColumn(1);
     }
 
     private Map<String, Object> buildRuleExportMap(RuleEntity rule, List<RuleVersionEntity> versions) {

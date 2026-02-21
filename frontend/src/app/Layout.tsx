@@ -8,20 +8,29 @@ import {
   Menu,
   X,
   BarChart3,
+  Clock,
+  Cable,
+  FlaskConical,
+  Bot,
 } from 'lucide-react';
 import { cn } from '@/shared/utils/cn';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCurrentUser } from '@/api/auth.api';
+import { AiPanel } from '@/features/ai-assistant/components/AiPanel';
 
 const navItems = [
   { to: '/rules', label: 'Rules', icon: BookOpen },
   { to: '/api-keys', label: 'API Keys', icon: Key },
   { to: '/analytics', label: 'Analytics', icon: BarChart3 },
+  { to: '/schedules', label: 'Schedules', icon: Clock },
+  { to: '/connectors', label: 'Connectors', icon: Cable },
+  { to: '/ab-tests', label: 'A/B Tests', icon: FlaskConical },
   { to: '/settings', label: 'Settings', icon: Settings },
 ];
 
 export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [aiPanelOpen, setAiPanelOpen] = useState(false);
   const navigate = useNavigate();
   const logout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
@@ -115,12 +124,25 @@ export function Layout() {
       {/* Main content */}
       <div className="flex flex-1 flex-col overflow-hidden">
         {/* Top bar */}
-        <header className="flex h-16 items-center gap-4 border-b border-gray-200 bg-white px-6">
+        <header className="flex h-16 items-center justify-between gap-4 border-b border-gray-200 bg-white px-6">
           <button
             onClick={() => setSidebarOpen(true)}
             className="rounded-md p-1.5 text-gray-400 hover:text-gray-500 lg:hidden"
           >
             <Menu className="h-5 w-5" />
+          </button>
+          <div className="flex-1" />
+          <button
+            onClick={() => setAiPanelOpen((prev) => !prev)}
+            className={cn(
+              'flex items-center gap-2 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
+              aiPanelOpen
+                ? 'bg-indigo-100 text-indigo-700'
+                : 'text-gray-600 hover:bg-gray-100',
+            )}
+          >
+            <Bot className="h-4 w-4" />
+            AI Assistant
           </button>
         </header>
 
@@ -129,6 +151,9 @@ export function Layout() {
           <Outlet />
         </main>
       </div>
+
+      {/* AI Assistant Panel */}
+      <AiPanel open={aiPanelOpen} onClose={() => setAiPanelOpen(false)} />
     </div>
   );
 }

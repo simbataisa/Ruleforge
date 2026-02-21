@@ -10,6 +10,7 @@ import io.ruleforge.core.result.RuleResult;
 import io.ruleforge.core.result.RuleResultMetadata;
 import io.ruleforge.core.spi.EvaluationContext;
 import io.ruleforge.core.spi.RuleTypeEngine;
+import io.ruleforge.core.spi.SubRuleInvoker;
 import io.ruleforge.ensemble.compiler.CompiledEnsemble;
 import io.ruleforge.ensemble.compiler.EnsembleCompiler;
 import io.ruleforge.ensemble.model.AggregationStrategy;
@@ -18,6 +19,7 @@ import io.ruleforge.ensemble.model.MemberRule;
 
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -60,32 +62,157 @@ public final class EnsembleEngine implements RuleTypeEngine {
         EnsembleDefinition definition = ensemble.ensembleDefinition();
         List<MemberRule> members = definition.members();
         AggregationStrategy strategy = definition.strategy();
+        String outputField = definition.outputField();
 
-        // Phase 3 stub: sub-rule execution requires a registry (Phase 4).
-        // Return ensemble-readiness metadata so callers can detect ensemble type.
-        Map<String, Object> output = new LinkedHashMap<>();
-        output.put("ensembleReady", true);
-        output.put("memberCount", members.size());
-        output.put("strategy", strategy.name());
-        output.put("outputField", definition.outputField());
-
-        List<String> memberAliases = new ArrayList<>();
-        for (MemberRule member : members) {
-            memberAliases.add(member.alias());
+        SubRuleInvoker invoker = ctx.getSubRuleInvoker();
+        if (invoker == null) {
+            // Fallback: return readiness metadata when no invoker is available
+            Map<String, Object> output = new LinkedHashMap<>();
+            output.put("ensembleReady", true);
+            output.put("memberCount", members.size());
+            output.put("strategy", strategy.name());
+            output.put("outputField", outputField);
+            Duration executionTime = Duration.ofNanos(System.nanoTime() - startNanos);
+            RuleResultMetadata metadata = new RuleResultMetadata(
+                    executionTime, members.size(), 0, 0, "ENSEMBLE");
+            return new RuleResult(output, metadata, List.of(), null);
         }
-        output.put("memberAliases", memberAliases);
+
+        // Invoke each member rule and collect results
+        List<MemberOutput> memberOutputs = new ArrayList<>();
+        int rulesFired = 0;
+        for (MemberRule member : members) {
+            try {
+                RuleResult memberResult = invoker.invoke(member.ruleId(), workingMemory);
+                Object value = memberResult.output().get(outputField);
+                memberOutputs.add(new MemberOutput(member, value, memberResult));
+                if (memberResult.hasOutput()) {
+                    rulesFired++;
+                }
+            } catch (Exception e) {
+                // Member failure: skip this member but continue with others
+                memberOutputs.add(new MemberOutput(member, null, null));
+            }
+        }
+
+        // Aggregate results based on strategy
+        Object aggregatedValue = aggregate(strategy, memberOutputs, rule.ruleId());
+
+        Map<String, Object> output = new LinkedHashMap<>();
+        output.put(outputField, aggregatedValue);
+        output.put("strategy", strategy.name());
+        output.put("memberCount", members.size());
+        output.put("membersFired", rulesFired);
 
         Duration executionTime = Duration.ofNanos(System.nanoTime() - startNanos);
         RuleResultMetadata metadata = new RuleResultMetadata(
                 executionTime,
                 members.size(),
-                0,
+                rulesFired,
                 0,
                 "ENSEMBLE"
         );
 
         return new RuleResult(output, metadata, List.of(), null);
     }
+
+    private Object aggregate(AggregationStrategy strategy, List<MemberOutput> outputs, String ruleId) {
+        return switch (strategy) {
+            case MAJORITY_VOTE -> aggregateMajorityVote(outputs);
+            case WEIGHTED_VOTE -> aggregateWeightedVote(outputs);
+            case AVERAGE -> aggregateAverage(outputs);
+            case WEIGHTED_AVERAGE -> aggregateWeightedAverage(outputs);
+            case FIRST_MATCH -> aggregateFirstMatch(outputs);
+            case MAX -> aggregateMax(outputs, ruleId);
+            case MIN -> aggregateMin(outputs, ruleId);
+        };
+    }
+
+    private Object aggregateMajorityVote(List<MemberOutput> outputs) {
+        Map<Object, Integer> votes = new HashMap<>();
+        for (MemberOutput mo : outputs) {
+            if (mo.value != null) {
+                votes.merge(mo.value, 1, Integer::sum);
+            }
+        }
+        return votes.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .orElse(null);
+    }
+
+    private Object aggregateWeightedVote(List<MemberOutput> outputs) {
+        Map<Object, Double> votes = new HashMap<>();
+        for (MemberOutput mo : outputs) {
+            if (mo.value != null) {
+                votes.merge(mo.value, mo.member.weight(), Double::sum);
+            }
+        }
+        return votes.entrySet().stream()
+                .max(Map.Entry.comparingByValue())
+                .map(Map.Entry::getKey)
+                .orElse(null);
+    }
+
+    private Object aggregateAverage(List<MemberOutput> outputs) {
+        double sum = 0;
+        int count = 0;
+        for (MemberOutput mo : outputs) {
+            if (mo.value instanceof Number n) {
+                sum += n.doubleValue();
+                count++;
+            }
+        }
+        return count > 0 ? sum / count : null;
+    }
+
+    private Object aggregateWeightedAverage(List<MemberOutput> outputs) {
+        double weightedSum = 0;
+        double totalWeight = 0;
+        for (MemberOutput mo : outputs) {
+            if (mo.value instanceof Number n) {
+                weightedSum += n.doubleValue() * mo.member.weight();
+                totalWeight += mo.member.weight();
+            }
+        }
+        return totalWeight > 0 ? weightedSum / totalWeight : null;
+    }
+
+    private Object aggregateFirstMatch(List<MemberOutput> outputs) {
+        for (MemberOutput mo : outputs) {
+            if (mo.value != null) {
+                return mo.value;
+            }
+        }
+        return null;
+    }
+
+    private Object aggregateMax(List<MemberOutput> outputs, String ruleId) {
+        double max = Double.NEGATIVE_INFINITY;
+        boolean found = false;
+        for (MemberOutput mo : outputs) {
+            if (mo.value instanceof Number n) {
+                max = Math.max(max, n.doubleValue());
+                found = true;
+            }
+        }
+        return found ? max : null;
+    }
+
+    private Object aggregateMin(List<MemberOutput> outputs, String ruleId) {
+        double min = Double.POSITIVE_INFINITY;
+        boolean found = false;
+        for (MemberOutput mo : outputs) {
+            if (mo.value instanceof Number n) {
+                min = Math.min(min, n.doubleValue());
+                found = true;
+            }
+        }
+        return found ? min : null;
+    }
+
+    private record MemberOutput(MemberRule member, Object value, RuleResult result) {}
+
 
     @Override
     @SuppressWarnings("unchecked")

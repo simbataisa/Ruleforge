@@ -7,6 +7,8 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -25,14 +27,17 @@ public class RuleVersionEntity {
     @Column(nullable = false)
     private int version;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "jsonb")
     private String definition;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "input_model", columnDefinition = "jsonb")
-    private String inputModel;
+    private String inputModel = "{}";
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(name = "output_model", columnDefinition = "jsonb")
-    private String outputModel;
+    private String outputModel = "{}";
 
     @Column
     private byte[] compiled;

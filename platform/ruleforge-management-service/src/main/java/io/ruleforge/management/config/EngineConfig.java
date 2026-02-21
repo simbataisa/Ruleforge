@@ -1,0 +1,24 @@
+package io.ruleforge.management.config;
+
+import io.ruleforge.core.RuleForgeEngine;
+import io.ruleforge.table.DecisionTableEngine;
+import io.ruleforge.tree.DecisionTreeEngine;
+
+import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Configuration;
+
+import java.time.Duration;
+
+@Configuration
+public class EngineConfig {
+
+    @Bean
+    public RuleForgeEngine ruleForgeEngine() {
+        return RuleForgeEngine.builder()
+                .registerEngine(new DecisionTableEngine())
+                .registerEngine(new DecisionTreeEngine())
+                .maxIterations(100)
+                .defaultTimeout(Duration.ofSeconds(5))
+                .build();
+    }
+}

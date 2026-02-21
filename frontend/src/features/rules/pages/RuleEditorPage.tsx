@@ -26,10 +26,18 @@ import { useTableEditorStore } from '@/stores/table-editor.store';
 import { useTreeEditorStore } from '@/stores/tree-editor.store';
 import { useScriptEditorStore } from '@/stores/script-editor.store';
 import { useFlowEditorStore } from '@/stores/flow-editor.store';
+import { useScorecardEditorStore } from '@/stores/scorecard-editor.store';
+import { useEnsembleEditorStore } from '@/stores/ensemble-editor.store';
+import { useDmnEditorStore } from '@/stores/dmn-editor.store';
+import { useCepEditorStore } from '@/stores/cep-editor.store';
 import { TableEditor } from '@/features/table-editor/components/TableEditor';
 import { TreeEditor } from '@/features/tree-editor/components/TreeEditor';
 import { ScriptEditor } from '@/features/script-editor/components/ScriptEditor';
 import { FlowEditor } from '@/features/flow-editor/components/FlowEditor';
+import { ScorecardEditor } from '@/features/scorecard-editor/components/ScorecardEditor';
+import { EnsembleEditor } from '@/features/ensemble-editor/components/EnsembleEditor';
+import { DmnEditor } from '@/features/dmn-editor/components/DmnEditor';
+import { CepEditor } from '@/features/cep-editor/components/CepEditor';
 import { TestBench } from '@/features/test-bench/components/TestBench';
 import type { RuleVersion } from '@/api/types/rule.types';
 
@@ -48,6 +56,10 @@ const typeColors: Record<string, string> = {
   TREE: 'bg-purple-100 text-purple-800',
   SCRIPT: 'bg-orange-100 text-orange-800',
   FLOW: 'bg-cyan-100 text-cyan-800',
+  SCORECARD: 'bg-amber-100 text-amber-800',
+  ENSEMBLE: 'bg-rose-100 text-rose-800',
+  DMN: 'bg-teal-100 text-teal-800',
+  CEP: 'bg-violet-100 text-violet-800',
 };
 
 const tabs: { key: EditorTab; label: string; icon: React.ReactNode }[] = [
@@ -88,6 +100,10 @@ export function RuleEditorPage() {
   const setScriptDefinition = useScriptEditorStore((s) => s.setDefinition);
   const scriptState = useScriptEditorStore((s) => ({ scriptBody: s.scriptBody, language: s.language, timeout: s.timeout, maxMemoryMb: s.maxMemoryMb }));
   const setFlowDefinition = useFlowEditorStore((s) => s.setDefinition);
+  const loadScorecardDefinition = useScorecardEditorStore((s) => s.loadFromDefinition);
+  const loadEnsembleDefinition = useEnsembleEditorStore((s) => s.loadFromDefinition);
+  const loadDmnDefinition = useDmnEditorStore((s) => s.loadFromDefinition);
+  const loadCepDefinition = useCepEditorStore((s) => s.loadFromDefinition);
 
   const rule = ruleData;
   const versions: RuleVersion[] = Array.isArray(versionsData) ? versionsData : [];
@@ -111,9 +127,17 @@ export function RuleEditorPage() {
       });
     } else if (rule?.type === 'FLOW') {
       setFlowDefinition(currentVersion.definition as unknown as Parameters<typeof setFlowDefinition>[0]);
+    } else if (rule?.type === 'SCORECARD') {
+      loadScorecardDefinition(currentVersion.definition);
+    } else if (rule?.type === 'ENSEMBLE') {
+      loadEnsembleDefinition(currentVersion.definition);
+    } else if (rule?.type === 'DMN') {
+      loadDmnDefinition(currentVersion.definition);
+    } else if (rule?.type === 'CEP') {
+      loadCepDefinition(currentVersion.definition);
     }
     setDirty(false);
-  }, [currentVersion?.id, rule?.type, loadTableDefinition, loadTreeDefinition, setScriptDefinition, setFlowDefinition, setDirty]);
+  }, [currentVersion?.id, rule?.type, loadTableDefinition, loadTreeDefinition, setScriptDefinition, setFlowDefinition, loadScorecardDefinition, loadEnsembleDefinition, loadDmnDefinition, loadCepDefinition, setDirty]);
 
   // Set default selected version
   useEffect(() => {
@@ -275,7 +299,11 @@ export function RuleEditorPage() {
               />
             )}
             {rule.type === 'FLOW' && <FlowEditor />}
-            {rule.type !== 'TABLE' && rule.type !== 'TREE' && rule.type !== 'SCRIPT' && rule.type !== 'FLOW' && (
+            {rule.type === 'SCORECARD' && <ScorecardEditor />}
+            {rule.type === 'ENSEMBLE' && <EnsembleEditor />}
+            {rule.type === 'DMN' && <DmnEditor />}
+            {rule.type === 'CEP' && <CepEditor />}
+            {!['TABLE', 'TREE', 'SCRIPT', 'FLOW', 'SCORECARD', 'ENSEMBLE', 'DMN', 'CEP'].includes(rule.type) && (
               <div className="flex items-center justify-center h-full text-gray-500">
                 Editor for {rule.type} type is not yet supported.
               </div>
