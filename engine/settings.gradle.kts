@@ -11,5 +11,6 @@ include(
     "ruleforge-dmn",
     "ruleforge-ensemble",
     "ruleforge-hierarchy",
-    "ruleforge-spring-boot-starter"
+    "ruleforge-spring-boot-starter",
+    "ruleforge-all"
 )

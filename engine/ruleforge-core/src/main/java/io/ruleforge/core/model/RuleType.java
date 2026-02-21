@@ -12,5 +12,6 @@ public enum RuleType {
     CEP_RULE,
     DMN_RULE,
     ENSEMBLE,
+    HIERARCHY,
     LOOKUP_TABLE
 }

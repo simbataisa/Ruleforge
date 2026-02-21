@@ -183,6 +183,7 @@ All API traffic is routed through Kong on port 8000.
 - [Architecture Summary](docs/architecture/ARCHITECTURE-SUMMARY.md) -- System design overview
 - [Full Architecture](docs/architecture/RuleForge-Architecture-v2.md) -- Detailed design document
 - [Engine Architecture](docs/architecture/RuleForge-Engine-Core-Architecture-v2.1.md) -- Engine internals
+- [AI Assistant Guide](docs/ai-assistant-guide.md) -- AI-powered rule generation and optimization
 
 ## Development Roadmap
 
@@ -190,8 +191,8 @@ All API traffic is routed through Kong on port 8000.
 | ------------------------- | ------- | --------------------------------------------------------------------------------------------- |
 | **Phase 1 -- MVP**        | Done    | Core engine (tables, trees), Auth, Management, Solver, Event, basic frontend                  |
 | **Phase 2 -- Platform**   | Done    | Scripting (GraalVM), Flows (DAG), Connectors, Scheduler, SSO config, Import/Export            |
-| **Phase 3 -- Enterprise** | Next    | Analytics pipeline, decision dashboards, Scorecard engine, Ensemble engine, SDKs, A/B testing |
-| **Phase 4 -- Advanced**   | Planned | AI Assistant, DMN 1.4, CEP (Kafka Streams), Embedded JAR, WASM, GitOps                        |
+| **Phase 3 -- Enterprise** | Done        | Analytics pipeline, decision dashboards, Scorecard engine, Ensemble engine, SDKs, A/B testing |
+| **Phase 4 -- Advanced**   | In Progress | AI Assistant, DMN 1.4, CEP (Kafka Streams), Embedded JAR, WASM, GitOps                        |
 
 ## License
 

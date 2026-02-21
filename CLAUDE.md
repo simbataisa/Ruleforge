@@ -117,5 +117,5 @@ Organization → Space → Folder → Rule. PostgreSQL RLS on all tenant tables.
 
 - **Phase 1 MVP** (DONE): Tables + Trees engine, Auth, Management, Solver, Event, basic frontend
 - **Phase 2** (DONE): Scripting (GraalVM), Flows, Connectors, SSO config, Scheduler, Import/Export
-- **Phase 3** (NEXT): Analytics, Scorecard, Ensemble, SDKs, A/B Testing
-- **Phase 4**: AI Assistant, DMN, CEP, Embedded JAR, WASM
+- **Phase 3** (DONE): Analytics, Scorecard, Ensemble, SDKs, A/B Testing
+- **Phase 4** (IN PROGRESS): AI Assistant, DMN, CEP, Embedded JAR, WASM

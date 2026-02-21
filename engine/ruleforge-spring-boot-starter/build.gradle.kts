@@ -13,6 +13,8 @@ dependencies {
     api(project(":ruleforge-script"))
     api(project(":ruleforge-ensemble"))
     api(project(":ruleforge-hierarchy"))
+    api(project(":ruleforge-dmn"))
+    api(project(":ruleforge-cep"))
 
     implementation("org.springframework.boot:spring-boot-starter:${property("springBootVersion")}")
     implementation("org.springframework.boot:spring-boot-autoconfigure:${property("springBootVersion")}")

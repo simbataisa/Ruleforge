@@ -118,6 +118,7 @@ services:
     ports:
       - "8088:8000"
     environment:
+      RULEFORGE_AI_LLM_API_KEY: ${ANTHROPIC_API_KEY:-}
       RULEFORGE_AI_MANAGEMENT_SERVICE_URL: http://management-service:8082
 
   kong:
