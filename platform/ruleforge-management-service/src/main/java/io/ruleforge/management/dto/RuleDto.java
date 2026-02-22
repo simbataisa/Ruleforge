@@ -8,6 +8,7 @@ public record RuleDto(
         UUID id,
         String name,
         String alias,
+        String description,
         String type,
         String status,
         int latestVersion,

@@ -15,5 +15,8 @@ public record RegisterRequest(
 
         @NotBlank(message = "Full name is required")
         @Size(max = 255, message = "Full name must not exceed 255 characters")
-        String fullName
+        String fullName,
+
+        @Size(max = 255, message = "Organization name must not exceed 255 characters")
+        String organizationName
 ) {}

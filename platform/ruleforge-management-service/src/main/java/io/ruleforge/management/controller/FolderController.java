@@ -2,9 +2,12 @@ package io.ruleforge.management.controller;
 
 import io.ruleforge.common.audit.AuditLog;
 import io.ruleforge.common.dto.ApiResponse;
+import io.ruleforge.common.tenant.TenantContext;
 import io.ruleforge.management.dto.CreateFolderRequest;
 import io.ruleforge.management.dto.FolderDto;
 import io.ruleforge.management.dto.UpdateFolderRequest;
+import io.ruleforge.management.entity.SpaceEntity;
+import io.ruleforge.management.repository.SpaceRepository;
 import io.ruleforge.management.service.FolderService;
 
 import jakarta.validation.Valid;
@@ -16,9 +19,11 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
@@ -27,9 +32,29 @@ import java.util.UUID;
 public class FolderController {
 
     private final FolderService folderService;
+    private final SpaceRepository spaceRepository;
 
-    public FolderController(FolderService folderService) {
+    public FolderController(FolderService folderService, SpaceRepository spaceRepository) {
         this.folderService = folderService;
+        this.spaceRepository = spaceRepository;
+    }
+
+    /**
+     * List folders across all spaces for the current org (convenience endpoint for frontend).
+     */
+    @GetMapping("/folders")
+    public ApiResponse<List<FolderDto>> listFoldersForOrg(
+            @RequestParam(required = false) UUID parentId) {
+        UUID orgId = TenantContext.get().orgId();
+        List<UUID> spaceIds = spaceRepository.findByOrgId(orgId).stream()
+                .map(SpaceEntity::getId)
+                .toList();
+
+        List<FolderDto> allFolders = new ArrayList<>();
+        for (UUID spaceId : spaceIds) {
+            allFolders.addAll(folderService.listFolderTree(spaceId));
+        }
+        return ApiResponse.ok(allFolders);
     }
 
     @PostMapping("/spaces/{spaceId}/folders")

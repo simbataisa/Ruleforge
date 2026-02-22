@@ -84,6 +84,8 @@ export function RuleListPage() {
   const handleCreateRule = (data: {
     name: string;
     type: RuleType;
+    description?: string;
+    alias?: string;
     folderId?: string;
   }) => {
     createRule.mutate(data, {

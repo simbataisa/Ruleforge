@@ -7,6 +7,7 @@ import io.ruleforge.common.exception.EntityNotFoundException;
 import io.ruleforge.common.tenant.TenantContext;
 import io.ruleforge.management.dto.CreateVersionRequest;
 import io.ruleforge.management.dto.RuleVersionDto;
+import io.ruleforge.management.dto.UpdateVersionRequest;
 import io.ruleforge.management.entity.RuleEntity;
 import io.ruleforge.management.entity.RuleVersionEntity;
 import io.ruleforge.management.repository.RuleRepository;
@@ -50,9 +51,9 @@ public class VersionService {
         RuleVersionEntity version = new RuleVersionEntity();
         version.setRuleId(ruleId);
         version.setVersion(nextVersion);
-        version.setDefinition(request.definition());
-        version.setInputModel(request.inputModel());
-        version.setOutputModel(request.outputModel());
+        version.setDefinition(request.definition() != null ? request.definition() : "{}");
+        version.setInputModel(request.inputModel() != null ? request.inputModel() : "{}");
+        version.setOutputModel(request.outputModel() != null ? request.outputModel() : "{}");
         version.setStatus("DRAFT");
         version.setChangeNote(request.changeNote());
         version.setCreatedBy(tenant.userId());
@@ -65,6 +66,37 @@ public class VersionService {
         log.info("Version created: ruleId={}, version={}", ruleId, nextVersion);
 
         return toDto(version);
+    }
+
+    @Transactional
+    public RuleVersionDto updateVersion(UUID ruleId, int version, UpdateVersionRequest request) {
+        RuleVersionEntity versionEntity = versionRepository.findByRuleIdAndVersion(ruleId, version)
+                .orElseThrow(() -> new EntityNotFoundException("RuleVersion",
+                        "ruleId=%s, version=%d".formatted(ruleId, version)));
+
+        if (!"DRAFT".equals(versionEntity.getStatus())) {
+            throw new ConflictException("Only DRAFT versions can be updated. Current status: %s"
+                    .formatted(versionEntity.getStatus()));
+        }
+
+        if (request.definition() != null) {
+            versionEntity.setDefinition(request.definition());
+        }
+        if (request.inputModel() != null) {
+            versionEntity.setInputModel(request.inputModel());
+        }
+        if (request.outputModel() != null) {
+            versionEntity.setOutputModel(request.outputModel());
+        }
+        if (request.changeNote() != null) {
+            versionEntity.setChangeNote(request.changeNote());
+        }
+
+        versionEntity = versionRepository.save(versionEntity);
+
+        log.info("Version updated: ruleId={}, version={}", ruleId, version);
+
+        return toDto(versionEntity);
     }
 
     @Transactional(readOnly = true)

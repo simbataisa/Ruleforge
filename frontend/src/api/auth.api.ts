@@ -22,10 +22,9 @@ export function useLogin() {
       );
       return res.data.data;
     },
-    onSuccess: async (data) => {
+    onSuccess: (data) => {
       setToken(data.accessToken);
-      const userRes = await apiClient.get<ApiResponse<User>>('/auth/me');
-      setUser(userRes.data.data);
+      setUser(data.user);
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
     },
   });
@@ -44,10 +43,9 @@ export function useRegister() {
       );
       return res.data.data;
     },
-    onSuccess: async (data) => {
+    onSuccess: (data) => {
       setToken(data.accessToken);
-      const userRes = await apiClient.get<ApiResponse<User>>('/auth/me');
-      setUser(userRes.data.data);
+      setUser(data.user);
       queryClient.invalidateQueries({ queryKey: ['currentUser'] });
     },
   });
@@ -60,7 +58,7 @@ export function useCurrentUser() {
   return useQuery({
     queryKey: ['currentUser'],
     queryFn: async () => {
-      const res = await apiClient.get<ApiResponse<User>>('/auth/me');
+      const res = await apiClient.get<ApiResponse<User>>('/users/me');
       setUser(res.data.data);
       return res.data.data;
     },

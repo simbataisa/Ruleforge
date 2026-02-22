@@ -10,6 +10,10 @@ import io.ruleforge.management.dto.TestResultDto;
 import io.ruleforge.management.dto.TestRuleRequest;
 import io.ruleforge.management.dto.UpdateRuleRequest;
 import io.ruleforge.management.dto.ValidationResultDto;
+import io.ruleforge.management.dto.AbTestDto;
+import io.ruleforge.management.entity.SpaceEntity;
+import io.ruleforge.management.repository.SpaceRepository;
+import io.ruleforge.management.service.AbTestService;
 import io.ruleforge.management.service.RuleService;
 import io.ruleforge.management.service.RuleValidationService;
 
@@ -28,6 +32,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 @RestController
@@ -36,10 +41,15 @@ public class RuleController {
 
     private final RuleService ruleService;
     private final RuleValidationService ruleValidationService;
+    private final AbTestService abTestService;
+    private final SpaceRepository spaceRepository;
 
-    public RuleController(RuleService ruleService, RuleValidationService ruleValidationService) {
+    public RuleController(RuleService ruleService, RuleValidationService ruleValidationService,
+                          AbTestService abTestService, SpaceRepository spaceRepository) {
         this.ruleService = ruleService;
         this.ruleValidationService = ruleValidationService;
+        this.abTestService = abTestService;
+        this.spaceRepository = spaceRepository;
     }
 
     @PostMapping("/spaces/{spaceId}/rules")
@@ -59,6 +69,46 @@ public class RuleController {
             @PageableDefault(size = 20) Pageable pageable) {
         PageResponse<RuleDto> rules = ruleService.listRules(spaceId, folderId, status, pageable);
         return ApiResponse.ok(rules);
+    }
+
+    /**
+     * Create rule via convenience endpoint — derives spaceId from org's default space.
+     */
+    @PostMapping("/rules")
+    @ResponseStatus(HttpStatus.CREATED)
+    @AuditLog(action = "CREATE_RULE", resourceType = "Rule")
+    public ApiResponse<RuleDto> createRuleConvenience(@Valid @RequestBody CreateRuleRequest request) {
+        UUID orgId = TenantContext.get().orgId();
+        UUID spaceId = spaceRepository.findByOrgId(orgId).stream()
+                .findFirst()
+                .map(SpaceEntity::getId)
+                .orElseThrow(() -> new io.ruleforge.common.exception.EntityNotFoundException(
+                        "Space", "No space found for org " + orgId));
+        RuleDto rule = ruleService.createRule(spaceId, request);
+        return ApiResponse.ok(rule, "Rule created successfully");
+    }
+
+    /**
+     * List rules across all spaces for the current org (convenience endpoint for frontend).
+     */
+    @GetMapping("/rules")
+    public ApiResponse<PageResponse<RuleDto>> listRulesForOrg(
+            @RequestParam(required = false) UUID folderId,
+            @RequestParam(required = false) String status,
+            @PageableDefault(size = 20) Pageable pageable) {
+        UUID orgId = TenantContext.get().orgId();
+        PageResponse<RuleDto> rules = ruleService.listRulesForOrg(orgId, folderId, status, pageable);
+        return ApiResponse.ok(rules);
+    }
+
+    /**
+     * List all A/B tests across all spaces for the current org.
+     */
+    @GetMapping("/rules/ab-tests")
+    public ApiResponse<List<AbTestDto>> listAbTestsForOrg() {
+        UUID orgId = TenantContext.get().orgId();
+        List<AbTestDto> tests = abTestService.findAllForOrg(orgId);
+        return ApiResponse.ok(tests);
     }
 
     @GetMapping("/rules/{ruleId}")

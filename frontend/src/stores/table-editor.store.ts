@@ -176,23 +176,76 @@ export const useTableEditorStore = create<TableEditorState>((set, get) => ({
   loadFromDefinition: (definition) => {
     const def = definition as {
       hitPolicy?: HitPolicy;
-      columns?: ColumnDef[];
-      rows?: Array<{ priority?: number; cells?: Record<string, string> }>;
+      columns?: Array<{
+        name?: string;
+        columnType?: string;
+        operator?: string;
+        dataType?: string;
+        index?: number;
+        // Also support UI format for round-trip
+        id?: string;
+        role?: ColumnRole;
+        type?: ColumnType;
+      }>;
+      rows?: Array<{
+        rowNumber?: number;
+        priority?: number;
+        conditions?: Array<{ value?: string } | string>;
+        actions?: Array<{ value?: string } | string>;
+        // Also support UI format
+        cells?: Record<string, string>;
+      }>;
     };
 
-    const columns = (def.columns ?? []).map((c, i) => ({
-      id: c.id || generateColId(),
-      name: c.name || `Column ${i + 1}`,
-      role: c.role || 'condition' as ColumnRole,
-      type: c.type || 'STRING' as ColumnType,
-      operator: c.operator || 'EQ' as Operator,
-    }));
+    // Build columns, handling both engine format (columnType) and UI format (role)
+    const columns: ColumnDef[] = (def.columns ?? []).map((c, i) => {
+      const role: ColumnRole = c.role
+        ?? (c.columnType ? c.columnType.toLowerCase() as ColumnRole : 'condition');
+      const type: ColumnType = c.type
+        ?? (c.dataType as ColumnType | undefined)
+        ?? 'STRING';
+      return {
+        id: c.id || generateColId(),
+        name: c.name || `Column ${i + 1}`,
+        role,
+        type: (['STRING', 'NUMBER', 'BOOLEAN', 'DATE'].includes(type) ? type : 'STRING') as ColumnType,
+        operator: (c.operator || 'EQ') as Operator,
+      };
+    });
 
-    const rows = (def.rows ?? []).map((r, i) => ({
-      id: generateRowId(),
-      priority: r.priority ?? i + 1,
-      cells: r.cells ?? {},
-    }));
+    const conditionCols = columns.filter((c) => c.role === 'condition');
+    const actionCols = columns.filter((c) => c.role === 'action');
+
+    // Build rows, handling both engine format (conditions/actions arrays) and UI format (cells map)
+    const rows: RowData[] = (def.rows ?? []).map((r, i) => {
+      if (r.cells) {
+        // UI format - cells map keyed by column id
+        return {
+          id: generateRowId(),
+          priority: r.priority ?? i + 1,
+          cells: r.cells,
+        };
+      }
+      // Engine format - positional conditions/actions arrays
+      const cells: Record<string, string> = {};
+      (r.conditions ?? []).forEach((cell, ci) => {
+        if (ci < conditionCols.length) {
+          const val = typeof cell === 'string' ? cell : (cell?.value ?? '');
+          cells[conditionCols[ci].id] = val;
+        }
+      });
+      (r.actions ?? []).forEach((cell, ai) => {
+        if (ai < actionCols.length) {
+          const val = typeof cell === 'string' ? cell : (cell?.value ?? '');
+          cells[actionCols[ai].id] = val;
+        }
+      });
+      return {
+        id: generateRowId(),
+        priority: r.priority ?? i + 1,
+        cells,
+      };
+    });
 
     set({
       hitPolicy: def.hitPolicy ?? 'FIRST',
@@ -204,18 +257,27 @@ export const useTableEditorStore = create<TableEditorState>((set, get) => ({
 
   toDefinition: () => {
     const { columns, rows, hitPolicy } = get();
+    const conditionCols = columns.filter((c) => c.role === 'condition');
+    const actionCols = columns.filter((c) => c.role === 'action');
+
     return {
       hitPolicy,
-      columns: columns.map((c) => ({
-        id: c.id,
+      columns: columns.map((c, i) => ({
         name: c.name,
-        role: c.role,
-        type: c.type,
+        columnType: c.role.toUpperCase(),
         operator: c.operator,
+        dataType: c.type,
+        index: i,
       })),
-      rows: rows.map((r) => ({
+      rows: rows.map((r, i) => ({
+        rowNumber: i + 1,
         priority: r.priority,
-        cells: r.cells,
+        conditions: conditionCols.map((col) => ({
+          value: r.cells[col.id] ?? '',
+        })),
+        actions: actionCols.map((col) => ({
+          value: r.cells[col.id] ?? '',
+        })),
       })),
     };
   },

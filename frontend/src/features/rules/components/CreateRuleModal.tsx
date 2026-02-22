@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
 import { Select } from '@/shared/components/Select';
@@ -9,7 +9,7 @@ import type { Folder } from '@/api/types/folder.types';
 interface CreateRuleModalProps {
   open: boolean;
   onClose: () => void;
-  onSubmit: (data: { name: string; type: RuleType; folderId?: string }) => void;
+  onSubmit: (data: { name: string; type: RuleType; description?: string; alias?: string; folderId?: string }) => void;
   loading?: boolean;
   folders: Folder[];
 }
@@ -19,7 +19,18 @@ const ruleTypes: { value: RuleType; label: string }[] = [
   { value: 'TREE', label: 'Decision Tree' },
   { value: 'SCRIPT', label: 'Script (GraalVM JS)' },
   { value: 'FLOW', label: 'Flow (DAG)' },
+  { value: 'SCORECARD', label: 'Scorecard' },
+  { value: 'DMN', label: 'DMN Table' },
+  { value: 'CEP', label: 'Complex Event Processing' },
+  { value: 'ENSEMBLE', label: 'Ensemble' },
 ];
+
+function generateAlias(name: string): string {
+  return name
+    .toLowerCase()
+    .replace(/\s+/g, '-')
+    .replace(/[^a-z0-9-]/g, '');
+}
 
 export function CreateRuleModal({
   open,
@@ -30,7 +41,10 @@ export function CreateRuleModal({
 }: CreateRuleModalProps) {
   const [name, setName] = useState('');
   const [type, setType] = useState<RuleType>('TABLE');
+  const [description, setDescription] = useState('');
   const [folderId, setFolderId] = useState('');
+
+  const alias = useMemo(() => generateAlias(name), [name]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,6 +52,8 @@ export function CreateRuleModal({
     onSubmit({
       name: name.trim(),
       type,
+      description: description.trim() || undefined,
+      alias: alias || undefined,
       folderId: folderId || undefined,
     });
   };
@@ -45,6 +61,7 @@ export function CreateRuleModal({
   const handleClose = () => {
     setName('');
     setType('TABLE');
+    setDescription('');
     setFolderId('');
     onClose();
   };
@@ -67,6 +84,11 @@ export function CreateRuleModal({
             autoFocus
             required
           />
+          {name.trim() && (
+            <p className="mt-1 text-xs text-gray-500">
+              Alias: <span className="font-mono">{alias}</span>
+            </p>
+          )}
         </div>
         <div>
           <label
@@ -86,6 +108,22 @@ export function CreateRuleModal({
               </option>
             ))}
           </Select>
+        </div>
+        <div>
+          <label
+            htmlFor="rule-description"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
+            Description (optional)
+          </label>
+          <textarea
+            id="rule-description"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Describe what this rule does"
+            rows={3}
+            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+          />
         </div>
         <div>
           <label

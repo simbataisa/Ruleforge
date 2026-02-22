@@ -282,33 +282,93 @@ export const useDmnEditorStore = create<DmnEditorState>((set, get) => ({
   },
 
   loadFromDefinition: (definition) => {
-    const def = definition as {
-      decisions?: DmnDecision[];
-    };
+    const def = definition as Record<string, unknown>;
+    const rawDecisions = (def.decisions ?? []) as Array<Record<string, unknown>>;
 
-    const decisions = (def.decisions ?? []).map((d) => ({
-      id: d.id || generateId('dec'),
-      name: d.name || 'Decision',
-      hitPolicy: d.hitPolicy || 'UNIQUE' as DmnHitPolicy,
-      inputColumns: (d.inputColumns ?? []).map((c) => ({
-        id: c.id || generateId('input'),
-        label: c.label || '',
-        expression: c.expression || '',
-        typeRef: c.typeRef || 'string',
-      })),
-      outputColumns: (d.outputColumns ?? []).map((c) => ({
-        id: c.id || generateId('output'),
-        label: c.label || '',
-        name: c.name || '',
-        typeRef: c.typeRef || 'string',
-      })),
-      rules: (d.rules ?? []).map((r) => ({
-        id: r.id || generateId('rule'),
-        inputEntries: r.inputEntries ?? {},
-        outputEntries: r.outputEntries ?? {},
-        annotation: r.annotation || '',
-      })),
-    }));
+    const decisions: DmnDecision[] = rawDecisions.map((d) => {
+      // Engine format has decisionTable wrapper; UI format has flat inputColumns/outputColumns
+      const dt = (d.decisionTable as Record<string, unknown>) ?? d;
+      const inputClauses = (dt.inputClauses ?? dt.inputColumns ?? []) as Array<Record<string, unknown> | string>;
+      const outputClauses = (dt.outputClauses ?? dt.outputColumns ?? []) as Array<Record<string, unknown> | string>;
+      const rawRules = (dt.rules ?? []) as Array<Record<string, unknown>>;
+      const hitPolicy = ((dt.hitPolicy ?? d.hitPolicy) as string) || 'UNIQUE';
+
+      // Build input columns
+      const inputColumns: DmnInputColumn[] = inputClauses.map((c) => {
+        if (typeof c === 'string') {
+          const id = generateId('input');
+          return { id, label: c, expression: c, typeRef: 'string' };
+        }
+        return {
+          id: (c.id as string) || generateId('input'),
+          label: (c.label as string) || (c.name as string) || '',
+          expression: (c.expression as string) || '',
+          typeRef: (c.typeRef as string) || 'string',
+        };
+      });
+
+      // Build output columns
+      const outputColumns: DmnOutputColumn[] = outputClauses.map((c) => {
+        if (typeof c === 'string') {
+          const id = generateId('output');
+          return { id, label: c, name: c, typeRef: 'string' };
+        }
+        return {
+          id: (c.id as string) || generateId('output'),
+          label: (c.label as string) || (c.name as string) || '',
+          name: (c.name as string) || '',
+          typeRef: (c.typeRef as string) || 'string',
+        };
+      });
+
+      // Build rules - engine format uses arrays, UI format uses maps
+      const rules: DmnRule[] = rawRules.map((r) => {
+        const rawInputEntries = r.inputEntries;
+        const rawOutputEntries = r.outputEntries;
+
+        let inputEntries: Record<string, string>;
+        let outputEntries: Record<string, string>;
+
+        if (Array.isArray(rawInputEntries)) {
+          // Engine format: array of strings → map keyed by column id
+          inputEntries = {};
+          (rawInputEntries as string[]).forEach((val, idx) => {
+            if (idx < inputColumns.length) {
+              inputEntries[inputColumns[idx].id] = val;
+            }
+          });
+        } else {
+          inputEntries = (rawInputEntries as Record<string, string>) ?? {};
+        }
+
+        if (Array.isArray(rawOutputEntries)) {
+          outputEntries = {};
+          (rawOutputEntries as string[]).forEach((val, idx) => {
+            if (idx < outputColumns.length) {
+              outputEntries[outputColumns[idx].id] = val;
+            }
+          });
+        } else {
+          outputEntries = (rawOutputEntries as Record<string, string>) ?? {};
+        }
+
+        return {
+          id: (r.id as string) || generateId('rule'),
+          inputEntries,
+          outputEntries,
+          annotation: (r.annotation as string) || '',
+        };
+      });
+
+      return {
+        id: (d.id as string) || generateId('dec'),
+        name: (d.name as string) || 'Decision',
+        hitPolicy: hitPolicy as DmnHitPolicy,
+        inputColumns,
+        outputColumns,
+        rules,
+      };
+    });
 
     set({
       decisions,
@@ -322,10 +382,22 @@ export const useDmnEditorStore = create<DmnEditorState>((set, get) => ({
       decisions: decisions.map((d) => ({
         id: d.id,
         name: d.name,
-        hitPolicy: d.hitPolicy,
-        inputColumns: d.inputColumns,
-        outputColumns: d.outputColumns,
-        rules: d.rules,
+        decisionTable: {
+          hitPolicy: d.hitPolicy,
+          inputClauses: d.inputColumns.map((c) => ({
+            name: c.label || c.expression,
+            expression: c.expression,
+          })),
+          outputClauses: d.outputColumns.map((c) => ({
+            name: c.name || c.label,
+          })),
+          rules: d.rules.map((r, ri) => ({
+            ruleNumber: ri + 1,
+            inputEntries: d.inputColumns.map((col) => r.inputEntries[col.id] ?? ''),
+            outputEntries: d.outputColumns.map((col) => r.outputEntries[col.id] ?? ''),
+            annotation: r.annotation || undefined,
+          })),
+        },
       })),
     };
   },

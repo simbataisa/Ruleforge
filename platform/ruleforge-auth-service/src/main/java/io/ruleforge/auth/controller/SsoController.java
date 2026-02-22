@@ -38,8 +38,9 @@ public class SsoController {
     }
 
     @GetMapping("/config")
-    public ResponseEntity<List<SsoConfigDto>> listByOrg(@RequestParam UUID orgId) {
-        return ResponseEntity.ok(ssoConfigService.findByOrgId(orgId));
+    public ResponseEntity<List<SsoConfigDto>> listByOrg(@RequestParam(required = false) UUID orgId) {
+        UUID resolvedOrgId = (orgId != null) ? orgId : io.ruleforge.common.tenant.TenantContext.get().orgId();
+        return ResponseEntity.ok(ssoConfigService.findByOrgId(resolvedOrgId));
     }
 
     @GetMapping("/config/{id}")

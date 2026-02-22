@@ -1,5 +1,6 @@
 # Java / Gradle
 build/
+target/
 .gradle/
 *.class
 *.jar

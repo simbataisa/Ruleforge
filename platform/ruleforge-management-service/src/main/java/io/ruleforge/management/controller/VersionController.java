@@ -4,6 +4,7 @@ import io.ruleforge.common.audit.AuditLog;
 import io.ruleforge.common.dto.ApiResponse;
 import io.ruleforge.management.dto.CreateVersionRequest;
 import io.ruleforge.management.dto.RuleVersionDto;
+import io.ruleforge.management.dto.UpdateVersionRequest;
 import io.ruleforge.management.service.VersionService;
 
 import jakarta.validation.Valid;
@@ -11,6 +12,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.ResponseStatus;
@@ -36,6 +38,15 @@ public class VersionController {
                                                      @Valid @RequestBody CreateVersionRequest request) {
         RuleVersionDto version = versionService.createVersion(ruleId, request);
         return ApiResponse.ok(version, "Version created successfully");
+    }
+
+    @PutMapping("/{version}")
+    @AuditLog(action = "UPDATE_VERSION", resourceType = "RuleVersion")
+    public ApiResponse<RuleVersionDto> updateVersion(@PathVariable UUID ruleId,
+                                                      @PathVariable int version,
+                                                      @Valid @RequestBody UpdateVersionRequest request) {
+        RuleVersionDto versionDto = versionService.updateVersion(ruleId, version, request);
+        return ApiResponse.ok(versionDto, "Version updated successfully");
     }
 
     @GetMapping

@@ -40,18 +40,15 @@ export interface RuleVersion {
   publishedAt?: string;
 }
 
-export interface SolveRequest {
-  data: Record<string, unknown>;
-  options?: {
-    strategy?: 'STANDARD' | 'FIRST_MATCH' | 'ARRAY';
-    audit?: boolean;
-  };
+export interface TestRequest {
+  input: Record<string, unknown>;
+  options?: Record<string, unknown>;
 }
 
-export interface SolveResponse {
-  correlationId: string;
-  ruleId: string;
-  version: number;
+export interface TestResponse {
+  output: Record<string, unknown>;
   executionTimeMs: number;
-  results: Record<string, unknown>[];
+  logs: string[];
+  success: boolean;
+  error: string | null;
 }

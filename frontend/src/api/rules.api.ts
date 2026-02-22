@@ -3,8 +3,8 @@ import { apiClient } from './client';
 import type {
   Rule,
   RuleVersion,
-  SolveRequest,
-  SolveResponse,
+  TestRequest,
+  TestResponse,
 } from './types/rule.types';
 import type { ApiResponse, PageResponse, PageParams } from './types/common.types';
 
@@ -44,7 +44,7 @@ export function useCreateRule() {
 
   return useMutation({
     mutationFn: async (
-      data: Pick<Rule, 'name' | 'type' | 'description' | 'folderId'>,
+      data: { name: string; type: string; description?: string; alias?: string; folderId?: string },
     ) => {
       const res = await apiClient.post<ApiResponse<Rule>>('/rules', data);
       return res.data.data;
@@ -102,6 +102,61 @@ export function useRuleVersions(ruleId: string) {
   });
 }
 
+export function useUpdateVersion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      ruleId,
+      version,
+      data,
+    }: {
+      ruleId: string;
+      version: number;
+      data: { definition?: string; inputModel?: string; outputModel?: string; changeNote?: string };
+    }) => {
+      const res = await apiClient.put<ApiResponse<RuleVersion>>(
+        `/rules/${ruleId}/versions/${version}`,
+        data,
+      );
+      return res.data.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['rules', variables.ruleId, 'versions'],
+      });
+    },
+  });
+}
+
+export function useCreateVersion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      ruleId,
+      data,
+    }: {
+      ruleId: string;
+      data: { definition?: string; inputModel?: string; outputModel?: string; changeNote?: string };
+    }) => {
+      const res = await apiClient.post<ApiResponse<RuleVersion>>(
+        `/rules/${ruleId}/versions`,
+        data,
+      );
+      return res.data.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['rules', variables.ruleId, 'versions'],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['rules', variables.ruleId],
+      });
+    },
+  });
+}
+
 export function usePublishVersion() {
   const queryClient = useQueryClient();
 
@@ -129,19 +184,17 @@ export function usePublishVersion() {
   });
 }
 
-export function useSolveRule() {
+export function useTestRule() {
   return useMutation({
     mutationFn: async ({
       ruleId,
-      version,
       data,
     }: {
       ruleId: string;
-      version: number;
-      data: SolveRequest;
+      data: TestRequest;
     }) => {
-      const res = await apiClient.post<ApiResponse<SolveResponse>>(
-        `/rules/${ruleId}/versions/${version}/solve`,
+      const res = await apiClient.post<ApiResponse<TestResponse>>(
+        `/rules/${ruleId}/test`,
         data,
       );
       return res.data.data;

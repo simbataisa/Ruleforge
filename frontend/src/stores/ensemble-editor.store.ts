@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 
-export type EnsembleStrategy = 'VOTING' | 'WEIGHTED_AVERAGE' | 'FIRST_WINS' | 'BEST_SCORE' | 'UNANIMOUS';
+export type EnsembleStrategy = 'MAJORITY_VOTE' | 'WEIGHTED_AVERAGE' | 'FIRST_MATCH' | 'MAX' | 'WEIGHTED_VOTE' | 'AVERAGE' | 'MIN';
 
 export interface EnsembleMember {
   id: string;
@@ -35,7 +35,7 @@ function generateMemberId(): string {
 }
 
 const initialState = {
-  strategy: 'VOTING' as EnsembleStrategy,
+  strategy: 'MAJORITY_VOTE' as EnsembleStrategy,
   outputField: 'result',
   threshold: 0.5,
   members: [] as EnsembleMember[],
@@ -91,11 +91,21 @@ export const useEnsembleEditorStore = create<EnsembleEditorState>((set, get) => 
 
   loadFromDefinition: (definition) => {
     const def = definition as {
-      strategy?: EnsembleStrategy;
+      strategy?: string;
       outputField?: string;
       threshold?: number;
       members?: EnsembleMember[];
     };
+
+    // Map legacy strategy names to engine-compatible values
+    const strategyMap: Record<string, EnsembleStrategy> = {
+      'VOTING': 'MAJORITY_VOTE',
+      'FIRST_WINS': 'FIRST_MATCH',
+      'BEST_SCORE': 'MAX',
+      'UNANIMOUS': 'WEIGHTED_VOTE',
+    };
+    const rawStrategy = def.strategy ?? 'MAJORITY_VOTE';
+    const strategy = (strategyMap[rawStrategy] ?? rawStrategy) as EnsembleStrategy;
 
     const members = (def.members ?? []).map((m) => ({
       id: m.id || generateMemberId(),
@@ -106,7 +116,7 @@ export const useEnsembleEditorStore = create<EnsembleEditorState>((set, get) => 
     }));
 
     set({
-      strategy: def.strategy ?? 'VOTING',
+      strategy,
       outputField: def.outputField ?? 'result',
       threshold: def.threshold ?? 0.5,
       members,

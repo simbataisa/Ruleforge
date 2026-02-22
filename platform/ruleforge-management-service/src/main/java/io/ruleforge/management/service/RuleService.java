@@ -16,6 +16,7 @@ import io.ruleforge.management.entity.TagEntity;
 import io.ruleforge.management.repository.RuleRepository;
 import io.ruleforge.management.repository.RuleTagRepository;
 import io.ruleforge.management.repository.RuleVersionRepository;
+import io.ruleforge.management.repository.SpaceRepository;
 import io.ruleforge.management.repository.TagRepository;
 
 import org.slf4j.Logger;
@@ -41,26 +42,38 @@ public class RuleService {
     private final RuleTagRepository ruleTagRepository;
     private final TagRepository tagRepository;
     private final EventPublisher eventPublisher;
+    private final SpaceRepository spaceRepository;
 
     public RuleService(RuleRepository ruleRepository,
                        RuleVersionRepository ruleVersionRepository,
                        RuleTagRepository ruleTagRepository,
                        TagRepository tagRepository,
-                       EventPublisher eventPublisher) {
+                       EventPublisher eventPublisher,
+                       SpaceRepository spaceRepository) {
         this.ruleRepository = ruleRepository;
         this.ruleVersionRepository = ruleVersionRepository;
         this.ruleTagRepository = ruleTagRepository;
         this.tagRepository = tagRepository;
         this.eventPublisher = eventPublisher;
+        this.spaceRepository = spaceRepository;
     }
 
     @Transactional
     public RuleDto createRule(UUID spaceId, CreateRuleRequest request) {
         TenantContext.TenantInfo tenant = TenantContext.get();
 
+        // Auto-generate alias if not provided
+        String alias = request.alias();
+        if (alias == null || alias.isBlank()) {
+            alias = request.name().toLowerCase()
+                    .replaceAll("\\s+", "-")
+                    .replaceAll("[^a-z0-9_-]", "");
+        }
+
         // Check alias uniqueness
-        ruleRepository.findByAlias(request.alias()).ifPresent(existing -> {
-            throw new ConflictException("Rule with alias '%s' already exists".formatted(request.alias()));
+        final String finalAlias = alias;
+        ruleRepository.findByAlias(finalAlias).ifPresent(existing -> {
+            throw new ConflictException("Rule with alias '%s' already exists".formatted(finalAlias));
         });
 
         // Create the rule entity
@@ -68,9 +81,10 @@ public class RuleService {
         rule.setSpaceId(spaceId);
         rule.setFolderId(request.folderId());
         rule.setName(request.name());
-        rule.setAlias(request.alias());
+        rule.setAlias(finalAlias);
+        rule.setDescription(request.description());
         rule.setType(request.type());
-        rule.setStatus("ACTIVE");
+        rule.setStatus("DRAFT");
         rule.setLatestVersion(1);
         rule.setLocked(false);
         rule.setCreatedBy(tenant.userId());
@@ -80,9 +94,9 @@ public class RuleService {
         RuleVersionEntity version = new RuleVersionEntity();
         version.setRuleId(rule.getId());
         version.setVersion(1);
-        version.setDefinition(request.definition());
-        version.setInputModel(request.inputModel());
-        version.setOutputModel(request.outputModel());
+        version.setDefinition(request.definition() != null ? request.definition() : "{}");
+        version.setInputModel(request.inputModel() != null ? request.inputModel() : "{}");
+        version.setOutputModel(request.outputModel() != null ? request.outputModel() : "{}");
         version.setStatus("DRAFT");
         version.setChangeNote(request.changeNote());
         version.setCreatedBy(tenant.userId());
@@ -124,6 +138,33 @@ public class RuleService {
                 page.getTotalElements(), page.getTotalPages());
     }
 
+    @Transactional(readOnly = true)
+    public PageResponse<RuleDto> listRulesForOrg(UUID orgId, UUID folderId, String status, Pageable pageable) {
+        List<UUID> spaceIds = spaceRepository.findByOrgId(orgId).stream()
+                .map(io.ruleforge.management.entity.SpaceEntity::getId)
+                .toList();
+
+        if (spaceIds.isEmpty()) {
+            return new PageResponse<>(List.of(), 0, pageable.getPageSize(), 0, 0);
+        }
+
+        Page<RuleEntity> page;
+        if (folderId != null) {
+            page = ruleRepository.findBySpaceIdInAndFolderId(spaceIds, folderId, pageable);
+        } else if (status != null) {
+            page = ruleRepository.findBySpaceIdInAndStatus(spaceIds, status, pageable);
+        } else {
+            page = ruleRepository.findBySpaceIdIn(spaceIds, pageable);
+        }
+
+        List<RuleDto> content = page.getContent().stream()
+                .map(this::toDto)
+                .toList();
+
+        return new PageResponse<>(content, page.getNumber(), page.getSize(),
+                page.getTotalElements(), page.getTotalPages());
+    }
+
     @Transactional
     public RuleDto updateRule(UUID ruleId, UpdateRuleRequest request) {
         TenantContext.TenantInfo tenant = TenantContext.get();
@@ -139,6 +180,9 @@ public class RuleService {
                         throw new ConflictException("Rule with alias '%s' already exists".formatted(request.alias()));
                     });
             rule.setAlias(request.alias());
+        }
+        if (request.description() != null) {
+            rule.setDescription(request.description());
         }
         if (request.folderId() != null) {
             rule.setFolderId(request.folderId());
@@ -217,6 +261,7 @@ public class RuleService {
                 rule.getId(),
                 rule.getName(),
                 rule.getAlias(),
+                rule.getDescription(),
                 rule.getType(),
                 rule.getStatus(),
                 rule.getLatestVersion(),

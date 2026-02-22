@@ -65,6 +65,13 @@ public class ScheduleService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<ScheduleDto> findAll() {
+        return scheduleRepository.findAll().stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
     public ScheduleDto update(UUID id, UpdateScheduleRequest request) {
         ScheduleEntity entity = scheduleRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Schedule not found: " + id));

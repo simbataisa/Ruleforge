@@ -1,5 +1,6 @@
 package io.ruleforge.scheduler.controller;
 
+import io.ruleforge.common.tenant.TenantContext;
 import io.ruleforge.scheduler.dto.*;
 import io.ruleforge.scheduler.service.ScheduleService;
 import jakarta.validation.Valid;
@@ -28,7 +29,10 @@ public class ScheduleController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ScheduleDto>> list(@RequestParam UUID spaceId) {
+    public ResponseEntity<List<ScheduleDto>> list(@RequestParam(required = false) UUID spaceId) {
+        if (spaceId == null) {
+            return ResponseEntity.ok(scheduleService.findAll());
+        }
         return ResponseEntity.ok(scheduleService.findBySpaceId(spaceId));
     }
 

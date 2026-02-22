@@ -6,11 +6,13 @@ import { useEditorStore } from '@/stores/editor.store';
 import type { EnsembleStrategy } from '@/stores/ensemble-editor.store';
 
 const STRATEGIES: { value: EnsembleStrategy; label: string; description: string }[] = [
-  { value: 'VOTING', label: 'Voting', description: 'Majority vote across members' },
+  { value: 'MAJORITY_VOTE', label: 'Majority Vote', description: 'Majority vote across members' },
   { value: 'WEIGHTED_AVERAGE', label: 'Weighted Average', description: 'Weighted average of member outputs' },
-  { value: 'FIRST_WINS', label: 'First Wins', description: 'First member to produce a result wins' },
-  { value: 'BEST_SCORE', label: 'Best Score', description: 'Member with the highest confidence score wins' },
-  { value: 'UNANIMOUS', label: 'Unanimous', description: 'All members must agree' },
+  { value: 'WEIGHTED_VOTE', label: 'Weighted Vote', description: 'Weighted vote across members' },
+  { value: 'AVERAGE', label: 'Average', description: 'Simple average of member outputs' },
+  { value: 'FIRST_MATCH', label: 'First Match', description: 'First member to produce a result wins' },
+  { value: 'MAX', label: 'Maximum', description: 'Member with the highest value wins' },
+  { value: 'MIN', label: 'Minimum', description: 'Member with the lowest value wins' },
 ];
 
 export function EnsembleEditor() {
@@ -66,7 +68,7 @@ export function EnsembleEditor() {
             className="w-24 text-xs h-7 rounded border border-gray-300 px-2 text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </div>
-        {(strategy === 'VOTING' || strategy === 'UNANIMOUS') && (
+        {(strategy === 'MAJORITY_VOTE' || strategy === 'WEIGHTED_VOTE') && (
           <div className="flex items-center gap-2">
             <span className="text-xs font-medium text-gray-600">Threshold:</span>
             <input

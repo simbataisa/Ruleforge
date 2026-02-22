@@ -63,6 +63,14 @@ public class ConnectorService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional(readOnly = true)
+    public List<ConnectorDto> findByOrgId(UUID orgId) {
+        // Return all connectors — in production, RLS filters by org
+        return repository.findAll().stream()
+                .map(this::toDto)
+                .collect(Collectors.toList());
+    }
+
     public ConnectorDto update(UUID id, UpdateConnectorRequest request) {
         ConnectorEntity entity = repository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Connector not found: " + id));

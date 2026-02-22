@@ -140,41 +140,154 @@ export const useTreeEditorStore = create<TreeEditorState>((set, get) => ({
   },
 
   loadFromDefinition: (definition) => {
-    const def = definition as {
-      nodes?: Node[];
-      edges?: Edge[];
-    };
-    set({
-      nodes: (def.nodes ?? []).map((n) => ({
-        ...n,
-        type: n.type || 'conditionNode',
-      })),
-      edges: (def.edges ?? []).map((e) => ({
-        ...e,
-        type: e.type || 'labeledEdge',
-      })),
-      selectedNodeId: null,
-    });
+    // Support both engine format (root tree) and UI format (nodes/edges)
+    const def = definition as Record<string, unknown>;
+
+    if (def.nodes && Array.isArray(def.nodes)) {
+      // UI format - React Flow nodes/edges
+      const uiDef = def as { nodes: Node[]; edges?: Edge[] };
+      set({
+        nodes: uiDef.nodes.map((n) => ({
+          ...n,
+          type: n.type || 'conditionNode',
+        })),
+        edges: (uiDef.edges ?? []).map((e) => ({
+          ...e,
+          type: e.type || 'labeledEdge',
+        })),
+        selectedNodeId: null,
+      });
+      return;
+    }
+
+    // Engine format - recursive tree with root node
+    if (def.root) {
+      const nodes: Node[] = [];
+      const edges: Edge[] = [];
+      let yOffset = 0;
+
+      function flattenNode(
+        node: Record<string, unknown>,
+        x: number,
+        y: number,
+      ): string {
+        const nodeId = (node.nodeId as string) || generateNodeId('n');
+        const nodeType = node.nodeType as string;
+
+        if (nodeType === 'ACTION' || nodeType === 'SCORE') {
+          nodes.push({
+            id: nodeId,
+            type: 'actionNode',
+            position: { x, y },
+            data: {
+              label: 'Action',
+              outputs: (node.outputs as Record<string, string>) ?? {},
+            },
+          });
+        } else {
+          // CONDITION or other
+          nodes.push({
+            id: nodeId,
+            type: 'conditionNode',
+            position: { x, y },
+            data: {
+              label: (node.field as string) || 'Condition',
+              field: (node.field as string) || '',
+              operator: (node.operator as string) || 'EQ',
+              value: '',
+            },
+          });
+
+          const branches = (node.branches as Array<Record<string, unknown>>) ?? [];
+          branches.forEach((branch, bi) => {
+            const childX = x + (bi - (branches.length - 1) / 2) * 250;
+            const childY = y + 150;
+            const child = branch.child as Record<string, unknown>;
+            if (child) {
+              const childId = flattenNode(child, childX, childY);
+              edges.push({
+                id: `edge_${nodeId}_${childId}`,
+                source: nodeId,
+                target: childId,
+                type: 'labeledEdge',
+                label: String(branch.value ?? ''),
+              } as Edge);
+            }
+          });
+
+          if (node.defaultBranch) {
+            const defX = x + branches.length * 250;
+            const defY = y + 150;
+            const defId = flattenNode(node.defaultBranch as Record<string, unknown>, defX, defY);
+            edges.push({
+              id: `edge_${nodeId}_${defId}`,
+              source: nodeId,
+              target: defId,
+              type: 'labeledEdge',
+              label: 'default',
+            } as Edge);
+          }
+        }
+
+        yOffset = Math.max(yOffset, y);
+        return nodeId;
+      }
+
+      flattenNode(def.root as Record<string, unknown>, 400, 50);
+
+      set({ nodes, edges, selectedNodeId: null });
+      return;
+    }
+
+    // Empty definition
+    set({ nodes: [], edges: [], selectedNodeId: null });
   },
 
   toDefinition: () => {
     const { nodes, edges } = get();
+
+    if (nodes.length === 0) {
+      return { root: null, scoringMode: false, earlyTermination: true };
+    }
+
+    // Find root node (no incoming edges)
+    const targetIds = new Set(edges.map((e) => e.target));
+    const rootNode = nodes.find((n) => !targetIds.has(n.id)) ?? nodes[0];
+
+    function buildTreeNode(node: Node): Record<string, unknown> {
+      if (node.type === 'actionNode') {
+        const data = node.data as ActionNodeData;
+        return {
+          nodeType: 'ACTION',
+          nodeId: node.id,
+          outputs: data.outputs ?? {},
+        };
+      }
+
+      // conditionNode
+      const data = node.data as ConditionNodeData;
+      const outEdges = edges.filter((e) => e.source === node.id);
+      const branches = outEdges.map((edge) => {
+        const targetNode = nodes.find((n) => n.id === edge.target);
+        return {
+          value: edge.label ? String(edge.label) : '',
+          child: targetNode ? buildTreeNode(targetNode) : { nodeType: 'ACTION', nodeId: edge.target, outputs: {} },
+        };
+      });
+
+      return {
+        nodeType: 'CONDITION',
+        nodeId: node.id,
+        field: data.field || '',
+        operator: data.operator || 'EQ',
+        branches,
+      };
+    }
+
     return {
-      nodes: nodes.map((n) => ({
-        id: n.id,
-        type: n.type,
-        position: n.position,
-        data: n.data,
-      })),
-      edges: edges.map((e) => ({
-        id: e.id,
-        source: e.source,
-        target: e.target,
-        sourceHandle: e.sourceHandle,
-        targetHandle: e.targetHandle,
-        type: e.type,
-        label: e.label,
-      })),
+      root: buildTreeNode(rootNode),
+      scoringMode: false,
+      earlyTermination: true,
     };
   },
 

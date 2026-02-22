@@ -57,9 +57,12 @@ public class AuthService {
         user = userRepository.save(user);
 
         // Create default organization
-        String slug = generateSlug(request.fullName());
+        String orgName = (request.organizationName() != null && !request.organizationName().isBlank())
+                ? request.organizationName()
+                : request.fullName() + "'s Organization";
+        String slug = generateSlug(orgName);
         OrganizationEntity org = new OrganizationEntity();
-        org.setName(request.fullName() + "'s Organization");
+        org.setName(orgName);
         org.setSlug(slug);
         org = organizationRepository.save(org);
 

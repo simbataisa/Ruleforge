@@ -30,6 +30,12 @@ management:
       exposure:
         include: health,info,prometheus
 
+app:
+  jwt:
+    secret: "dGhpcyBpcyBhIHZlcnkgbG9uZyBzZWNyZXQga2V5IGZvciBITUFDLVNIQTUxMiB0aGF0IG11c3QgYmUgYXQgbGVhc3QgNjQgYnl0ZXMgbG9uZw=="
+    access-token-validity-ms: 900000
+    refresh-token-validity-ms: 604800000
+
 ruleforge:
   analytics:
     index-prefix: ruleforge-decisions

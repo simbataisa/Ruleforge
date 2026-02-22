@@ -2,6 +2,7 @@ package io.ruleforge.management.controller;
 
 import io.ruleforge.common.audit.AuditLog;
 import io.ruleforge.common.dto.ApiResponse;
+import io.ruleforge.common.tenant.TenantContext;
 import io.ruleforge.management.dto.CreateTagRequest;
 import io.ruleforge.management.dto.TagDto;
 import io.ruleforge.management.service.TagService;
@@ -29,6 +30,16 @@ public class TagController {
 
     public TagController(TagService tagService) {
         this.tagService = tagService;
+    }
+
+    /**
+     * List tags for the current org (convenience endpoint for frontend).
+     */
+    @GetMapping("/tags")
+    public ApiResponse<List<TagDto>> listTagsForCurrentOrg() {
+        UUID orgId = TenantContext.get().orgId();
+        List<TagDto> tags = tagService.listTags(orgId);
+        return ApiResponse.ok(tags);
     }
 
     @PostMapping("/organizations/{orgId}/tags")

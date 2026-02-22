@@ -1,10 +1,10 @@
 import { useState, useCallback } from 'react';
-import { Play, Copy, Check, AlertCircle, Clock, ChevronDown, ChevronRight } from 'lucide-react';
+import { Play, Copy, Check, AlertCircle, Clock, ChevronDown, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Badge } from '@/shared/components/Badge';
-import { useSolveRule } from '@/api/rules.api';
+import { useTestRule } from '@/api/rules.api';
 import { useToastStore } from '@/stores/toast.store';
-import type { SolveResponse } from '@/api/types/rule.types';
+import type { TestResponse } from '@/api/types/rule.types';
 
 interface TestBenchProps {
   ruleId: string;
@@ -21,15 +21,15 @@ const SAMPLE_INPUT = JSON.stringify(
   2,
 );
 
-export function TestBench({ ruleId, version }: TestBenchProps) {
+export function TestBench({ ruleId }: TestBenchProps) {
   const addToast = useToastStore((s) => s.addToast);
-  const solveRule = useSolveRule();
+  const testRule = useTestRule();
 
   const [input, setInput] = useState(SAMPLE_INPUT);
-  const [result, setResult] = useState<SolveResponse | null>(null);
+  const [result, setResult] = useState<TestResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [traceExpanded, setTraceExpanded] = useState(false);
+  const [logsExpanded, setLogsExpanded] = useState(false);
 
   const handleRun = useCallback(() => {
     setError(null);
@@ -43,13 +43,11 @@ export function TestBench({ ruleId, version }: TestBenchProps) {
       return;
     }
 
-    solveRule.mutate(
+    testRule.mutate(
       {
         ruleId,
-        version: version!,
         data: {
-          data: parsedInput,
-          options: { audit: true },
+          input: parsedInput,
         },
       },
       {
@@ -65,7 +63,7 @@ export function TestBench({ ruleId, version }: TestBenchProps) {
         },
       },
     );
-  }, [input, ruleId, version, solveRule, addToast]);
+  }, [input, ruleId, testRule, addToast]);
 
   const handleCopyResult = useCallback(() => {
     if (!result) return;
@@ -92,7 +90,7 @@ export function TestBench({ ruleId, version }: TestBenchProps) {
           <Button
             size="sm"
             onClick={handleRun}
-            loading={solveRule.isPending}
+            loading={testRule.isPending}
             disabled={!isValidJson()}
           >
             <Play className="h-3.5 w-3.5" />
@@ -157,7 +155,7 @@ export function TestBench({ ruleId, version }: TestBenchProps) {
           )}
 
           {/* No result yet */}
-          {!result && !error && !solveRule.isPending && (
+          {!result && !error && !testRule.isPending && (
             <div className="flex flex-col items-center justify-center h-full text-gray-400 gap-2">
               <Play className="h-8 w-8" />
               <p className="text-sm">
@@ -167,7 +165,7 @@ export function TestBench({ ruleId, version }: TestBenchProps) {
           )}
 
           {/* Loading */}
-          {solveRule.isPending && (
+          {testRule.isPending && (
             <div className="flex items-center justify-center h-full text-gray-400 gap-2">
               <div className="animate-spin h-5 w-5 border-2 border-indigo-500 border-t-transparent rounded-full" />
               <p className="text-sm">Executing rule...</p>
@@ -177,22 +175,35 @@ export function TestBench({ ruleId, version }: TestBenchProps) {
           {/* Result */}
           {result && (
             <>
-              {/* Metadata */}
+              {/* Status + Metadata */}
               <div className="flex items-center gap-4 text-xs">
+                {result.success ? (
+                  <Badge className="bg-green-100 text-green-700 flex items-center gap-1">
+                    <CheckCircle className="h-3 w-3" />
+                    Success
+                  </Badge>
+                ) : (
+                  <Badge className="bg-red-100 text-red-700 flex items-center gap-1">
+                    <XCircle className="h-3 w-3" />
+                    Failed
+                  </Badge>
+                )}
                 <div className="flex items-center gap-1 text-gray-500">
                   <Clock className="h-3.5 w-3.5" />
                   <span>{result.executionTimeMs}ms</span>
                 </div>
-                <Badge className="bg-indigo-100 text-indigo-700">
-                  v{result.version}
-                </Badge>
-                {result.results && (
-                  <span className="text-gray-500">
-                    {result.results.length} result
-                    {result.results.length !== 1 ? 's' : ''} matched
-                  </span>
-                )}
               </div>
+
+              {/* Error message from engine */}
+              {result.error && (
+                <div className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg p-4">
+                  <AlertCircle className="h-5 w-5 text-red-500 flex-shrink-0 mt-0.5" />
+                  <div>
+                    <h4 className="text-sm font-medium text-red-800">Engine Error</h4>
+                    <p className="text-sm text-red-600 mt-1">{result.error}</p>
+                  </div>
+                </div>
+              )}
 
               {/* Output */}
               <div>
@@ -200,69 +211,35 @@ export function TestBench({ ruleId, version }: TestBenchProps) {
                   Output
                 </h4>
                 <pre className="bg-gray-900 text-green-400 rounded-lg p-4 text-xs font-mono overflow-auto max-h-64 leading-relaxed">
-                  {JSON.stringify(result.results, null, 2)}
+                  {JSON.stringify(result.output, null, 2)}
                 </pre>
               </div>
 
-              {/* Matched Rules */}
-              {result.results && result.results.length > 0 && (
-                <div>
-                  <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
-                    Matched Rules
-                  </h4>
-                  <div className="space-y-1">
-                    {result.results.map((r, i) => (
-                      <div
-                        key={i}
-                        className="flex items-center justify-between bg-gray-50 rounded px-3 py-2 text-sm"
-                      >
-                        <span className="text-gray-700">
-                          Rule {i + 1}
-                          {(r as Record<string, unknown>).ruleName
-                            ? `: ${(r as Record<string, unknown>).ruleName}`
-                            : ''}
-                        </span>
-                        {(r as Record<string, unknown>).priority !== undefined && (
-                          <Badge className="bg-gray-200 text-gray-600">
-                            Priority: {String((r as Record<string, unknown>).priority)}
-                          </Badge>
-                        )}
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {/* Trace */}
-              {(result as unknown as Record<string, unknown>).trace && (
+              {/* Logs */}
+              {result.logs && result.logs.length > 0 && (
                 <div>
                   <button
                     className="flex items-center gap-1 text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2 hover:text-gray-800"
-                    onClick={() => setTraceExpanded(!traceExpanded)}
+                    onClick={() => setLogsExpanded(!logsExpanded)}
                   >
-                    {traceExpanded ? (
+                    {logsExpanded ? (
                       <ChevronDown className="h-3.5 w-3.5" />
                     ) : (
                       <ChevronRight className="h-3.5 w-3.5" />
                     )}
-                    Execution Trace
+                    Execution Logs ({result.logs.length})
                   </button>
-                  {traceExpanded && (
-                    <pre className="bg-gray-50 border border-gray-200 rounded-lg p-3 text-xs font-mono overflow-auto max-h-48 text-gray-600 leading-relaxed">
-                      {JSON.stringify(
-                        (result as unknown as Record<string, unknown>).trace,
-                        null,
-                        2,
-                      )}
-                    </pre>
+                  {logsExpanded && (
+                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-1">
+                      {result.logs.map((log, i) => (
+                        <div key={i} className="text-xs font-mono text-gray-600">
+                          {log}
+                        </div>
+                      ))}
+                    </div>
                   )}
                 </div>
               )}
-
-              {/* Correlation ID */}
-              <div className="text-xs text-gray-400">
-                Correlation ID: {result.correlationId}
-              </div>
             </>
           )}
         </div>

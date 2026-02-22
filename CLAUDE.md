@@ -5,6 +5,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Build & Development Commands
 
 ```bash
+# === Local Development (recommended) ===
+./scripts/start-local.sh           # Build & start everything (infra + services + frontend)
+./scripts/start-local.sh --skip-build --skip-infra  # Restart services only (fast)
+./scripts/stop-local.sh            # Stop all services (infra stays running)
+./scripts/stop-local.sh --include-infra  # Stop everything including Docker
+./scripts/smoke-test.sh            # Run smoke tests (health + API flows)
+./scripts/smoke-test.sh --quick    # Health checks only
+./scripts/smoke-test.sh --verbose  # Show response bodies
+
+# === Individual Components ===
+
 # Infrastructure (PostgreSQL, Redis, Kafka, Elasticsearch, MinIO)
 make infra-up          # Start infrastructure containers
 make infra-down        # Stop infrastructure
@@ -31,10 +42,20 @@ cd ai-service && uvicorn app.main:app --reload --port 8000
 # Database migrations
 make migrate           # Run Flyway migrations against local PG
 
-# Full stack
+# Full stack (Docker Compose — alternative to scripts)
 make stack-up          # Build and start everything (Docker Compose)
 make stack-down        # Stop everything
 ```
+
+### Test Accounts (from V021 seed migration)
+
+| Email | Password | Org | Role |
+|-------|----------|-----|------|
+| admin@ruleforge.io | password123 | Acme Corp | OWNER |
+| editor@ruleforge.io | password123 | Acme Corp | EDITOR |
+| viewer@ruleforge.io | password123 | Test Org | VIEWER |
+
+Run `docker exec -i docker-postgres-1 psql -U ruleforge -d ruleforge < db/migrations/V021__seed_test_accounts.sql` to apply seed data.
 
 ## Project Structure
 
@@ -44,7 +65,7 @@ ruleforge/
 ├── platform/        # Microservices (Gradle, Spring Boot 3.3)
 ├── frontend/        # Web UI (Vite, React 18, TypeScript, Tailwind)
 ├── ai-service/      # AI assistant (Python, FastAPI)
-├── db/migrations/   # Flyway SQL migrations (V001-V020)
+├── db/migrations/   # Flyway SQL migrations (V001-V021)
 ├── infra/           # Docker Compose, Kong gateway, Helm charts
 └── docs/            # Architecture design documents
 ```
@@ -109,6 +130,8 @@ React 18 + TypeScript + Vite. Zustand for client state, React Query for server s
 
 Routes `/v1/solve` → solver, `/v1/rules|folders|tags` → management, `/v1/auth|users|organizations|spaces|api-keys` → auth, `/v1/analytics` → analytics, `/v1/ai` → ai-service, `/v1/sso` → auth, `/v1/schedules|batch` → scheduler, `/v1/connectors|connections` → connector.
 
+**Local dev**: Kong is not used. Vite proxy in `frontend/vite.config.ts` routes directly to individual service ports (8081-8087).
+
 ### Multi-Tenancy
 
 Organization → Space → Folder → Rule. PostgreSQL RLS on all tenant tables. TenantContext propagated via ThreadLocal from JWT/API key.
@@ -118,4 +141,14 @@ Organization → Space → Folder → Rule. PostgreSQL RLS on all tenant tables.
 - **Phase 1 MVP** (DONE): Tables + Trees engine, Auth, Management, Solver, Event, basic frontend
 - **Phase 2** (DONE): Scripting (GraalVM), Flows, Connectors, SSO config, Scheduler, Import/Export
 - **Phase 3** (DONE): Analytics, Scorecard, Ensemble, SDKs, A/B Testing
-- **Phase 4** (IN PROGRESS): AI Assistant, DMN, CEP, Embedded JAR, WASM
+- **Phase 4** (DONE): AI Assistant, DMN, CEP, Hierarchy, Embedded JAR, startup scripts
+- **Phase 5** (DONE): Quality, completeness, tests, local boot fixes
+
+### Local Development Notes
+
+- All services use `flyway.enabled: false` + `spring.jpa.hibernate.ddl-auto: update` for local dev (Flyway migrations applied separately via `db/migrations/`)
+- JSONB columns require `@JdbcTypeCode(SqlTypes.JSON)` annotation in Hibernate entities
+- JWT HS512 requires a secret key of 64+ bytes
+- `NoOpEventPublisher` bean is auto-registered when Kafka is unavailable (via `@ConditionalOnMissingBean`)
+- Frontend auth response shape: `{ accessToken, refreshToken, user: { id, email, fullName } }`
+- The `/auth/me` endpoint does NOT exist — use `/users/me` for current user info

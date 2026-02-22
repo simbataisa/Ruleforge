@@ -9,14 +9,15 @@ public record CreateRuleRequest(
         @NotBlank(message = "Name is required")
         String name,
 
-        @NotBlank(message = "Alias is required")
         @Pattern(regexp = "^[a-z0-9_-]+$", message = "Alias must contain only lowercase letters, numbers, hyphens, and underscores")
         String alias,
 
         @NotBlank(message = "Type is required")
-        @Pattern(regexp = "^(DECISION_TABLE|DECISION_TREE|EXPRESSION|SCRIPT|FLOW)$",
-                message = "Type must be one of: DECISION_TABLE, DECISION_TREE, EXPRESSION, SCRIPT, FLOW")
+        @Pattern(regexp = "^(TABLE|TREE|SCRIPT|FLOW|SCORECARD|DMN|CEP|ENSEMBLE)$",
+                message = "Type must be one of: TABLE, TREE, SCRIPT, FLOW, SCORECARD, DMN, CEP, ENSEMBLE")
         String type,
+
+        String description,
 
         UUID folderId,
 

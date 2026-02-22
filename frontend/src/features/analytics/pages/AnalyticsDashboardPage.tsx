@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Activity, Clock, TrendingUp, AlertCircle } from 'lucide-react';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Spinner } from '@/shared/components/Spinner';
-import { useAuthStore } from '@/stores/auth.store';
 import { useDashboardMetrics, useDecisionLogs } from '@/api/analytics.api';
 import { MetricCard } from '../components/MetricCard';
 import { TopRulesTable } from '../components/TopRulesTable';
@@ -18,9 +17,6 @@ const TIME_RANGES: TimeRange[] = [
 ];
 
 export function AnalyticsDashboardPage() {
-  const user = useAuthStore((s) => s.user);
-  const orgId = user?.id ?? '';
-
   const [selectedRange, setSelectedRange] = useState<TimeRange>(TIME_RANGES[1]);
   const [logsPage, setLogsPage] = useState(0);
 
@@ -28,13 +24,12 @@ export function AnalyticsDashboardPage() {
     data: metrics,
     isLoading: metricsLoading,
     isError: metricsError,
-  } = useDashboardMetrics(orgId, selectedRange.hours);
+  } = useDashboardMetrics(selectedRange.hours);
 
   const {
     data: logsData,
     isLoading: logsLoading,
   } = useDecisionLogs({
-    orgId,
     page: logsPage,
     size: 20,
   });

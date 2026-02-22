@@ -21,6 +21,8 @@ dependencies {
     implementation("io.ruleforge:ruleforge-tree:${property("version")}")
     implementation("io.ruleforge:ruleforge-scorecard:${property("version")}")
     implementation("io.ruleforge:ruleforge-ensemble:${property("version")}")
+    implementation("io.ruleforge:ruleforge-flow:${property("version")}")
+    implementation("io.ruleforge:ruleforge-dmn:${property("version")}")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }

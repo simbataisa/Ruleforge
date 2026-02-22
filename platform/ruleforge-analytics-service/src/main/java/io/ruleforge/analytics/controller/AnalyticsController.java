@@ -5,6 +5,7 @@ import io.ruleforge.analytics.dto.DecisionLogDto;
 import io.ruleforge.analytics.dto.DecisionQueryRequest;
 import io.ruleforge.analytics.dto.RuleStatsDto;
 import io.ruleforge.analytics.service.AnalyticsService;
+import io.ruleforge.common.tenant.TenantContext;
 import org.springframework.data.domain.Page;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
@@ -40,7 +41,8 @@ public class AnalyticsController {
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
 
-        DecisionQueryRequest request = new DecisionQueryRequest(orgId, ruleId, from, to, page, size);
+        String resolvedOrgId = (orgId != null) ? orgId : TenantContext.get().orgId().toString();
+        DecisionQueryRequest request = new DecisionQueryRequest(resolvedOrgId, ruleId, from, to, page, size);
         Page<DecisionLogDto> result = analyticsService.queryDecisions(request);
         return ResponseEntity.ok(result);
     }
@@ -52,10 +54,11 @@ public class AnalyticsController {
      */
     @GetMapping("/decisions/aggregate")
     public ResponseEntity<DashboardMetricsDto> aggregateDecisions(
-            @RequestParam String orgId,
+            @RequestParam(required = false) String orgId,
             @RequestParam(defaultValue = "24") int hours) {
 
-        DashboardMetricsDto metrics = analyticsService.getDashboardMetrics(orgId, hours);
+        String resolvedOrgId = (orgId != null) ? orgId : TenantContext.get().orgId().toString();
+        DashboardMetricsDto metrics = analyticsService.getDashboardMetrics(resolvedOrgId, hours);
         return ResponseEntity.ok(metrics);
     }
 
@@ -80,10 +83,11 @@ public class AnalyticsController {
      */
     @GetMapping("/dashboard")
     public ResponseEntity<DashboardMetricsDto> dashboard(
-            @RequestParam String orgId,
+            @RequestParam(required = false) String orgId,
             @RequestParam(defaultValue = "24") int hours) {
 
-        DashboardMetricsDto metrics = analyticsService.getDashboardMetrics(orgId, hours);
+        String resolvedOrgId = (orgId != null) ? orgId : TenantContext.get().orgId().toString();
+        DashboardMetricsDto metrics = analyticsService.getDashboardMetrics(resolvedOrgId, hours);
         return ResponseEntity.ok(metrics);
     }
 }

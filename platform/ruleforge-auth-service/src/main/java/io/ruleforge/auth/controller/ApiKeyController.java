@@ -56,6 +56,19 @@ public class ApiKeyController {
         return ApiResponse.ok(keys);
     }
 
+    /**
+     * Convenience endpoint: list all API keys for the current org (no spaceId required).
+     */
+    @GetMapping("/v1/api-keys")
+    public ApiResponse<List<ApiKeyDto>> listApiKeysForOrg(Authentication authentication) {
+        UUID userId = (UUID) authentication.getPrincipal();
+        TenantContext.TenantInfo tenant = TenantContext.get();
+        organizationService.ensureMember(tenant.orgId(), userId);
+
+        List<ApiKeyDto> keys = apiKeyService.listApiKeysForOrg(tenant.orgId());
+        return ApiResponse.ok(keys);
+    }
+
     @DeleteMapping("/v1/api-keys/{keyId}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
     public ApiResponse<Void> revokeApiKey(

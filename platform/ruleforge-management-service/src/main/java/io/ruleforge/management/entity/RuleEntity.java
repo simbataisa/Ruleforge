@@ -35,6 +35,9 @@ public class RuleEntity {
     @Column(nullable = false)
     private String type;
 
+    @Column
+    private String description;
+
     @Column(nullable = false)
     private String status;
 
@@ -111,6 +114,14 @@ public class RuleEntity {
 
     public void setAlias(String alias) {
         this.alias = alias;
+    }
+
+    public String getDescription() {
+        return description;
+    }
+
+    public void setDescription(String description) {
+        this.description = description;
     }
 
     public String getType() {

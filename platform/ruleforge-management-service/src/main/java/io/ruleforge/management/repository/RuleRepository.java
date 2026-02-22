@@ -6,6 +6,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -22,4 +23,10 @@ public interface RuleRepository extends JpaRepository<RuleEntity, UUID> {
     Page<RuleEntity> findBySpaceIdAndStatus(UUID spaceId, String status, Pageable pageable);
 
     Page<RuleEntity> findBySpaceIdAndFolderIdAndStatus(UUID spaceId, UUID folderId, String status, Pageable pageable);
+
+    Page<RuleEntity> findBySpaceIdIn(Collection<UUID> spaceIds, Pageable pageable);
+
+    Page<RuleEntity> findBySpaceIdInAndStatus(Collection<UUID> spaceIds, String status, Pageable pageable);
+
+    Page<RuleEntity> findBySpaceIdInAndFolderId(Collection<UUID> spaceIds, UUID folderId, Pageable pageable);
 }

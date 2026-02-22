@@ -1,5 +1,6 @@
 package io.ruleforge.connector.controller;
 
+import io.ruleforge.common.tenant.TenantContext;
 import io.ruleforge.connector.dto.*;
 import io.ruleforge.connector.service.ConnectorService;
 import jakarta.validation.Valid;
@@ -26,7 +27,11 @@ public class ConnectorController {
     }
 
     @GetMapping
-    public ResponseEntity<List<ConnectorDto>> list(@RequestParam UUID spaceId) {
+    public ResponseEntity<List<ConnectorDto>> list(@RequestParam(required = false) UUID spaceId) {
+        if (spaceId == null) {
+            UUID orgId = TenantContext.get().orgId();
+            return ResponseEntity.ok(connectorService.findByOrgId(orgId));
+        }
         return ResponseEntity.ok(connectorService.findBySpaceId(spaceId));
     }
 

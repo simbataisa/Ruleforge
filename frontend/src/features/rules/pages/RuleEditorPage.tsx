@@ -8,9 +8,11 @@ import {
   GitBranch,
   FlaskConical,
   Settings,
+  Plus,
 } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Badge } from '@/shared/components/Badge';
+import { Input } from '@/shared/components/Input';
 import { Select } from '@/shared/components/Select';
 import { Spinner } from '@/shared/components/Spinner';
 import { Breadcrumb } from '@/shared/components/Breadcrumb';
@@ -19,6 +21,8 @@ import {
   useUpdateRule,
   useRuleVersions,
   usePublishVersion,
+  useUpdateVersion,
+  useCreateVersion,
 } from '@/api/rules.api';
 import { useEditorStore } from '@/stores/editor.store';
 import { useToastStore } from '@/stores/toast.store';
@@ -79,6 +83,30 @@ function formatDate(dateStr: string): string {
   });
 }
 
+function getDefinitionFromStore(
+  ruleType: string,
+  tableToDefinition: () => unknown,
+  treeToDefinition: () => unknown,
+  scriptState: { scriptBody: string; language: string; timeout: number; maxMemoryMb: number },
+  flowToDefinition: () => unknown,
+  scorecardToDefinition: () => unknown,
+  ensembleToDefinition: () => unknown,
+  dmnToDefinition: () => unknown,
+  cepToDefinition: () => unknown,
+): unknown {
+  switch (ruleType) {
+    case 'TABLE': return tableToDefinition();
+    case 'TREE': return treeToDefinition();
+    case 'SCRIPT': return scriptState;
+    case 'FLOW': return flowToDefinition();
+    case 'SCORECARD': return scorecardToDefinition();
+    case 'ENSEMBLE': return ensembleToDefinition();
+    case 'DMN': return dmnToDefinition();
+    case 'CEP': return cepToDefinition();
+    default: return null;
+  }
+}
+
 export function RuleEditorPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
@@ -88,10 +116,17 @@ export function RuleEditorPage() {
   const [activeTab, setActiveTab] = useState<EditorTab>('definition');
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
 
+  // Settings tab local state
+  const [settingsName, setSettingsName] = useState('');
+  const [settingsDescription, setSettingsDescription] = useState('');
+  const [settingsAlias, setSettingsAlias] = useState('');
+
   const { data: ruleData, isLoading: ruleLoading } = useRule(id!);
   const { data: versionsData, isLoading: versionsLoading } = useRuleVersions(id!);
   const updateRule = useUpdateRule();
   const publishVersion = usePublishVersion();
+  const updateVersion = useUpdateVersion();
+  const createVersion = useCreateVersion();
 
   const tableToDefinition = useTableEditorStore((s) => s.toDefinition);
   const treeToDefinition = useTreeEditorStore((s) => s.toDefinition);
@@ -100,10 +135,15 @@ export function RuleEditorPage() {
   const setScriptDefinition = useScriptEditorStore((s) => s.setDefinition);
   const scriptState = useScriptEditorStore((s) => ({ scriptBody: s.scriptBody, language: s.language, timeout: s.timeout, maxMemoryMb: s.maxMemoryMb }));
   const setFlowDefinition = useFlowEditorStore((s) => s.setDefinition);
+  const flowDefinition = useFlowEditorStore((s) => s.definition);
   const loadScorecardDefinition = useScorecardEditorStore((s) => s.loadFromDefinition);
+  const scorecardToDefinition = useScorecardEditorStore((s) => s.toDefinition);
   const loadEnsembleDefinition = useEnsembleEditorStore((s) => s.loadFromDefinition);
+  const ensembleToDefinition = useEnsembleEditorStore((s) => s.toDefinition);
   const loadDmnDefinition = useDmnEditorStore((s) => s.loadFromDefinition);
+  const dmnToDefinition = useDmnEditorStore((s) => s.toDefinition);
   const loadCepDefinition = useCepEditorStore((s) => s.loadFromDefinition);
+  const cepToDefinition = useCepEditorStore((s) => s.toDefinition);
 
   const rule = ruleData;
   const versions: RuleVersion[] = Array.isArray(versionsData) ? versionsData : [];
@@ -146,10 +186,35 @@ export function RuleEditorPage() {
     }
   }, [rule, selectedVersion]);
 
+  // Initialize settings tab from rule data
+  useEffect(() => {
+    if (rule) {
+      setSettingsName(rule.name ?? '');
+      setSettingsDescription(rule.description ?? '');
+      setSettingsAlias(rule.alias ?? '');
+    }
+  }, [rule]);
+
   const handleSave = useCallback(() => {
-    if (!id || !currentVersion) return;
-    updateRule.mutate(
-      { id, data: { description: rule?.description } },
+    if (!id || !currentVersion || !rule) return;
+
+    const definition = getDefinitionFromStore(
+      rule.type, tableToDefinition, treeToDefinition, scriptState,
+      () => flowDefinition, scorecardToDefinition, ensembleToDefinition,
+      dmnToDefinition, cepToDefinition,
+    );
+
+    if (currentVersion.status !== 'DRAFT') {
+      addToast({ type: 'error', title: 'Cannot save — version is not a draft' });
+      return;
+    }
+
+    updateVersion.mutate(
+      {
+        ruleId: id,
+        version: currentVersion.version,
+        data: { definition: JSON.stringify(definition) },
+      },
       {
         onSuccess: () => {
           setDirty(false);
@@ -160,7 +225,36 @@ export function RuleEditorPage() {
         },
       },
     );
-  }, [id, currentVersion, rule?.type, tableToDefinition, treeToDefinition, updateRule, setDirty, addToast]);
+  }, [id, currentVersion, rule, tableToDefinition, treeToDefinition, scriptState, flowDefinition, scorecardToDefinition, ensembleToDefinition, dmnToDefinition, cepToDefinition, updateVersion, setDirty, addToast]);
+
+  const handleCreateVersion = useCallback(() => {
+    if (!id || !rule) return;
+
+    const definition = getDefinitionFromStore(
+      rule.type, tableToDefinition, treeToDefinition, scriptState,
+      () => flowDefinition, scorecardToDefinition, ensembleToDefinition,
+      dmnToDefinition, cepToDefinition,
+    );
+
+    createVersion.mutate(
+      {
+        ruleId: id,
+        data: {
+          definition: JSON.stringify(definition),
+          changeNote: 'New version',
+        },
+      },
+      {
+        onSuccess: (newVersion) => {
+          setSelectedVersion(newVersion.version);
+          addToast({ type: 'success', title: `Version ${newVersion.version} created` });
+        },
+        onError: () => {
+          addToast({ type: 'error', title: 'Failed to create version' });
+        },
+      },
+    );
+  }, [id, rule, tableToDefinition, treeToDefinition, scriptState, flowDefinition, scorecardToDefinition, ensembleToDefinition, dmnToDefinition, cepToDefinition, createVersion, addToast]);
 
   const handlePublish = useCallback(() => {
     if (!id || !currentVersion) return;
@@ -176,6 +270,21 @@ export function RuleEditorPage() {
       },
     );
   }, [id, currentVersion, publishVersion, addToast]);
+
+  const handleSaveSettings = useCallback(() => {
+    if (!id) return;
+    updateRule.mutate(
+      { id, data: { name: settingsName, description: settingsDescription, alias: settingsAlias } },
+      {
+        onSuccess: () => {
+          addToast({ type: 'success', title: 'Settings saved successfully' });
+        },
+        onError: () => {
+          addToast({ type: 'error', title: 'Failed to save settings' });
+        },
+      },
+    );
+  }, [id, settingsName, settingsDescription, settingsAlias, updateRule, addToast]);
 
   if (ruleLoading || versionsLoading) {
     return (
@@ -198,6 +307,11 @@ export function RuleEditorPage() {
       </div>
     );
   }
+
+  const latestVersion = versions.length > 0
+    ? versions.reduce((max, v) => v.version > max.version ? v : max, versions[0])
+    : null;
+  const canCreateVersion = latestVersion?.status === 'PUBLISHED' || latestVersion?.status === 'DEPRECATED';
 
   return (
     <div className="flex flex-col h-full">
@@ -241,8 +355,8 @@ export function RuleEditorPage() {
             <Button
               variant="outline"
               onClick={handleSave}
-              loading={updateRule.isPending}
-              disabled={!isDirty}
+              loading={updateVersion.isPending}
+              disabled={!isDirty || currentVersion?.status !== 'DRAFT'}
             >
               <Save className="h-4 w-4" />
               Save
@@ -314,9 +428,22 @@ export function RuleEditorPage() {
         {activeTab === 'versions' && (
           <div className="p-6 overflow-auto">
             <div className="max-w-3xl">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Version History
-              </h2>
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-lg font-semibold text-gray-900">
+                  Version History
+                </h2>
+                {canCreateVersion && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={handleCreateVersion}
+                    loading={createVersion.isPending}
+                  >
+                    <Plus className="h-4 w-4" />
+                    New Version
+                  </Button>
+                )}
+              </div>
               <div className="space-y-3">
                 {versions.length === 0 ? (
                   <p className="text-gray-500">No versions available.</p>
@@ -373,27 +500,39 @@ export function RuleEditorPage() {
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Rule Name
                 </label>
-                <p className="text-sm text-gray-900">{rule.name}</p>
+                <Input
+                  value={settingsName}
+                  onChange={(e) => setSettingsName(e.target.value)}
+                  placeholder="Rule name"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Alias
+                </label>
+                <Input
+                  value={settingsAlias}
+                  onChange={(e) => setSettingsAlias(e.target.value)}
+                  placeholder="rule-alias"
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Description
+                </label>
+                <textarea
+                  value={settingsDescription}
+                  onChange={(e) => setSettingsDescription(e.target.value)}
+                  placeholder="Enter a description for this rule"
+                  rows={4}
+                  className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+                />
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
                   Type
                 </label>
                 <p className="text-sm text-gray-900">{rule.type}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Alias
-                </label>
-                <p className="text-sm text-gray-900">{rule.alias ?? 'Not set'}</p>
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Description
-                </label>
-                <p className="text-sm text-gray-900">
-                  {rule.description ?? 'No description'}
-                </p>
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1">
@@ -406,6 +545,14 @@ export function RuleEditorPage() {
                   Last Updated
                 </label>
                 <p className="text-sm text-gray-500">{formatDate(rule.updatedAt)}</p>
+              </div>
+              <div className="pt-2">
+                <Button
+                  onClick={handleSaveSettings}
+                  loading={updateRule.isPending}
+                >
+                  Save Settings
+                </Button>
               </div>
             </div>
           </div>

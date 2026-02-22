@@ -4,7 +4,9 @@ import io.ruleforge.common.exception.EntityNotFoundException;
 import io.ruleforge.management.dto.AbTestDto;
 import io.ruleforge.management.dto.CreateAbTestRequest;
 import io.ruleforge.management.entity.AbTestEntity;
+import io.ruleforge.management.entity.SpaceEntity;
 import io.ruleforge.management.repository.AbTestRepository;
+import io.ruleforge.management.repository.SpaceRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -20,9 +22,11 @@ public class AbTestService {
     private static final Logger log = LoggerFactory.getLogger(AbTestService.class);
 
     private final AbTestRepository abTestRepository;
+    private final SpaceRepository spaceRepository;
 
-    public AbTestService(AbTestRepository abTestRepository) {
+    public AbTestService(AbTestRepository abTestRepository, SpaceRepository spaceRepository) {
         this.abTestRepository = abTestRepository;
+        this.spaceRepository = spaceRepository;
     }
 
     @Transactional
@@ -42,6 +46,19 @@ public class AbTestService {
         entity = abTestRepository.save(entity);
         log.info("A/B test created: id={}, ruleId={}, name={}", entity.getId(), ruleId, entity.getName());
         return toDto(entity);
+    }
+
+    @Transactional(readOnly = true)
+    public List<AbTestDto> findAllForOrg(UUID orgId) {
+        List<UUID> spaceIds = spaceRepository.findByOrgId(orgId).stream()
+                .map(SpaceEntity::getId)
+                .toList();
+        if (spaceIds.isEmpty()) {
+            return List.of();
+        }
+        return abTestRepository.findBySpaceIdIn(spaceIds).stream()
+                .map(this::toDto)
+                .toList();
     }
 
     @Transactional(readOnly = true)

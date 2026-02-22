@@ -92,6 +92,13 @@ public class ApiKeyService implements ApiKeyValidator {
                 .toList();
     }
 
+    @Transactional(readOnly = true)
+    public List<ApiKeyDto> listApiKeysForOrg(UUID orgId) {
+        return apiKeyRepository.findByOrgId(orgId).stream()
+                .map(this::toDto)
+                .toList();
+    }
+
     @Transactional
     public void revokeApiKey(UUID keyId) {
         ApiKeyEntity entity = apiKeyRepository.findById(keyId)

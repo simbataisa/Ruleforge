@@ -9,6 +9,8 @@ import io.ruleforge.core.RuleForgeEngine;
 import io.ruleforge.core.model.RuleDefinition;
 import io.ruleforge.core.model.RuleMetadata;
 import io.ruleforge.core.model.RuleType;
+import io.ruleforge.core.memory.WorkingMemory;
+import io.ruleforge.core.model.CompiledRule;
 import io.ruleforge.core.result.RuleResult;
 import io.ruleforge.management.dto.TestResultDto;
 import io.ruleforge.management.dto.TestRuleRequest;
@@ -151,10 +153,15 @@ public class RuleValidationService {
                     definitionMap
             );
 
-            // Compile and evaluate using the engine
-            var compiledRule = ruleForgeEngine.compile(ruleDefinition);
-            RuleResult result = ruleForgeEngine.evaluate(
-                    ruleId.toString(), versionEntity.getVersion(), request.input());
+            // Compile the rule definition
+            CompiledRule compiledRule = ruleForgeEngine.compile(ruleDefinition);
+
+            // Build WorkingMemory from input map
+            WorkingMemory workingMemory = new WorkingMemory();
+            workingMemory.loadFromMap(request.input());
+
+            // Evaluate using compiled rule directly (no RuleStore needed)
+            RuleResult result = ruleForgeEngine.evaluate(compiledRule, workingMemory);
 
             List<String> logs = new ArrayList<>();
             logs.add("Engine evaluation completed successfully");
@@ -195,10 +202,9 @@ public class RuleValidationService {
 
     private RuleType mapRuleType(String type) {
         return switch (type) {
-            case "DECISION_TABLE" -> RuleType.DECISION_TABLE;
-            case "DECISION_TREE" -> RuleType.DECISION_TREE;
-            case "EXPRESSION" -> RuleType.SCRIPTING_RULE;
-            case "SCRIPT" -> RuleType.SCRIPTING_RULE;
+            case "TABLE", "DECISION_TABLE" -> RuleType.DECISION_TABLE;
+            case "TREE", "DECISION_TREE" -> RuleType.DECISION_TREE;
+            case "SCRIPT", "EXPRESSION" -> RuleType.SCRIPTING_RULE;
             case "FLOW" -> RuleType.RULE_FLOW;
             case "SCORECARD" -> RuleType.SCORECARD;
             case "ENSEMBLE" -> RuleType.ENSEMBLE;
@@ -211,7 +217,7 @@ public class RuleValidationService {
     private void validateStructure(String ruleType, JsonNode definition,
                                    List<ErrorDto> errors, List<WarningDto> warnings) {
         switch (ruleType) {
-            case "DECISION_TABLE" -> {
+            case "TABLE", "DECISION_TABLE" -> {
                 if (!definition.has("columns")) {
                     errors.add(new ErrorDto("definition.columns", "Decision table must have columns",
                             "MISSING_COLUMNS"));
@@ -221,21 +227,15 @@ public class RuleValidationService {
                             "EMPTY_ROWS"));
                 }
             }
-            case "DECISION_TREE" -> {
+            case "TREE", "DECISION_TREE" -> {
                 if (!definition.has("root")) {
                     errors.add(new ErrorDto("definition.root", "Decision tree must have a root node",
                             "MISSING_ROOT"));
                 }
             }
-            case "EXPRESSION" -> {
-                if (!definition.has("expression")) {
-                    errors.add(new ErrorDto("definition.expression", "Expression rule must have an expression",
-                            "MISSING_EXPRESSION"));
-                }
-            }
-            case "SCRIPT" -> {
-                if (!definition.has("script")) {
-                    errors.add(new ErrorDto("definition.script", "Script rule must have a script body",
+            case "SCRIPT", "EXPRESSION" -> {
+                if (!definition.has("scriptBody") && !definition.has("script") && !definition.has("expression")) {
+                    errors.add(new ErrorDto("definition.scriptBody", "Script rule must have a script body",
                             "MISSING_SCRIPT"));
                 }
             }
@@ -250,23 +250,35 @@ public class RuleValidationService {
                 }
             }
             case "SCORECARD" -> {
-                if (!definition.has("characteristics")) {
-                    errors.add(new ErrorDto("definition.characteristics",
-                            "Scorecard must have characteristics", "MISSING_CHARACTERISTICS"));
+                if (!definition.has("categories")) {
+                    errors.add(new ErrorDto("definition.categories",
+                            "Scorecard must have categories", "MISSING_CATEGORIES"));
                 }
-                if (!definition.has("initialScore")) {
-                    warnings.add(new WarningDto("definition.initialScore",
-                            "Scorecard has no initial score defined", "MISSING_INITIAL_SCORE"));
+                if (!definition.has("baseScore")) {
+                    warnings.add(new WarningDto("definition.baseScore",
+                            "Scorecard has no base score defined", "MISSING_BASE_SCORE"));
                 }
             }
             case "ENSEMBLE" -> {
-                if (!definition.has("subRules")) {
-                    errors.add(new ErrorDto("definition.subRules",
-                            "Ensemble must have sub-rules defined", "MISSING_SUB_RULES"));
+                if (!definition.has("members")) {
+                    errors.add(new ErrorDto("definition.members",
+                            "Ensemble must have members defined", "MISSING_MEMBERS"));
                 }
                 if (!definition.has("strategy")) {
                     warnings.add(new WarningDto("definition.strategy",
                             "Ensemble has no aggregation strategy defined", "MISSING_STRATEGY"));
+                }
+            }
+            case "DMN" -> {
+                if (!definition.has("decisions")) {
+                    errors.add(new ErrorDto("definition.decisions",
+                            "DMN rule must have decisions defined", "MISSING_DECISIONS"));
+                }
+            }
+            case "CEP" -> {
+                if (!definition.has("patternType")) {
+                    errors.add(new ErrorDto("definition.patternType",
+                            "CEP rule must have a pattern type", "MISSING_PATTERN_TYPE"));
                 }
             }
             default -> warnings.add(new WarningDto("type",
