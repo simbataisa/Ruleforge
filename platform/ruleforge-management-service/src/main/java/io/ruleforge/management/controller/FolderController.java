@@ -40,7 +40,8 @@ public class FolderController {
     }
 
     /**
-     * List folders across all spaces for the current org (convenience endpoint for frontend).
+     * List folders across all spaces for the current org (convenience endpoint for
+     * frontend).
      */
     @GetMapping("/folders")
     public ApiResponse<List<FolderDto>> listFoldersForOrg(
@@ -57,11 +58,30 @@ public class FolderController {
         return ApiResponse.ok(allFolders);
     }
 
+    /**
+     * Create a folder without specifying spaceId in the path (convenience endpoint
+     * for frontend).
+     * Resolves the default space from the current org.
+     */
+    @PostMapping("/folders")
+    @ResponseStatus(HttpStatus.CREATED)
+    @AuditLog(action = "CREATE_FOLDER", resourceType = "Folder")
+    public ApiResponse<FolderDto> createFolderForOrg(@Valid @RequestBody CreateFolderRequest request) {
+        UUID orgId = TenantContext.get().orgId();
+        List<SpaceEntity> spaces = spaceRepository.findByOrgId(orgId);
+        if (spaces.isEmpty()) {
+            throw new IllegalStateException("No spaces found for org " + orgId);
+        }
+        UUID spaceId = spaces.get(0).getId();
+        FolderDto folder = folderService.createFolder(spaceId, request);
+        return ApiResponse.ok(folder, "Folder created successfully");
+    }
+
     @PostMapping("/spaces/{spaceId}/folders")
     @ResponseStatus(HttpStatus.CREATED)
     @AuditLog(action = "CREATE_FOLDER", resourceType = "Folder")
     public ApiResponse<FolderDto> createFolder(@PathVariable UUID spaceId,
-                                               @Valid @RequestBody CreateFolderRequest request) {
+            @Valid @RequestBody CreateFolderRequest request) {
         FolderDto folder = folderService.createFolder(spaceId, request);
         return ApiResponse.ok(folder, "Folder created successfully");
     }
@@ -81,7 +101,7 @@ public class FolderController {
     @PutMapping("/folders/{folderId}")
     @AuditLog(action = "UPDATE_FOLDER", resourceType = "Folder")
     public ApiResponse<FolderDto> updateFolder(@PathVariable UUID folderId,
-                                               @Valid @RequestBody UpdateFolderRequest request) {
+            @Valid @RequestBody UpdateFolderRequest request) {
         FolderDto folder = folderService.updateFolder(folderId, request);
         return ApiResponse.ok(folder, "Folder updated successfully");
     }

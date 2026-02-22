@@ -296,30 +296,30 @@ main() {
   info "Starting platform services..."
 
   # Phase 1: auth-service first (others depend on it)
-  start_service "auth-service" 8081
-  wait_for_http "auth-service" 8081
+  start_service "ruleforge-auth-service" 8081
+  wait_for_http "ruleforge-auth-service" 8081
 
   # Phase 2: independent services in parallel
-  start_service "management-service" 8082
-  start_service "event-service" 8084
-  start_service "connector-service" 8087
+  start_service "ruleforge-management-service" 8082
+  start_service "ruleforge-event-service" 8084
+  start_service "ruleforge-connector-service" 8087
 
   # Phase 3: solver depends on auth
-  start_service "solver-service" 8083
+  start_service "ruleforge-solver-service" 8083
 
   # Wait for parallel services
-  wait_for_http "management-service" 8082 || true
-  wait_for_http "event-service" 8084 || true
-  wait_for_http "connector-service" 8087 || true
-  wait_for_http "solver-service" 8083 || true
+  wait_for_http "ruleforge-management-service" 8082 || true
+  wait_for_http "ruleforge-event-service" 8084 || true
+  wait_for_http "ruleforge-connector-service" 8087 || true
+  wait_for_http "ruleforge-solver-service" 8083 || true
 
   # Phase 4: analytics depends on Kafka + ES
-  start_service "analytics-service" 8085
-  wait_for_http "analytics-service" 8085 || true
+  start_service "ruleforge-analytics-service" 8085
+  wait_for_http "ruleforge-analytics-service" 8085 || true
 
   # Phase 5: scheduler depends on solver
-  start_service "scheduler-service" 8086
-  wait_for_http "scheduler-service" 8086 || true
+  start_service "ruleforge-scheduler-service" 8086
+  wait_for_http "ruleforge-scheduler-service" 8086 || true
 
   # --- AI Service (optional) ---
   if command -v python3 &>/dev/null && [[ -f "$PROJECT_ROOT/ai-service/requirements.txt" ]]; then
@@ -357,13 +357,13 @@ main() {
     pid=$(<"$pidfile")
     name=$(basename "$pidfile" .pid)
     case "$name" in
-      auth-service)       port=8081 ;;
-      management-service) port=8082 ;;
-      solver-service)     port=8083 ;;
-      event-service)      port=8084 ;;
-      analytics-service)  port=8085 ;;
-      scheduler-service)  port=8086 ;;
-      connector-service)  port=8087 ;;
+      ruleforge-auth-service)       port=8081 ;;
+      ruleforge-management-service) port=8082 ;;
+      ruleforge-solver-service)     port=8083 ;;
+      ruleforge-event-service)      port=8084 ;;
+      ruleforge-analytics-service)  port=8085 ;;
+      ruleforge-scheduler-service)  port=8086 ;;
+      ruleforge-connector-service)  port=8087 ;;
       ai-service)         port=8000 ;;
       frontend)           port=3000 ;;
       *)                  port="----" ;;
