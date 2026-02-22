@@ -71,6 +71,14 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
     isDirty: true,
   })),
   selectNode: (id) => set({ selectedNodeId: id }),
-  setDefinition: (def) => set({ definition: def, isDirty: false }),
+  setDefinition: (def) => set({
+    definition: {
+      nodes: def.nodes ?? [],
+      edges: def.edges ?? [],
+      startNodeId: def.startNodeId ?? '',
+      maxIterations: def.maxIterations ?? 100,
+    },
+    isDirty: false,
+  }),
   reset: () => set({ definition: DEFAULT_DEFINITION, selectedNodeId: null, isDirty: false }),
 }));

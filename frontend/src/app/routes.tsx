@@ -1,5 +1,5 @@
 import { lazy, Suspense } from 'react';
-import { Routes, Route, Navigate } from 'react-router-dom';
+import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { Layout } from './Layout';
 import { ProtectedRoute } from './ProtectedRoute';
 import { ErrorBoundary } from './ErrorBoundary';
@@ -10,6 +10,7 @@ import { RuleEditorPage } from '@/features/rules/pages/RuleEditorPage';
 import { ApiKeysPage } from '@/features/api-keys/pages/ApiKeysPage';
 import { OrgSettingsPage } from '@/features/admin/pages/OrgSettingsPage';
 import { Spinner } from '@/shared/components/Spinner';
+import { ToastContainer } from '@/shared/components/Toast';
 
 const AuditLogPage = lazy(() =>
   import('@/features/audit/pages/AuditLogPage').then((m) => ({ default: m.AuditLogPage })),
@@ -61,87 +62,47 @@ function LazyFallback() {
   );
 }
 
-export function AppRoutes() {
-  return (
-    <Routes>
-      {/* Public routes */}
-      <Route path="/login" element={<LoginPage />} />
-      <Route path="/register" element={<RegisterPage />} />
-
-      {/* Protected routes with layout */}
-      <Route
-        element={
-          <ProtectedRoute>
-            <ErrorBoundary>
-              <Layout />
-            </ErrorBoundary>
-          </ProtectedRoute>
-        }
-      >
-        <Route path="/rules" element={<RuleListPage />} />
-        <Route path="/rules/:id/edit" element={<RuleEditorPage />} />
-        <Route path="/approvals" element={<Suspense fallback={<LazyFallback />}><ApprovalQueuePage /></Suspense>} />
-        <Route path="/api-keys" element={<ApiKeysPage />} />
-        <Route path="/settings" element={<OrgSettingsPage />} />
-        <Route path="/analytics" element={<Suspense fallback={<LazyFallback />}><AnalyticsDashboardPage /></Suspense>} />
-        <Route path="/analytics/rules/:ruleId" element={<Suspense fallback={<LazyFallback />}><RuleStatsPage /></Suspense>} />
-        <Route path="/schedules" element={<Suspense fallback={<LazyFallback />}><SchedulerPage /></Suspense>} />
-        <Route path="/connectors" element={<Suspense fallback={<LazyFallback />}><ConnectorsPage /></Suspense>} />
-        <Route path="/ab-tests" element={<Suspense fallback={<LazyFallback />}><AbTestListPage /></Suspense>} />
-        <Route path="/profile" element={<Suspense fallback={<LazyFallback />}><ProfilePage /></Suspense>} />
-        <Route
-          path="/audit"
-          element={
-            <Suspense fallback={<LazyFallback />}>
-              <AuditLogPage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="/webhooks"
-          element={
-            <Suspense fallback={<LazyFallback />}>
-              <WebhookListPage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="/tags"
-          element={
-            <Suspense fallback={<LazyFallback />}>
-              <TagListPage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="/spaces"
-          element={
-            <Suspense fallback={<LazyFallback />}>
-              <SpaceListPage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="/settings/sso"
-          element={
-            <Suspense fallback={<LazyFallback />}>
-              <SsoSettingsPage />
-            </Suspense>
-          }
-        />
-        <Route
-          path="/settings/members"
-          element={
-            <Suspense fallback={<LazyFallback />}>
-              <MemberManagementPage />
-            </Suspense>
-          }
-        />
-      </Route>
-
-      {/* Default redirect */}
-      <Route path="/" element={<Navigate to="/rules" replace />} />
-      <Route path="*" element={<Navigate to="/rules" replace />} />
-    </Routes>
-  );
+function Lazy({ children }: { children: React.ReactNode }) {
+  return <Suspense fallback={<LazyFallback />}>{children}</Suspense>;
 }
+
+export const router = createBrowserRouter([
+  /* Public routes */
+  { path: '/login', element: <LoginPage /> },
+  { path: '/register', element: <RegisterPage /> },
+
+  /* Protected routes with layout */
+  {
+    element: (
+      <ProtectedRoute>
+        <ErrorBoundary>
+          <Layout />
+          <ToastContainer />
+        </ErrorBoundary>
+      </ProtectedRoute>
+    ),
+    children: [
+      { path: '/rules', element: <RuleListPage /> },
+      { path: '/rules/:id/edit', element: <RuleEditorPage /> },
+      { path: '/approvals', element: <Lazy><ApprovalQueuePage /></Lazy> },
+      { path: '/api-keys', element: <ApiKeysPage /> },
+      { path: '/settings', element: <OrgSettingsPage /> },
+      { path: '/analytics', element: <Lazy><AnalyticsDashboardPage /></Lazy> },
+      { path: '/analytics/rules/:ruleId', element: <Lazy><RuleStatsPage /></Lazy> },
+      { path: '/schedules', element: <Lazy><SchedulerPage /></Lazy> },
+      { path: '/connectors', element: <Lazy><ConnectorsPage /></Lazy> },
+      { path: '/ab-tests', element: <Lazy><AbTestListPage /></Lazy> },
+      { path: '/profile', element: <Lazy><ProfilePage /></Lazy> },
+      { path: '/audit', element: <Lazy><AuditLogPage /></Lazy> },
+      { path: '/webhooks', element: <Lazy><WebhookListPage /></Lazy> },
+      { path: '/tags', element: <Lazy><TagListPage /></Lazy> },
+      { path: '/spaces', element: <Lazy><SpaceListPage /></Lazy> },
+      { path: '/settings/sso', element: <Lazy><SsoSettingsPage /></Lazy> },
+      { path: '/settings/members', element: <Lazy><MemberManagementPage /></Lazy> },
+    ],
+  },
+
+  /* Default redirect */
+  { path: '/', element: <Navigate to="/rules" replace /> },
+  { path: '*', element: <Navigate to="/rules" replace /> },
+]);
