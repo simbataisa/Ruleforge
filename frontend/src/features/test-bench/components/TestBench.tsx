@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { Play, Copy, Check, AlertCircle, Clock, ChevronDown, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Badge } from '@/shared/components/Badge';
@@ -206,21 +206,19 @@ export function TestBench({ ruleId, version }: TestBenchProps) {
                 </div>
               )}
 
-              {/* Output */}
+              {/* Output — syntax highlighted */}
               <div>
                 <h4 className="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">
                   Output
                 </h4>
-                <pre className="bg-gray-900 text-green-400 rounded-lg p-4 text-xs font-mono overflow-auto max-h-64 leading-relaxed">
-                  {JSON.stringify(result.output, null, 2)}
-                </pre>
+                <SyntaxHighlightedJson data={result.output} />
               </div>
 
-              {/* Logs */}
+              {/* Execution Logs — collapsible */}
               {result.logs && result.logs.length > 0 && (
                 <div>
                   <button
-                    className="flex items-center gap-1 text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2 hover:text-gray-800"
+                    className="flex items-center gap-1 text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2 hover:text-gray-800 transition-colors"
                     onClick={() => setLogsExpanded(!logsExpanded)}
                   >
                     {logsExpanded ? (
@@ -231,10 +229,11 @@ export function TestBench({ ruleId, version }: TestBenchProps) {
                     Execution Logs ({result.logs.length})
                   </button>
                   {logsExpanded && (
-                    <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-1">
+                    <div className="bg-gray-900 rounded-lg p-3 space-y-0.5 max-h-48 overflow-auto">
                       {result.logs.map((log, i) => (
-                        <div key={i} className="text-xs font-mono text-gray-600">
-                          {log}
+                        <div key={i} className="flex gap-2 text-xs font-mono">
+                          <span className="text-gray-500 select-none w-6 text-right flex-shrink-0">{i + 1}</span>
+                          <span className="text-gray-300">{log}</span>
                         </div>
                       ))}
                     </div>
@@ -247,4 +246,81 @@ export function TestBench({ ruleId, version }: TestBenchProps) {
       </div>
     </div>
   );
+}
+
+/** Renders JSON with syntax coloring for keys, strings, numbers, booleans, and null */
+function SyntaxHighlightedJson({ data }: { data: unknown }) {
+  const tokens = useMemo(() => tokenizeJson(data), [data]);
+  return (
+    <pre className="bg-gray-900 rounded-lg p-4 text-xs font-mono overflow-auto max-h-64 leading-relaxed">
+      {tokens.map((token, i) => (
+        <span key={i} className={tokenColor(token.type)}>
+          {token.value}
+        </span>
+      ))}
+    </pre>
+  );
+}
+
+type TokenType = 'key' | 'string' | 'number' | 'boolean' | 'null' | 'punctuation';
+
+interface Token {
+  type: TokenType;
+  value: string;
+}
+
+function tokenColor(type: TokenType): string {
+  switch (type) {
+    case 'key': return 'text-purple-400';
+    case 'string': return 'text-green-400';
+    case 'number': return 'text-amber-400';
+    case 'boolean': return 'text-blue-400';
+    case 'null': return 'text-gray-500';
+    case 'punctuation': return 'text-gray-400';
+  }
+}
+
+function tokenizeJson(data: unknown, indent = 0): Token[] {
+  const tokens: Token[] = [];
+  const pad = '  '.repeat(indent);
+
+  if (data === null || data === undefined) {
+    tokens.push({ type: 'null', value: 'null' });
+  } else if (typeof data === 'boolean') {
+    tokens.push({ type: 'boolean', value: String(data) });
+  } else if (typeof data === 'number') {
+    tokens.push({ type: 'number', value: String(data) });
+  } else if (typeof data === 'string') {
+    tokens.push({ type: 'string', value: `"${data}"` });
+  } else if (Array.isArray(data)) {
+    if (data.length === 0) {
+      tokens.push({ type: 'punctuation', value: '[]' });
+    } else {
+      tokens.push({ type: 'punctuation', value: '[\n' });
+      data.forEach((item, i) => {
+        tokens.push({ type: 'punctuation', value: pad + '  ' });
+        tokens.push(...tokenizeJson(item, indent + 1));
+        if (i < data.length - 1) tokens.push({ type: 'punctuation', value: ',' });
+        tokens.push({ type: 'punctuation', value: '\n' });
+      });
+      tokens.push({ type: 'punctuation', value: pad + ']' });
+    }
+  } else if (typeof data === 'object') {
+    const entries = Object.entries(data as Record<string, unknown>);
+    if (entries.length === 0) {
+      tokens.push({ type: 'punctuation', value: '{}' });
+    } else {
+      tokens.push({ type: 'punctuation', value: '{\n' });
+      entries.forEach(([key, value], i) => {
+        tokens.push({ type: 'punctuation', value: pad + '  ' });
+        tokens.push({ type: 'key', value: `"${key}"` });
+        tokens.push({ type: 'punctuation', value: ': ' });
+        tokens.push(...tokenizeJson(value, indent + 1));
+        if (i < entries.length - 1) tokens.push({ type: 'punctuation', value: ',' });
+        tokens.push({ type: 'punctuation', value: '\n' });
+      });
+      tokens.push({ type: 'punctuation', value: pad + '}' });
+    }
+  }
+  return tokens;
 }

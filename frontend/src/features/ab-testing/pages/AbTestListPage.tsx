@@ -1,13 +1,16 @@
 import { useState } from 'react';
-import { FlaskConical } from 'lucide-react';
+import { FlaskConical, Plus } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '@/shared/components/PageHeader';
+import { Button } from '@/shared/components/Button';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { Spinner } from '@/shared/components/Spinner';
 import { useToastStore } from '@/stores/toast.store';
 import { apiClient } from '@/api/client';
+import { useRules, useRuleVersions } from '@/api/rules.api';
 import type { ApiResponse } from '@/api/types/common.types';
 import { AbTestCard } from '../components/AbTestCard';
+import { CreateAbTestModal } from '../components/CreateAbTestModal';
 
 interface AbTest {
   id: string;
@@ -45,9 +48,16 @@ function useStopAbTest() {
 
 export function AbTestListPage() {
   const addToast = useToastStore((s) => s.addToast);
+  const queryClient = useQueryClient();
   const { data: tests, isLoading } = useAbTests();
   const stopTest = useStopAbTest();
   const [, setSelectedId] = useState<string | null>(null);
+  const [showCreate, setShowCreate] = useState(false);
+  const [selectedRuleId, setSelectedRuleId] = useState<string>('');
+  const { data: rulesData } = useRules({ size: 100 });
+  const { data: versionsData } = useRuleVersions(selectedRuleId);
+  const rules = rulesData?.content ?? [];
+  const versions = Array.isArray(versionsData) ? versionsData : [];
 
   const handleStop = async (testId: string) => {
     try {
@@ -76,6 +86,27 @@ export function AbTestListPage() {
       <PageHeader
         title="A/B Tests"
         description="Compare rule versions with traffic splitting"
+        actions={
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedRuleId}
+              onChange={(e) => setSelectedRuleId(e.target.value)}
+              className="rounded-md border border-gray-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-indigo-500 focus:ring-indigo-500"
+            >
+              <option value="">Select a rule...</option>
+              {rules.map((r) => (
+                <option key={r.id} value={r.id}>{r.name}</option>
+              ))}
+            </select>
+            <Button
+              onClick={() => setShowCreate(true)}
+              disabled={!selectedRuleId || versions.length === 0}
+            >
+              <Plus className="h-4 w-4" />
+              Create A/B Test
+            </Button>
+          </div>
+        }
       />
 
       {!tests || tests.length === 0 ? (
@@ -96,6 +127,17 @@ export function AbTestListPage() {
           ))}
         </div>
       )}
+
+      <CreateAbTestModal
+        ruleId={selectedRuleId}
+        versions={versions}
+        isOpen={showCreate}
+        onClose={() => setShowCreate(false)}
+        onCreated={() => {
+          queryClient.invalidateQueries({ queryKey: ['ab-tests'] });
+          addToast({ type: 'success', title: 'A/B test created' });
+        }}
+      />
     </div>
   );
 }

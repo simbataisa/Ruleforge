@@ -2,7 +2,9 @@ package io.ruleforge.management.controller;
 
 import io.ruleforge.common.audit.AuditLog;
 import io.ruleforge.common.dto.ApiResponse;
+import io.ruleforge.common.tenant.TenantContext;
 import io.ruleforge.management.dto.CreateVersionRequest;
+import io.ruleforge.management.dto.RejectVersionRequest;
 import io.ruleforge.management.dto.RuleVersionDto;
 import io.ruleforge.management.dto.UpdateVersionRequest;
 import io.ruleforge.management.service.VersionService;
@@ -76,5 +78,31 @@ public class VersionController {
                                                         @PathVariable int version) {
         RuleVersionDto versionDto = versionService.deprecateVersion(ruleId, version);
         return ApiResponse.ok(versionDto, "Version deprecated successfully");
+    }
+
+    @PostMapping("/{version}/request-approval")
+    @AuditLog(action = "REQUEST_APPROVAL", resourceType = "RuleVersion")
+    public ApiResponse<RuleVersionDto> requestApproval(@PathVariable UUID ruleId,
+                                                        @PathVariable int version) {
+        RuleVersionDto versionDto = versionService.requestApproval(ruleId, version);
+        return ApiResponse.ok(versionDto, "Approval requested successfully");
+    }
+
+    @PostMapping("/{version}/approve")
+    @AuditLog(action = "APPROVE_VERSION", resourceType = "RuleVersion")
+    public ApiResponse<RuleVersionDto> approveVersion(@PathVariable UUID ruleId,
+                                                       @PathVariable int version) {
+        TenantContext.TenantInfo tenant = TenantContext.get();
+        RuleVersionDto versionDto = versionService.approve(ruleId, version, tenant.userId());
+        return ApiResponse.ok(versionDto, "Version approved and published successfully");
+    }
+
+    @PostMapping("/{version}/reject")
+    @AuditLog(action = "REJECT_VERSION", resourceType = "RuleVersion")
+    public ApiResponse<RuleVersionDto> rejectVersion(@PathVariable UUID ruleId,
+                                                      @PathVariable int version,
+                                                      @RequestBody RejectVersionRequest request) {
+        RuleVersionDto versionDto = versionService.reject(ruleId, version, request.reason());
+        return ApiResponse.ok(versionDto, "Version rejected");
     }
 }

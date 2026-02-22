@@ -10,7 +10,7 @@ export type RuleType =
   | 'ENSEMBLE';
 
 export type RuleStatus = 'DRAFT' | 'PUBLISHED' | 'ARCHIVED';
-export type VersionStatus = 'DRAFT' | 'PENDING' | 'PUBLISHED' | 'DEPRECATED';
+export type VersionStatus = 'DRAFT' | 'PENDING' | 'PENDING_APPROVAL' | 'PUBLISHED' | 'DEPRECATED';
 
 export interface Rule {
   id: string;
@@ -38,6 +38,9 @@ export interface RuleVersion {
   changeNote?: string;
   createdAt: string;
   publishedAt?: string;
+  approvedBy?: string;
+  approvedAt?: string;
+  rejectionReason?: string;
 }
 
 export interface TestRequest {

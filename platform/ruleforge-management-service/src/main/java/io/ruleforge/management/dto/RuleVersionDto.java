@@ -13,5 +13,8 @@ public record RuleVersionDto(
         String status,
         String changeNote,
         Instant createdAt,
-        Instant publishedAt
+        Instant publishedAt,
+        UUID approvedBy,
+        Instant approvedAt,
+        String rejectionReason
 ) {}

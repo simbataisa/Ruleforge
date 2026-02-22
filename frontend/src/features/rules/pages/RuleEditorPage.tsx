@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import { useParams, useNavigate, useBlocker } from 'react-router-dom';
 import {
   ArrowLeft,
   Save,
@@ -9,6 +9,7 @@ import {
   FlaskConical,
   Settings,
   Plus,
+  GitCompareArrows,
 } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Badge } from '@/shared/components/Badge';
@@ -23,6 +24,9 @@ import {
   usePublishVersion,
   useUpdateVersion,
   useCreateVersion,
+  useRequestApproval,
+  useApproveVersion,
+  useRejectVersion,
 } from '@/api/rules.api';
 import { useEditorStore } from '@/stores/editor.store';
 import { useToastStore } from '@/stores/toast.store';
@@ -34,15 +38,20 @@ import { useScorecardEditorStore } from '@/stores/scorecard-editor.store';
 import { useEnsembleEditorStore } from '@/stores/ensemble-editor.store';
 import { useDmnEditorStore } from '@/stores/dmn-editor.store';
 import { useCepEditorStore } from '@/stores/cep-editor.store';
-import { TableEditor } from '@/features/table-editor/components/TableEditor';
-import { TreeEditor } from '@/features/tree-editor/components/TreeEditor';
-import { ScriptEditor } from '@/features/script-editor/components/ScriptEditor';
-import { FlowEditor } from '@/features/flow-editor/components/FlowEditor';
-import { ScorecardEditor } from '@/features/scorecard-editor/components/ScorecardEditor';
-import { EnsembleEditor } from '@/features/ensemble-editor/components/EnsembleEditor';
-import { DmnEditor } from '@/features/dmn-editor/components/DmnEditor';
-import { CepEditor } from '@/features/cep-editor/components/CepEditor';
 import { TestBench } from '@/features/test-bench/components/TestBench';
+
+// Lazy-loaded editor components for code splitting
+const TableEditor = React.lazy(() => import('@/features/table-editor/components/TableEditor').then(m => ({ default: m.TableEditor })));
+const TreeEditor = React.lazy(() => import('@/features/tree-editor/components/TreeEditor').then(m => ({ default: m.TreeEditor })));
+const ScriptEditor = React.lazy(() => import('@/features/script-editor/components/ScriptEditor'));
+const FlowEditor = React.lazy(() => import('@/features/flow-editor/components/FlowEditor'));
+const ScorecardEditor = React.lazy(() => import('@/features/scorecard-editor/components/ScorecardEditor').then(m => ({ default: m.ScorecardEditor })));
+const EnsembleEditor = React.lazy(() => import('@/features/ensemble-editor/components/EnsembleEditor').then(m => ({ default: m.EnsembleEditor })));
+const DmnEditor = React.lazy(() => import('@/features/dmn-editor/components/DmnEditor').then(m => ({ default: m.DmnEditor })));
+const CepEditor = React.lazy(() => import('@/features/cep-editor/components/CepEditor').then(m => ({ default: m.CepEditor })));
+import { ExportRuleButton } from '@/features/rules/components/ExportRuleButton';
+import { ApprovalBadge } from '@/features/rules/components/ApprovalBadge';
+import { VersionDiffModal } from '@/features/rules/components/VersionDiffModal';
 import type { RuleVersion } from '@/api/types/rule.types';
 
 type EditorTab = 'definition' | 'versions' | 'test' | 'settings';
@@ -52,6 +61,7 @@ const statusColors: Record<string, string> = {
   PUBLISHED: 'bg-green-100 text-green-800',
   ARCHIVED: 'bg-gray-100 text-gray-600',
   PENDING: 'bg-blue-100 text-blue-800',
+  PENDING_APPROVAL: 'bg-amber-100 text-amber-800',
   DEPRECATED: 'bg-red-100 text-red-800',
 };
 
@@ -115,6 +125,8 @@ export function RuleEditorPage() {
 
   const [activeTab, setActiveTab] = useState<EditorTab>('definition');
   const [selectedVersion, setSelectedVersion] = useState<number | null>(null);
+  const [diffModalOpen, setDiffModalOpen] = useState(false);
+  const [compareVersion, setCompareVersion] = useState<number | null>(null);
 
   // Settings tab local state
   const [settingsName, setSettingsName] = useState('');
@@ -127,6 +139,12 @@ export function RuleEditorPage() {
   const publishVersion = usePublishVersion();
   const updateVersion = useUpdateVersion();
   const createVersion = useCreateVersion();
+  const requestApproval = useRequestApproval();
+  const approveVersion = useApproveVersion();
+  const rejectVersion = useRejectVersion();
+
+  const [rejectModalOpen, setRejectModalOpen] = useState(false);
+  const [rejectReason, setRejectReason] = useState('');
 
   const tableToDefinition = useTableEditorStore((s) => s.toDefinition);
   const treeToDefinition = useTreeEditorStore((s) => s.toDefinition);
@@ -198,6 +216,30 @@ export function RuleEditorPage() {
       setSettingsAlias(rule.alias ?? '');
     }
   }, [rule]);
+
+  // Warn on browser close/refresh with unsaved changes
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (isDirty) {
+        e.preventDefault();
+      }
+    };
+    window.addEventListener('beforeunload', handler);
+    return () => window.removeEventListener('beforeunload', handler);
+  }, [isDirty]);
+
+  // Warn on React Router navigation with unsaved changes
+  const blocker = useBlocker(isDirty);
+  useEffect(() => {
+    if (blocker.state === 'blocked') {
+      const confirmed = window.confirm('You have unsaved changes. Are you sure you want to leave?');
+      if (confirmed) {
+        blocker.proceed();
+      } else {
+        blocker.reset();
+      }
+    }
+  }, [blocker]);
 
   const handleSave = useCallback(() => {
     if (!id || !currentVersion || !rule) return;
@@ -275,6 +317,54 @@ export function RuleEditorPage() {
     );
   }, [id, currentVersion, publishVersion, addToast]);
 
+  const handleRequestApproval = useCallback(() => {
+    if (!id || !currentVersion) return;
+    requestApproval.mutate(
+      { ruleId: id, version: currentVersion.version },
+      {
+        onSuccess: () => {
+          addToast({ type: 'success', title: 'Approval requested successfully' });
+        },
+        onError: () => {
+          addToast({ type: 'error', title: 'Failed to request approval' });
+        },
+      },
+    );
+  }, [id, currentVersion, requestApproval, addToast]);
+
+  const handleApprove = useCallback(() => {
+    if (!id || !currentVersion) return;
+    if (!confirm('Are you sure you want to approve this version?')) return;
+    approveVersion.mutate(
+      { ruleId: id, version: currentVersion.version },
+      {
+        onSuccess: () => {
+          addToast({ type: 'success', title: 'Version approved and published' });
+        },
+        onError: () => {
+          addToast({ type: 'error', title: 'Failed to approve version' });
+        },
+      },
+    );
+  }, [id, currentVersion, approveVersion, addToast]);
+
+  const handleReject = useCallback(() => {
+    if (!id || !currentVersion || !rejectReason.trim()) return;
+    rejectVersion.mutate(
+      { ruleId: id, version: currentVersion.version, reason: rejectReason },
+      {
+        onSuccess: () => {
+          addToast({ type: 'success', title: 'Version rejected' });
+          setRejectModalOpen(false);
+          setRejectReason('');
+        },
+        onError: () => {
+          addToast({ type: 'error', title: 'Failed to reject version' });
+        },
+      },
+    );
+  }, [id, currentVersion, rejectReason, rejectVersion, addToast]);
+
   const handleSaveSettings = useCallback(() => {
     if (!id) return;
     updateRule.mutate(
@@ -289,6 +379,37 @@ export function RuleEditorPage() {
       },
     );
   }, [id, settingsName, settingsDescription, settingsAlias, updateRule, addToast]);
+
+  // Keyboard shortcuts: Ctrl/Cmd+S to save, Ctrl/Cmd+Shift+T to open test tab
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      const mod = e.metaKey || e.ctrlKey;
+      if (mod && e.key === 's' && !e.shiftKey) {
+        e.preventDefault();
+        if (isDirty && currentVersion?.status === 'DRAFT') {
+          handleSave();
+        }
+      }
+      if (mod && e.shiftKey && e.key === 'T') {
+        e.preventDefault();
+        setActiveTab('test');
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [isDirty, currentVersion?.status, handleSave]);
+
+  const parseDefinition = useCallback((def: Record<string, unknown> | string): Record<string, unknown> => {
+    if (typeof def === 'string') {
+      try { return JSON.parse(def); } catch { return {}; }
+    }
+    return def;
+  }, []);
+
+  const handleCompare = useCallback((versionNumber: number) => {
+    setCompareVersion(versionNumber);
+    setDiffModalOpen(true);
+  }, []);
 
   if (ruleLoading || versionsLoading) {
     return (
@@ -342,6 +463,9 @@ export function RuleEditorPage() {
               {rule.type}
             </Badge>
             <Badge className={statusColors[rule.status]}>{rule.status}</Badge>
+            {currentVersion && (
+              <ApprovalBadge status={currentVersion.status} rejectionReason={currentVersion.rejectionReason} />
+            )}
           </div>
           <div className="flex items-center gap-3">
             <Select
@@ -352,10 +476,15 @@ export function RuleEditorPage() {
               {versions.map((v) => (
                 <option key={v.id} value={v.version}>
                   v{v.version}{' '}
-                  {v.status === 'DRAFT' ? '(Draft)' : v.status === 'PUBLISHED' ? '(Published)' : ''}
+                  {v.status === 'DRAFT' ? '(Draft)' : v.status === 'PUBLISHED' ? '(Published)' : v.status === 'PENDING_APPROVAL' ? '(Pending)' : ''}
                 </option>
               ))}
             </Select>
+            <ExportRuleButton
+              ruleId={id!}
+              spaceId={rule.spaceId}
+              ruleName={rule.name}
+            />
             <Button
               variant="outline"
               onClick={handleSave}
@@ -366,13 +495,38 @@ export function RuleEditorPage() {
               Save
             </Button>
             {currentVersion?.status === 'DRAFT' && (
-              <Button
-                onClick={handlePublish}
-                loading={publishVersion.isPending}
-              >
-                <Upload className="h-4 w-4" />
-                Publish
-              </Button>
+              <>
+                <Button
+                  variant="outline"
+                  onClick={handleRequestApproval}
+                  loading={requestApproval.isPending}
+                >
+                  Request Approval
+                </Button>
+                <Button
+                  onClick={handlePublish}
+                  loading={publishVersion.isPending}
+                >
+                  <Upload className="h-4 w-4" />
+                  Publish
+                </Button>
+              </>
+            )}
+            {currentVersion?.status === 'PENDING_APPROVAL' && (
+              <>
+                <Button
+                  onClick={handleApprove}
+                  loading={approveVersion.isPending}
+                >
+                  Approve
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => { setRejectReason(''); setRejectModalOpen(true); }}
+                >
+                  Reject
+                </Button>
+              </>
             )}
           </div>
         </div>
@@ -401,32 +555,34 @@ export function RuleEditorPage() {
       {/* Tab Content */}
       <div className="flex-1 overflow-hidden">
         {activeTab === 'definition' && (
-          <div className="h-full p-4">
-            {rule.type === 'TABLE' && <TableEditor />}
-            {rule.type === 'TREE' && <TreeEditor />}
-            {rule.type === 'SCRIPT' && (
-              <ScriptEditor
-                scriptBody={scriptState.scriptBody}
-                language={scriptState.language}
-                timeout={scriptState.timeout}
-                maxMemoryMb={scriptState.maxMemoryMb}
-                onChange={(def) => {
-                  setScriptDefinition(def);
-                  setDirty(true);
-                }}
-              />
-            )}
-            {rule.type === 'FLOW' && <FlowEditor />}
-            {rule.type === 'SCORECARD' && <ScorecardEditor />}
-            {rule.type === 'ENSEMBLE' && <EnsembleEditor />}
-            {rule.type === 'DMN' && <DmnEditor />}
-            {rule.type === 'CEP' && <CepEditor />}
-            {!['TABLE', 'TREE', 'SCRIPT', 'FLOW', 'SCORECARD', 'ENSEMBLE', 'DMN', 'CEP'].includes(rule.type) && (
-              <div className="flex items-center justify-center h-full text-gray-500">
-                Editor for {rule.type} type is not yet supported.
-              </div>
-            )}
-          </div>
+          <Suspense fallback={<div className="flex items-center justify-center h-64"><Spinner size="lg" /></div>}>
+            <div className="h-full p-4">
+              {rule.type === 'TABLE' && <TableEditor />}
+              {rule.type === 'TREE' && <TreeEditor />}
+              {rule.type === 'SCRIPT' && (
+                <ScriptEditor
+                  scriptBody={scriptState.scriptBody}
+                  language={scriptState.language}
+                  timeout={scriptState.timeout}
+                  maxMemoryMb={scriptState.maxMemoryMb}
+                  onChange={(def) => {
+                    setScriptDefinition(def);
+                    setDirty(true);
+                  }}
+                />
+              )}
+              {rule.type === 'FLOW' && <FlowEditor />}
+              {rule.type === 'SCORECARD' && <ScorecardEditor />}
+              {rule.type === 'ENSEMBLE' && <EnsembleEditor />}
+              {rule.type === 'DMN' && <DmnEditor />}
+              {rule.type === 'CEP' && <CepEditor />}
+              {!['TABLE', 'TREE', 'SCRIPT', 'FLOW', 'SCORECARD', 'ENSEMBLE', 'DMN', 'CEP'].includes(rule.type) && (
+                <div className="flex items-center justify-center h-full text-gray-500">
+                  Editor for {rule.type} type is not yet supported.
+                </div>
+              )}
+            </div>
+          </Suspense>
         )}
 
         {activeTab === 'versions' && (
@@ -473,6 +629,16 @@ export function RuleEditorPage() {
                         <span>Created {formatDate(v.createdAt)}</span>
                         {v.publishedAt && (
                           <span>Published {formatDate(v.publishedAt)}</span>
+                        )}
+                        {selectedVersion !== null && v.version !== selectedVersion && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => handleCompare(v.version)}
+                          >
+                            <GitCompareArrows className="h-3.5 w-3.5" />
+                            Compare
+                          </Button>
                         )}
                         <Button
                           size="sm"
@@ -562,6 +728,57 @@ export function RuleEditorPage() {
           </div>
         )}
       </div>
+
+      {/* Version Diff Modal */}
+      {diffModalOpen && compareVersion !== null && currentVersion && (
+        <VersionDiffModal
+          isOpen={diffModalOpen}
+          onClose={() => { setDiffModalOpen(false); setCompareVersion(null); }}
+          versionA={{
+            version: currentVersion.version,
+            definition: parseDefinition(currentVersion.definition),
+          }}
+          versionB={{
+            version: compareVersion,
+            definition: parseDefinition(
+              versions.find((v) => v.version === compareVersion)?.definition ?? {},
+            ),
+          }}
+        />
+      )}
+
+      {/* Reject Modal */}
+      {rejectModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
+          <div className="w-full max-w-md rounded-lg bg-white p-6 shadow-xl">
+            <h3 className="text-lg font-semibold text-gray-900">Reject Version</h3>
+            <p className="mt-1 text-sm text-gray-500">
+              Provide a reason for rejecting v{currentVersion?.version}.
+            </p>
+            <div className="mt-4">
+              <textarea
+                value={rejectReason}
+                onChange={(e) => setRejectReason(e.target.value)}
+                placeholder="Rejection reason..."
+                rows={3}
+                className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 sm:text-sm"
+              />
+            </div>
+            <div className="mt-4 flex justify-end gap-3">
+              <Button variant="outline" onClick={() => setRejectModalOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                onClick={handleReject}
+                loading={rejectVersion.isPending}
+                disabled={!rejectReason.trim()}
+              >
+                Reject
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

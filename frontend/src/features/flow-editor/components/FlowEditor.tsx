@@ -1,5 +1,7 @@
+import { useState, useCallback, memo } from 'react';
 import { useFlowEditorStore } from '../../../stores/flow-editor.store';
 import { FlowNodeType, FlowNodeData } from '../types';
+import { AddEdgeModal } from './AddEdgeModal';
 
 const NODE_COLORS: Record<FlowNodeType, string> = {
   CONDITION: 'bg-blue-100 border-blue-400',
@@ -29,7 +31,7 @@ interface FlowNodeCardProps {
   onSetStart: () => void;
 }
 
-function FlowNodeCard({ node, isStart, isSelected, onSelect, onUpdate, onDelete, onSetStart }: FlowNodeCardProps) {
+const FlowNodeCard = memo(function FlowNodeCard({ node, isStart, isSelected, onSelect, onUpdate, onDelete, onSetStart }: FlowNodeCardProps) {
   return (
     <div
       className={`relative border-2 rounded-lg p-3 cursor-pointer transition-all ${NODE_COLORS[node.type]} ${isSelected ? 'ring-2 ring-blue-500' : ''}`}
@@ -84,7 +86,7 @@ function FlowNodeCard({ node, isStart, isSelected, onSelect, onUpdate, onDelete,
       </div>
     </div>
   );
-}
+});
 
 interface FlowEditorProps {
   readOnly?: boolean;
@@ -92,17 +94,35 @@ interface FlowEditorProps {
 
 export function FlowEditor({ readOnly = false }: FlowEditorProps) {
   const { definition, selectedNodeId, addNode, updateNode, deleteNode, addEdge, deleteEdge, setStartNode, selectNode } = useFlowEditorStore();
+  const [showAddEdgeModal, setShowAddEdgeModal] = useState(false);
 
-  const handleAddNode = (type: FlowNodeType) => {
+  const handleAddNode = useCallback((type: FlowNodeType) => {
     if (!readOnly) addNode(type);
-  };
+  }, [readOnly, addNode]);
 
-  const handleAddEdge = () => {
-    const from = prompt('From node ID:');
-    const to = prompt('To node ID:');
-    const condition = prompt('Edge condition (e.g. true/false):', 'true');
-    if (from && to) addEdge({ from, to, condition: condition || 'true' });
-  };
+  const handleUpdateNode = useCallback((nodeId: string, data: Partial<FlowNodeData>) => {
+    if (!readOnly) updateNode(nodeId, data);
+  }, [readOnly, updateNode]);
+
+  const handleDeleteNode = useCallback((nodeId: string) => {
+    if (!readOnly) deleteNode(nodeId);
+  }, [readOnly, deleteNode]);
+
+  const handleSetStartNode = useCallback((nodeId: string) => {
+    if (!readOnly) setStartNode(nodeId);
+  }, [readOnly, setStartNode]);
+
+  const handleSelectNode = useCallback((nodeId: string) => {
+    selectNode(nodeId);
+  }, [selectNode]);
+
+  const handleAddEdge = useCallback(({ from, to, condition }: { from: string; to: string; condition?: string }) => {
+    addEdge({ from, to, condition });
+  }, [addEdge]);
+
+  const handleCloseEdgeModal = useCallback(() => {
+    setShowAddEdgeModal(false);
+  }, []);
 
   const nodeTypes: FlowNodeType[] = ['CONDITION', 'ACTION', 'GATE', 'FORK', 'JOIN', 'SUB_RULE'];
 
@@ -121,7 +141,7 @@ export function FlowEditor({ readOnly = false }: FlowEditorProps) {
             </button>
           ))}
           <button
-            onClick={handleAddEdge}
+            onClick={() => setShowAddEdgeModal(true)}
             className="text-xs px-2 py-1 rounded border bg-gray-100 border-gray-300 ml-auto"
           >
             + Edge
@@ -139,10 +159,10 @@ export function FlowEditor({ readOnly = false }: FlowEditorProps) {
                 node={node}
                 isStart={node.id === definition.startNodeId}
                 isSelected={selectedNodeId === node.id}
-                onSelect={() => selectNode(node.id)}
-                onUpdate={(data) => !readOnly && updateNode(node.id, data)}
-                onDelete={() => !readOnly && deleteNode(node.id)}
-                onSetStart={() => !readOnly && setStartNode(node.id)}
+                onSelect={() => handleSelectNode(node.id)}
+                onUpdate={(data) => handleUpdateNode(node.id, data)}
+                onDelete={() => handleDeleteNode(node.id)}
+                onSetStart={() => handleSetStartNode(node.id)}
               />
             ))}
           </div>
@@ -172,6 +192,13 @@ export function FlowEditor({ readOnly = false }: FlowEditorProps) {
           </div>
         </div>
       </div>
+
+      <AddEdgeModal
+        open={showAddEdgeModal}
+        onClose={handleCloseEdgeModal}
+        onSubmit={handleAddEdge}
+        nodes={definition.nodes}
+      />
     </div>
   );
 }

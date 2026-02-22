@@ -190,6 +190,100 @@ public class VersionService {
                 .orElseThrow(() -> new EntityNotFoundException("Rule", ruleId.toString()));
     }
 
+    @Transactional
+    public RuleVersionDto requestApproval(UUID ruleId, int version) {
+        RuleVersionEntity versionEntity = versionRepository.findByRuleIdAndVersion(ruleId, version)
+                .orElseThrow(() -> new EntityNotFoundException("RuleVersion",
+                        "ruleId=%s, version=%d".formatted(ruleId, version)));
+
+        if (!"DRAFT".equals(versionEntity.getStatus())) {
+            throw new ConflictException("Only DRAFT versions can be submitted for approval. Current status: %s"
+                    .formatted(versionEntity.getStatus()));
+        }
+
+        versionEntity.setStatus("PENDING_APPROVAL");
+        versionEntity.setRejectionReason(null);
+        versionEntity = versionRepository.save(versionEntity);
+
+        log.info("Approval requested: ruleId={}, version={}", ruleId, version);
+
+        return toDto(versionEntity);
+    }
+
+    @Transactional
+    public RuleVersionDto approve(UUID ruleId, int version, UUID approverId) {
+        TenantContext.TenantInfo tenant = TenantContext.get();
+        RuleEntity rule = findRuleOrThrow(ruleId);
+
+        RuleVersionEntity versionEntity = versionRepository.findByRuleIdAndVersion(ruleId, version)
+                .orElseThrow(() -> new EntityNotFoundException("RuleVersion",
+                        "ruleId=%s, version=%d".formatted(ruleId, version)));
+
+        if (!"PENDING_APPROVAL".equals(versionEntity.getStatus())) {
+            throw new ConflictException("Only PENDING_APPROVAL versions can be approved. Current status: %s"
+                    .formatted(versionEntity.getStatus()));
+        }
+
+        // Deprecate any currently published versions
+        List<RuleVersionEntity> publishedVersions = versionRepository.findByRuleIdAndStatus(ruleId, "PUBLISHED");
+        for (RuleVersionEntity published : publishedVersions) {
+            published.setStatus("DEPRECATED");
+            versionRepository.save(published);
+            log.info("Version deprecated: ruleId={}, version={}", ruleId, published.getVersion());
+        }
+
+        // Approve and publish the version
+        versionEntity.setStatus("PUBLISHED");
+        versionEntity.setApprovedBy(approverId);
+        versionEntity.setApprovedAt(Instant.now());
+        versionEntity.setPublishedAt(Instant.now());
+        versionEntity = versionRepository.save(versionEntity);
+
+        log.info("Version approved and published: ruleId={}, version={}, approvedBy={}", ruleId, version, approverId);
+
+        // Publish domain event
+        try {
+            DomainEvent event = DomainEvent.create(
+                    "rule.version.approved",
+                    "Rule",
+                    ruleId.toString(),
+                    tenant.orgId(),
+                    tenant.userId(),
+                    Map.of(
+                            "version", version,
+                            "name", rule.getName(),
+                            "alias", rule.getAlias(),
+                            "approvedBy", approverId.toString()
+                    )
+            );
+            eventPublisher.publish(TOPIC_RULE_LIFECYCLE, event);
+        } catch (Exception e) {
+            log.warn("Failed to publish version.approved event: {}", e.getMessage());
+        }
+
+        return toDto(versionEntity);
+    }
+
+    @Transactional
+    public RuleVersionDto reject(UUID ruleId, int version, String reason) {
+        RuleVersionEntity versionEntity = versionRepository.findByRuleIdAndVersion(ruleId, version)
+                .orElseThrow(() -> new EntityNotFoundException("RuleVersion",
+                        "ruleId=%s, version=%d".formatted(ruleId, version)));
+
+        if (!"PENDING_APPROVAL".equals(versionEntity.getStatus())) {
+            throw new ConflictException("Only PENDING_APPROVAL versions can be rejected. Current status: %s"
+                    .formatted(versionEntity.getStatus()));
+        }
+
+        versionEntity.setStatus("DRAFT");
+        versionEntity.setRejectionReason(reason);
+        versionEntity = versionRepository.save(versionEntity);
+
+        log.info("Version rejected: ruleId={}, version={}, reason={}", ruleId, version, reason);
+
+        return toDto(versionEntity);
+    }
+
     private RuleVersionDto toDto(RuleVersionEntity entity) {
         return new RuleVersionDto(
                 entity.getId(),
@@ -201,7 +295,10 @@ public class VersionService {
                 entity.getStatus(),
                 entity.getChangeNote(),
                 entity.getCreatedAt(),
-                entity.getPublishedAt()
+                entity.getPublishedAt(),
+                entity.getApprovedBy(),
+                entity.getApprovedAt(),
+                entity.getRejectionReason()
         );
     }
 }

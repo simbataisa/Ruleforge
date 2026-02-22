@@ -1,13 +1,13 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Search, RefreshCw, ChevronLeft, ChevronRight, FileDown } from 'lucide-react';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
 import { Select } from '@/shared/components/Select';
 import { Badge } from '@/shared/components/Badge';
 import { DataTable } from '@/shared/components/DataTable';
-import { Spinner } from '@/shared/components/Spinner';
+import { SkeletonRow } from '@/components/Skeleton';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { useRules, useCreateRule } from '@/api/rules.api';
 import { useFolders, useCreateFolder } from '@/api/folders.api';
@@ -15,6 +15,8 @@ import { useToastStore } from '@/stores/toast.store';
 import { FolderTree } from '@/features/rules/components/FolderTree';
 import { CreateRuleModal } from '@/features/rules/components/CreateRuleModal';
 import { CreateFolderModal } from '@/features/rules/components/CreateFolderModal';
+import { ImportRuleModal } from '@/features/rules/components/ImportRuleModal';
+import { useAuthStore } from '@/stores/auth.store';
 import type { Rule, RuleType, RuleStatus } from '@/api/types/rule.types';
 
 const statusColors: Record<RuleStatus, string> = {
@@ -47,8 +49,10 @@ function formatDate(dateStr: string): string {
 export function RuleListPage() {
   const navigate = useNavigate();
   const addToast = useToastStore((s) => s.addToast);
+  const user = useAuthStore((s) => s.user);
 
   const [search, setSearch] = useState('');
+  const [debouncedSearch, setDebouncedSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
@@ -56,14 +60,23 @@ export function RuleListPage() {
   const PAGE_SIZE = 20;
   const [showCreateRule, setShowCreateRule] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
+  const [showImportRule, setShowImportRule] = useState(false);
   const [createFolderParentId, setCreateFolderParentId] = useState<
     string | undefined
   >();
 
+  // Debounce search input by 300ms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearch(search);
+    }, 300);
+    return () => clearTimeout(timer);
+  }, [search]);
+
   const { data: rulesData, isLoading: rulesLoading, isFetching: rulesFetching, refetch: refetchRules } = useRules({
     page,
     size: PAGE_SIZE,
-    search: search || undefined,
+    search: debouncedSearch || undefined,
     type: typeFilter || undefined,
     status: statusFilter || undefined,
     folderId: selectedFolderId || undefined,
@@ -88,7 +101,7 @@ export function RuleListPage() {
   // Reset to page 0 when filters change
   useEffect(() => {
     setPage(0);
-  }, [search, typeFilter, statusFilter, selectedFolderId]);
+  }, [debouncedSearch, typeFilter, statusFilter, selectedFolderId]);
 
   const folders = useMemo(() => {
     return Array.isArray(foldersData) ? foldersData : [];
@@ -174,8 +187,29 @@ export function RuleListPage() {
 
   if (rulesLoading || foldersLoading) {
     return (
-      <div className="flex items-center justify-center h-64">
-        <Spinner size="lg" />
+      <div className="flex flex-col h-full">
+        <PageHeader title="Rules" />
+        <div className="flex flex-1 overflow-hidden">
+          <div className="w-60 flex-shrink-0 border-r border-gray-200 bg-gray-50 p-4">
+            <div className="space-y-3">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="h-4 animate-pulse rounded bg-gray-200" style={{ width: `${60 + i * 10}%` }} />
+              ))}
+            </div>
+          </div>
+          <div className="flex-1 p-6">
+            <div className="rounded-lg border border-gray-200 bg-white">
+              <div className="flex items-center gap-4 px-6 py-3 border-b border-gray-200">
+                {['40%', '12%', '12%', '10%', '15%'].map((w, i) => (
+                  <div key={i} className="h-3 animate-pulse rounded bg-gray-300" style={{ width: w }} />
+                ))}
+              </div>
+              {Array.from({ length: 8 }).map((_, i) => (
+                <SkeletonRow key={i} columns={5} />
+              ))}
+            </div>
+          </div>
+        </div>
       </div>
     );
   }
@@ -188,6 +222,10 @@ export function RuleListPage() {
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={handleRefresh} disabled={rulesFetching}>
               <RefreshCw className={`h-4 w-4 ${rulesFetching ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button variant="outline" onClick={() => setShowImportRule(true)}>
+              <FileDown className="h-4 w-4" />
+              Import Rule
             </Button>
             <Button onClick={() => setShowCreateRule(true)}>
               <Plus className="h-4 w-4" />
@@ -304,6 +342,18 @@ export function RuleListPage() {
         loading={createFolder.isPending}
         parentId={createFolderParentId}
       />
+
+      {showImportRule && (
+        <ImportRuleModal
+          spaceId={selectedFolderId ?? ''}
+          createdBy={user?.id ?? ''}
+          onClose={() => setShowImportRule(false)}
+          onSuccess={() => {
+            refetchRules();
+            addToast({ type: 'success', title: 'Rule imported successfully' });
+          }}
+        />
+      )}
     </div>
   );
 }

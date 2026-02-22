@@ -184,6 +184,90 @@ export function usePublishVersion() {
   });
 }
 
+export function useRequestApproval() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      ruleId,
+      version,
+    }: {
+      ruleId: string;
+      version: number;
+    }) => {
+      const res = await apiClient.post<ApiResponse<RuleVersion>>(
+        `/rules/${ruleId}/versions/${version}/request-approval`,
+      );
+      return res.data.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['rules', variables.ruleId, 'versions'],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['rules', variables.ruleId],
+      });
+    },
+  });
+}
+
+export function useApproveVersion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      ruleId,
+      version,
+    }: {
+      ruleId: string;
+      version: number;
+    }) => {
+      const res = await apiClient.post<ApiResponse<RuleVersion>>(
+        `/rules/${ruleId}/versions/${version}/approve`,
+      );
+      return res.data.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['rules', variables.ruleId, 'versions'],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['rules', variables.ruleId],
+      });
+    },
+  });
+}
+
+export function useRejectVersion() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      ruleId,
+      version,
+      reason,
+    }: {
+      ruleId: string;
+      version: number;
+      reason: string;
+    }) => {
+      const res = await apiClient.post<ApiResponse<RuleVersion>>(
+        `/rules/${ruleId}/versions/${version}/reject`,
+        { reason },
+      );
+      return res.data.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['rules', variables.ruleId, 'versions'],
+      });
+      queryClient.invalidateQueries({
+        queryKey: ['rules', variables.ruleId],
+      });
+    },
+  });
+}
+
 export function useTestRule() {
   return useMutation({
     mutationFn: async ({

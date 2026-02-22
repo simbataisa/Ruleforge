@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import Editor from '@monaco-editor/react';
 
 interface ScriptEditorProps {
   scriptBody: string;
@@ -74,18 +75,27 @@ export function ScriptEditor({
         </div>
       </div>
 
-      <div className="flex-1 border rounded-lg overflow-hidden">
+      <div className="flex-1 border rounded-lg overflow-hidden" style={{ minHeight: 400 }}>
         <div className="bg-gray-800 px-4 py-2 text-xs text-gray-400 flex items-center justify-between">
           <span>script.{lang === 'js' ? 'js' : lang}</span>
           <span className="text-yellow-400">GraalVM Sandboxed</span>
         </div>
-        <textarea
+        <Editor
+          height="400px"
+          language="javascript"
+          theme="vs-dark"
           value={code}
-          onChange={e => handleChange(e.target.value)}
-          readOnly={readOnly}
-          className="w-full h-full min-h-64 p-4 font-mono text-sm bg-gray-900 text-green-400 resize-none focus:outline-none"
-          placeholder="function evaluate(input) { return {}; }"
-          spellCheck={false}
+          onChange={(value) => handleChange(value ?? '')}
+          options={{
+            readOnly,
+            minimap: { enabled: false },
+            lineNumbers: 'on',
+            wordWrap: 'on',
+            fontSize: 14,
+            tabSize: 2,
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+          }}
         />
       </div>
 

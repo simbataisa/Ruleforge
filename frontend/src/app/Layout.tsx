@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
 import {
   BookOpen,
@@ -12,29 +12,89 @@ import {
   Cable,
   FlaskConical,
   Bot,
+  ScrollText,
+  Tag,
+  Layers,
+  Webhook,
+  Users,
+  Shield,
+  UserCircle,
+  ChevronUp,
+  ClipboardCheck,
 } from 'lucide-react';
 import { cn } from '@/shared/utils/cn';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCurrentUser } from '@/api/auth.api';
 import { AiPanel } from '@/features/ai-assistant/components/AiPanel';
+import { NotificationBell } from '@/features/notifications/NotificationBell';
+import { useNotificationStore } from '@/stores/notification.store';
 
-const navItems = [
-  { to: '/rules', label: 'Rules', icon: BookOpen },
-  { to: '/api-keys', label: 'API Keys', icon: Key },
-  { to: '/analytics', label: 'Analytics', icon: BarChart3 },
-  { to: '/schedules', label: 'Schedules', icon: Clock },
-  { to: '/connectors', label: 'Connectors', icon: Cable },
-  { to: '/ab-tests', label: 'A/B Tests', icon: FlaskConical },
-  { to: '/settings', label: 'Settings', icon: Settings },
+interface NavSection {
+  label: string;
+  items: { to: string; label: string; icon: React.ElementType }[];
+}
+
+const navSections: NavSection[] = [
+  {
+    label: 'Main',
+    items: [
+      { to: '/rules', label: 'Rules', icon: BookOpen },
+      { to: '/approvals', label: 'Approvals', icon: ClipboardCheck },
+      { to: '/analytics', label: 'Analytics', icon: BarChart3 },
+      { to: '/ab-tests', label: 'A/B Tests', icon: FlaskConical },
+    ],
+  },
+  {
+    label: 'Management',
+    items: [
+      { to: '/audit', label: 'Audit Log', icon: ScrollText },
+      { to: '/tags', label: 'Tags', icon: Tag },
+      { to: '/spaces', label: 'Spaces', icon: Layers },
+      { to: '/webhooks', label: 'Webhooks', icon: Webhook },
+      { to: '/connectors', label: 'Connectors', icon: Cable },
+      { to: '/schedules', label: 'Schedules', icon: Clock },
+    ],
+  },
+  {
+    label: 'Settings',
+    items: [
+      { to: '/api-keys', label: 'API Keys', icon: Key },
+      { to: '/settings/members', label: 'Members', icon: Users },
+      { to: '/settings/sso', label: 'SSO', icon: Shield },
+      { to: '/settings', label: 'Organization', icon: Settings },
+    ],
+  },
 ];
 
 export function Layout() {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [aiPanelOpen, setAiPanelOpen] = useState(false);
+  const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const userMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
   const logout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
   useCurrentUser();
+
+  const connectNotifications = useNotificationStore((s) => s.connect);
+  const disconnectNotifications = useNotificationStore((s) => s.disconnect);
+
+  useEffect(() => {
+    connectNotifications();
+    return () => disconnectNotifications();
+  }, [connectNotifications, disconnectNotifications]);
+
+  useEffect(() => {
+    function handleClickOutside(e: MouseEvent) {
+      if (userMenuRef.current && !userMenuRef.current.contains(e.target as Node)) {
+        setUserMenuOpen(false);
+      }
+    }
+    if (userMenuOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+      return () => document.removeEventListener('mousedown', handleClickOutside);
+    }
+  }, [userMenuOpen]);
 
   const handleLogout = () => {
     logout();
@@ -75,34 +135,72 @@ export function Layout() {
         </div>
 
         {/* Navigation */}
-        <nav className="flex-1 space-y-1 px-3 py-4">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              onClick={() => setSidebarOpen(false)}
-              className={({ isActive }) =>
-                cn(
-                  'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
-                  isActive
-                    ? 'bg-indigo-50 text-indigo-700'
-                    : 'text-gray-700 hover:bg-gray-100',
-                )
-              }
-            >
-              <item.icon className="h-5 w-5" />
-              {item.label}
-            </NavLink>
+        <nav className="flex-1 overflow-y-auto px-3 py-4">
+          {navSections.map((section) => (
+            <div key={section.label} className="mb-4">
+              <p className="mb-1 px-3 text-xs font-semibold uppercase tracking-wider text-gray-400">
+                {section.label}
+              </p>
+              <div className="space-y-1">
+                {section.items.map((item) => (
+                  <NavLink
+                    key={item.to}
+                    to={item.to}
+                    end={item.to === '/settings'}
+                    onClick={() => setSidebarOpen(false)}
+                    className={({ isActive }) =>
+                      cn(
+                        'flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors',
+                        isActive
+                          ? 'bg-indigo-50 text-indigo-700'
+                          : 'text-gray-700 hover:bg-gray-100',
+                      )
+                    }
+                  >
+                    <item.icon className="h-5 w-5" />
+                    {item.label}
+                  </NavLink>
+                ))}
+              </div>
+            </div>
           ))}
         </nav>
 
         {/* User section */}
-        <div className="border-t border-gray-200 p-4">
-          <div className="flex items-center gap-3">
+        <div className="relative border-t border-gray-200 p-4" ref={userMenuRef}>
+          {userMenuOpen && (
+            <div className="absolute bottom-full left-3 right-3 mb-1 rounded-lg border border-gray-200 bg-white py-1 shadow-lg">
+              <button
+                onClick={() => {
+                  navigate('/profile');
+                  setUserMenuOpen(false);
+                  setSidebarOpen(false);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-100"
+              >
+                <UserCircle className="h-4 w-4" />
+                Profile
+              </button>
+              <button
+                onClick={() => {
+                  handleLogout();
+                  setUserMenuOpen(false);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-red-600 hover:bg-gray-100"
+              >
+                <LogOut className="h-4 w-4" />
+                Logout
+              </button>
+            </div>
+          )}
+          <button
+            onClick={() => setUserMenuOpen((prev) => !prev)}
+            className="flex w-full items-center gap-3 rounded-lg p-1 hover:bg-gray-50 transition-colors"
+          >
             <div className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-100 text-sm font-medium text-indigo-700">
               {user?.email?.charAt(0).toUpperCase() || 'U'}
             </div>
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 min-w-0 text-left">
               <p className="truncate text-sm font-medium text-gray-900">
                 {user?.fullName || user?.email || 'User'}
               </p>
@@ -110,14 +208,13 @@ export function Layout() {
                 {user?.email || ''}
               </p>
             </div>
-            <button
-              onClick={handleLogout}
-              title="Logout"
-              className="rounded-md p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-500"
-            >
-              <LogOut className="h-4 w-4" />
-            </button>
-          </div>
+            <ChevronUp
+              className={cn(
+                'h-4 w-4 text-gray-400 transition-transform',
+                userMenuOpen ? '' : 'rotate-180',
+              )}
+            />
+          </button>
         </div>
       </aside>
 
@@ -132,6 +229,7 @@ export function Layout() {
             <Menu className="h-5 w-5" />
           </button>
           <div className="flex-1" />
+          <NotificationBell />
           <button
             onClick={() => setAiPanelOpen((prev) => !prev)}
             className={cn(
