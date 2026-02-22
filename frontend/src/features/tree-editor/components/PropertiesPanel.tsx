@@ -4,7 +4,8 @@ import { Input } from '@/shared/components/Input';
 import { Select } from '@/shared/components/Select';
 import { Button } from '@/shared/components/Button';
 import { useTreeEditorStore } from '@/stores/tree-editor.store';
-import type { ConditionNodeData, ActionNodeData } from '@/stores/tree-editor.store';
+import { useEditorStore } from '@/stores/editor.store';
+import type { ConditionNodeData, ActionNodeData, GateNodeData } from '@/stores/tree-editor.store';
 
 const OPERATORS = [
   'EQ', 'NEQ', 'GT', 'GTE', 'LT', 'LTE', 'BETWEEN', 'IN', 'CONTAINS', 'MATCHES', 'IS_NULL',
@@ -13,6 +14,7 @@ const OPERATORS = [
 export function PropertiesPanel() {
   const { nodes, edges, selectedNodeId, updateNode, updateEdgeLabel, setSelectedNodeId } =
     useTreeEditorStore();
+  const setDirty = useEditorStore((s) => s.setDirty);
 
   const selectedNode = nodes.find((n) => n.id === selectedNodeId);
   const nodeEdges = edges.filter(
@@ -37,12 +39,24 @@ export function PropertiesPanel() {
   }
 
   const isCondition = selectedNode.type === 'conditionNode';
-  const data = selectedNode.data as unknown as ConditionNodeData | ActionNodeData;
+  const isGate = selectedNode.type === 'gateNode';
+  const isAction = selectedNode.type === 'actionNode';
+  const data = selectedNode.data as unknown as ConditionNodeData | ActionNodeData | GateNodeData;
+
+  const updateNodeAndDirty = (id: string, data: Record<string, unknown>) => {
+    updateNode(id, data);
+    setDirty(true);
+  };
+
+  const updateEdgeLabelAndDirty = (id: string, label: string) => {
+    updateEdgeLabel(id, label);
+    setDirty(true);
+  };
 
   const handleAddOutput = () => {
     if (!outputKey.trim()) return;
     const actionData = data as ActionNodeData;
-    updateNode(selectedNode.id, {
+    updateNodeAndDirty(selectedNode.id, {
       outputs: { ...actionData.outputs, [outputKey.trim()]: outputValue },
     });
     setOutputKey('');
@@ -53,7 +67,7 @@ export function PropertiesPanel() {
     const actionData = data as ActionNodeData;
     const newOutputs = { ...actionData.outputs };
     delete newOutputs[key];
-    updateNode(selectedNode.id, { outputs: newOutputs });
+    updateNodeAndDirty(selectedNode.id, { outputs: newOutputs });
   };
 
   return (
@@ -75,7 +89,7 @@ export function PropertiesPanel() {
           </label>
           <Input
             value={data.label}
-            onChange={(e) => updateNode(selectedNode.id, { label: e.target.value })}
+            onChange={(e) => updateNodeAndDirty(selectedNode.id, { label: e.target.value })}
             placeholder="Node label"
           />
         </div>
@@ -89,7 +103,7 @@ export function PropertiesPanel() {
               <Input
                 value={(data as ConditionNodeData).field}
                 onChange={(e) =>
-                  updateNode(selectedNode.id, { field: e.target.value })
+                  updateNodeAndDirty(selectedNode.id, { field: e.target.value })
                 }
                 placeholder="e.g. age, income"
               />
@@ -101,7 +115,7 @@ export function PropertiesPanel() {
               <Select
                 value={(data as ConditionNodeData).operator}
                 onChange={(e) =>
-                  updateNode(selectedNode.id, { operator: e.target.value })
+                  updateNodeAndDirty(selectedNode.id, { operator: e.target.value })
                 }
               >
                 {OPERATORS.map((op) => (
@@ -111,26 +125,80 @@ export function PropertiesPanel() {
                 ))}
               </Select>
             </div>
-            <div>
-              <label className="block text-xs font-medium text-gray-600 mb-1">
-                Value
-              </label>
-              <Input
-                value={(data as ConditionNodeData).value}
-                onChange={(e) =>
-                  updateNode(selectedNode.id, { value: e.target.value })
-                }
-                placeholder="Comparison value"
-              />
-            </div>
+            {(data as ConditionNodeData).operator === 'BETWEEN' ? (
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Lower Bound
+                  </label>
+                  <Input
+                    value={(data as ConditionNodeData).value}
+                    onChange={(e) =>
+                      updateNodeAndDirty(selectedNode.id, { value: e.target.value })
+                    }
+                    placeholder="Min value"
+                  />
+                </div>
+                <div className="flex-1">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Upper Bound
+                  </label>
+                  <Input
+                    value={(data as ConditionNodeData).secondValue ?? ''}
+                    onChange={(e) =>
+                      updateNodeAndDirty(selectedNode.id, { secondValue: e.target.value })
+                    }
+                    placeholder="Max value"
+                  />
+                </div>
+              </div>
+            ) : (data as ConditionNodeData).operator === 'IS_NULL' ? null : (
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">
+                  Value
+                </label>
+                <Input
+                  value={(data as ConditionNodeData).value}
+                  onChange={(e) =>
+                    updateNodeAndDirty(selectedNode.id, { value: e.target.value })
+                  }
+                  placeholder="Comparison value"
+                />
+              </div>
+            )}
           </>
         )}
 
-        {!isCondition && (
+        {isGate && (
+          <div>
+            <label className="block text-xs font-medium text-gray-600 mb-1">
+              Expression (RFL)
+            </label>
+            <textarea
+              value={(data as GateNodeData).expression}
+              onChange={(e) =>
+                updateNodeAndDirty(selectedNode.id, { expression: e.target.value })
+              }
+              placeholder="e.g. age > 18 && income >= 30000"
+              rows={3}
+              className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-xs font-mono"
+            />
+            <p className="mt-1 text-xs text-gray-400">
+              Use && for AND, || for OR. Connect two children: first edge = true, second = false.
+            </p>
+          </div>
+        )}
+
+        {isAction && (
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-2">
               Outputs
             </label>
+            {Object.keys((data as ActionNodeData).outputs ?? {}).length === 0 && (
+              <div className="mb-2 px-3 py-2 rounded-md bg-amber-50 border border-amber-200 text-amber-700 text-xs">
+                At least one output is required for this action node.
+              </div>
+            )}
             <div className="space-y-2">
               {Object.entries((data as ActionNodeData).outputs ?? {}).map(
                 ([key, value]) => (
@@ -144,7 +212,7 @@ export function PropertiesPanel() {
                       value={value}
                       onChange={(e) => {
                         const actionData = data as ActionNodeData;
-                        updateNode(selectedNode.id, {
+                        updateNodeAndDirty(selectedNode.id, {
                           outputs: {
                             ...actionData.outputs,
                             [key]: e.target.value,
@@ -217,7 +285,7 @@ export function PropertiesPanel() {
                     </span>
                     <Input
                       value={(edge.label as string) ?? ''}
-                      onChange={(e) => updateEdgeLabel(edge.id, e.target.value)}
+                      onChange={(e) => updateEdgeLabelAndDirty(edge.id, e.target.value)}
                       placeholder="Edge label"
                       className="flex-1 text-xs"
                     />

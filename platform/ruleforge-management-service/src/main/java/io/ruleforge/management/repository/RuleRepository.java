@@ -4,6 +4,8 @@ import io.ruleforge.management.entity.RuleEntity;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
@@ -29,4 +31,36 @@ public interface RuleRepository extends JpaRepository<RuleEntity, UUID> {
     Page<RuleEntity> findBySpaceIdInAndStatus(Collection<UUID> spaceIds, String status, Pageable pageable);
 
     Page<RuleEntity> findBySpaceIdInAndFolderId(Collection<UUID> spaceIds, UUID folderId, Pageable pageable);
+
+    @Query("""
+        SELECT r FROM RuleEntity r
+        WHERE r.spaceId IN :spaceIds
+          AND (:folderId IS NULL OR r.folderId = :folderId)
+          AND (:status IS NULL OR r.status = :status)
+          AND (:type IS NULL OR r.type = :type)
+        """)
+    Page<RuleEntity> findByFilters(
+        @Param("spaceIds") Collection<UUID> spaceIds,
+        @Param("folderId") UUID folderId,
+        @Param("status") String status,
+        @Param("type") String type,
+        Pageable pageable
+    );
+
+    @Query("""
+        SELECT r FROM RuleEntity r
+        WHERE r.spaceId IN :spaceIds
+          AND (:folderId IS NULL OR r.folderId = :folderId)
+          AND (:status IS NULL OR r.status = :status)
+          AND (:type IS NULL OR r.type = :type)
+          AND lower(r.name) LIKE lower(concat('%', :search, '%'))
+        """)
+    Page<RuleEntity> findByFiltersAndSearch(
+        @Param("spaceIds") Collection<UUID> spaceIds,
+        @Param("folderId") UUID folderId,
+        @Param("status") String status,
+        @Param("type") String type,
+        @Param("search") String search,
+        Pageable pageable
+    );
 }

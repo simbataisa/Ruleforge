@@ -21,7 +21,7 @@ const SAMPLE_INPUT = JSON.stringify(
   2,
 );
 
-export function TestBench({ ruleId }: TestBenchProps) {
+export function TestBench({ ruleId, version }: TestBenchProps) {
   const addToast = useToastStore((s) => s.addToast);
   const testRule = useTestRule();
 
@@ -46,6 +46,7 @@ export function TestBench({ ruleId }: TestBenchProps) {
     testRule.mutate(
       {
         ruleId,
+        version,
         data: {
           input: parsedInput,
         },

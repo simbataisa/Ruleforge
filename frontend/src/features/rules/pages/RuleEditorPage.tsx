@@ -153,12 +153,16 @@ export function RuleEditorPage() {
   // Load definition into editor when version changes
   useEffect(() => {
     if (!currentVersion?.definition) return;
+    // Backend returns definition as JSON string — parse it
+    let def: Record<string, unknown> = currentVersion.definition as Record<string, unknown>;
+    if (typeof def === 'string') {
+      try { def = JSON.parse(def); } catch { /* keep as-is */ }
+    }
     if (rule?.type === 'TABLE') {
-      loadTableDefinition(currentVersion.definition);
+      loadTableDefinition(def);
     } else if (rule?.type === 'TREE') {
-      loadTreeDefinition(currentVersion.definition);
+      loadTreeDefinition(def);
     } else if (rule?.type === 'SCRIPT') {
-      const def = currentVersion.definition as Record<string, unknown>;
       setScriptDefinition({
         scriptBody: (def.scriptBody as string) ?? '',
         language: (def.language as string) ?? 'js',
@@ -166,15 +170,15 @@ export function RuleEditorPage() {
         maxMemoryMb: (def.maxMemoryMb as number) ?? 64,
       });
     } else if (rule?.type === 'FLOW') {
-      setFlowDefinition(currentVersion.definition as unknown as Parameters<typeof setFlowDefinition>[0]);
+      setFlowDefinition(def as unknown as Parameters<typeof setFlowDefinition>[0]);
     } else if (rule?.type === 'SCORECARD') {
-      loadScorecardDefinition(currentVersion.definition);
+      loadScorecardDefinition(def);
     } else if (rule?.type === 'ENSEMBLE') {
-      loadEnsembleDefinition(currentVersion.definition);
+      loadEnsembleDefinition(def);
     } else if (rule?.type === 'DMN') {
-      loadDmnDefinition(currentVersion.definition);
+      loadDmnDefinition(def);
     } else if (rule?.type === 'CEP') {
-      loadCepDefinition(currentVersion.definition);
+      loadCepDefinition(def);
     }
     setDirty(false);
   }, [currentVersion?.id, rule?.type, loadTableDefinition, loadTreeDefinition, setScriptDefinition, setFlowDefinition, loadScorecardDefinition, loadEnsembleDefinition, loadDmnDefinition, loadCepDefinition, setDirty]);

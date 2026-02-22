@@ -188,13 +188,16 @@ export function useTestRule() {
   return useMutation({
     mutationFn: async ({
       ruleId,
+      version,
       data,
     }: {
       ruleId: string;
+      version?: number;
       data: TestRequest;
     }) => {
+      const params = version != null ? `?version=${version}` : '';
       const res = await apiClient.post<ApiResponse<TestResponse>>(
-        `/rules/${ruleId}/test`,
+        `/rules/${ruleId}/test${params}`,
         data,
       );
       return res.data.data;

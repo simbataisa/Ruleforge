@@ -8,12 +8,13 @@ import {
   Panel,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { GitBranch, Zap, Trash2 } from 'lucide-react';
+import { GitBranch, Zap, Shield, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { useTreeEditorStore } from '@/stores/tree-editor.store';
 import { useEditorStore } from '@/stores/editor.store';
 import { ConditionNode } from './ConditionNode';
 import { ActionNode } from './ActionNode';
+import { GateNode } from './GateNode';
 import { LabeledEdge } from './LabeledEdge';
 import { PropertiesPanel } from './PropertiesPanel';
 import type { NodeChange, EdgeChange, Connection, Node } from '@xyflow/react';
@@ -21,6 +22,7 @@ import type { NodeChange, EdgeChange, Connection, Node } from '@xyflow/react';
 const nodeTypes = {
   conditionNode: ConditionNode,
   actionNode: ActionNode,
+  gateNode: GateNode,
 };
 
 const edgeTypes = {
@@ -34,6 +36,7 @@ export function TreeEditor() {
     selectedNodeId,
     addConditionNode,
     addActionNode,
+    addGateNode,
     deleteNode,
     onNodesChange,
     onEdgesChange,
@@ -97,6 +100,13 @@ export function TreeEditor() {
     setDirty(true);
   }, [addActionNode, setDirty]);
 
+  const handleAddGate = useCallback(() => {
+    const x = 250 + Math.random() * 200;
+    const y = 200 + Math.random() * 200;
+    addGateNode({ x, y });
+    setDirty(true);
+  }, [addGateNode, setDirty]);
+
   const handleDeleteSelected = useCallback(() => {
     if (selectedNodeId) {
       deleteNode(selectedNodeId);
@@ -144,7 +154,7 @@ export function TreeEditor() {
           <MiniMap
             className="!bg-white !border-gray-200"
             nodeColor={(node) =>
-              node.type === 'conditionNode' ? '#93c5fd' : '#86efac'
+              node.type === 'conditionNode' ? '#93c5fd' : node.type === 'gateNode' ? '#fcd34d' : '#86efac'
             }
             maskColor="rgba(0, 0, 0, 0.08)"
           />
@@ -167,6 +177,15 @@ export function TreeEditor() {
               >
                 <Zap className="h-3.5 w-3.5 text-green-600" />
                 Action
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={handleAddGate}
+                className="text-xs"
+              >
+                <Shield className="h-3.5 w-3.5 text-amber-600" />
+                Gate
               </Button>
               <div className="h-5 w-px bg-gray-200" />
               <Button

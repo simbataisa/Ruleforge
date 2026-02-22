@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search } from 'lucide-react';
+import { Plus, Search, RefreshCw, ChevronLeft, ChevronRight } from 'lucide-react';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
@@ -52,30 +52,43 @@ export function RuleListPage() {
   const [typeFilter, setTypeFilter] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
+  const [page, setPage] = useState(0);
+  const PAGE_SIZE = 20;
   const [showCreateRule, setShowCreateRule] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
   const [createFolderParentId, setCreateFolderParentId] = useState<
     string | undefined
   >();
 
-  const { data: rulesData, isLoading: rulesLoading } = useRules();
-  const { data: foldersData, isLoading: foldersLoading } = useFolders();
+  const { data: rulesData, isLoading: rulesLoading, isFetching: rulesFetching, refetch: refetchRules } = useRules({
+    page,
+    size: PAGE_SIZE,
+    search: search || undefined,
+    type: typeFilter || undefined,
+    status: statusFilter || undefined,
+    folderId: selectedFolderId || undefined,
+  });
+  const { data: foldersData, isLoading: foldersLoading, refetch: refetchFolders } = useFolders();
+
+  const handleRefresh = () => {
+    refetchRules();
+    refetchFolders();
+  };
   const createRule = useCreateRule();
   const createFolder = useCreateFolder();
 
   const rules: Rule[] = useMemo(() => {
     const allRules = rulesData?.content ?? [];
-    const ruleList = Array.isArray(allRules) ? allRules : [];
-    return ruleList.filter((rule: Rule) => {
-      if (search && !rule.name.toLowerCase().includes(search.toLowerCase())) {
-        return false;
-      }
-      if (typeFilter && rule.type !== typeFilter) return false;
-      if (statusFilter && rule.status !== statusFilter) return false;
-      if (selectedFolderId && rule.folderId !== selectedFolderId) return false;
-      return true;
-    });
-  }, [rulesData, search, typeFilter, statusFilter, selectedFolderId]);
+    return Array.isArray(allRules) ? allRules : [];
+  }, [rulesData]);
+
+  const totalPages = rulesData?.totalPages ?? 0;
+  const totalElements = rulesData?.totalElements ?? 0;
+
+  // Reset to page 0 when filters change
+  useEffect(() => {
+    setPage(0);
+  }, [search, typeFilter, statusFilter, selectedFolderId]);
 
   const folders = useMemo(() => {
     return Array.isArray(foldersData) ? foldersData : [];
@@ -172,10 +185,15 @@ export function RuleListPage() {
       <PageHeader
         title="Rules"
         actions={
-          <Button onClick={() => setShowCreateRule(true)}>
-            <Plus className="h-4 w-4" />
-            Create Rule
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={handleRefresh} disabled={rulesFetching}>
+              <RefreshCw className={`h-4 w-4 ${rulesFetching ? 'animate-spin' : ''}`} />
+            </Button>
+            <Button onClick={() => setShowCreateRule(true)}>
+              <Plus className="h-4 w-4" />
+              Create Rule
+            </Button>
+          </div>
         }
       />
 
@@ -236,12 +254,37 @@ export function RuleListPage() {
               }
             />
           ) : (
-            <DataTable
-              data={rules}
-              columns={columns}
-              onRowClick={(rule) => navigate(`/rules/${rule.id}/edit`)}
-              className="cursor-pointer hover:bg-gray-50"
-            />
+            <>
+              <DataTable
+                data={rules}
+                columns={columns}
+                onRowClick={(rule) => navigate(`/rules/${rule.id}/edit`)}
+                className="cursor-pointer hover:bg-gray-50"
+              />
+              {totalPages > 1 && (
+                <div className="flex items-center justify-between mt-4 text-sm text-gray-600">
+                  <span>
+                    {totalElements} rules &middot; Page {page + 1} of {totalPages}
+                  </span>
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={() => setPage((p) => Math.max(0, p - 1))}
+                      disabled={page === 0}
+                      className="p-1 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeft className="h-4 w-4" />
+                    </button>
+                    <button
+                      onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                      disabled={page >= totalPages - 1}
+                      className="p-1 rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                      <ChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              )}
+            </>
           )}
         </div>
       </div>

@@ -4,8 +4,17 @@ import type { NodeProps } from '@xyflow/react';
 import { GitBranch } from 'lucide-react';
 import type { ConditionNodeData } from '@/stores/tree-editor.store';
 
+function formatCondition(nodeData: ConditionNodeData): string {
+  const { field, operator, value, secondValue } = nodeData;
+  if (!field) return '';
+  if (operator === 'IS_NULL' || operator === 'IS_NOT_NULL') return `${field} ${operator}`;
+  if (operator === 'BETWEEN' && secondValue) return `${field} BETWEEN ${value} AND ${secondValue}`;
+  return `${field} ${operator} ${value}`;
+}
+
 function ConditionNodeComponent({ data, selected }: NodeProps) {
   const nodeData = data as unknown as ConditionNodeData;
+  const conditionText = formatCondition(nodeData);
   return (
     <div
       className={`rounded-lg border-2 bg-white shadow-sm min-w-[180px] transition-colors ${
@@ -29,10 +38,8 @@ function ConditionNodeComponent({ data, selected }: NodeProps) {
       </div>
       <div className="px-3 py-2">
         <p className="text-sm font-medium text-gray-800">{nodeData.label}</p>
-        {nodeData.field && (
-          <p className="text-xs text-gray-500 mt-1">
-            {nodeData.field} {nodeData.operator} {nodeData.value}
-          </p>
+        {conditionText && (
+          <p className="text-xs text-gray-500 mt-1 font-mono">{conditionText}</p>
         )}
       </div>
       <Handle

@@ -31,7 +31,7 @@ export interface RuleVersion {
   id: string;
   ruleId: string;
   version: number;
-  definition: Record<string, unknown>;
+  definition: Record<string, unknown> | string;
   inputModel: Record<string, unknown>;
   outputModel: Record<string, unknown>;
   status: VersionStatus;

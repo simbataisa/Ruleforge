@@ -13,12 +13,19 @@ export interface ConditionNodeData {
   field: string;
   operator: string;
   value: string;
+  secondValue?: string;
   [key: string]: unknown;
 }
 
 export interface ActionNodeData {
   label: string;
   outputs: Record<string, string>;
+  [key: string]: unknown;
+}
+
+export interface GateNodeData {
+  label: string;
+  expression: string;
   [key: string]: unknown;
 }
 
@@ -29,6 +36,7 @@ interface TreeEditorState {
 
   addConditionNode: (position: { x: number; y: number }) => void;
   addActionNode: (position: { x: number; y: number }) => void;
+  addGateNode: (position: { x: number; y: number }) => void;
   updateNode: (id: string, data: Record<string, unknown>) => void;
   deleteNode: (id: string) => void;
   updateEdgeLabel: (id: string, label: string) => void;
@@ -67,6 +75,7 @@ export const useTreeEditorStore = create<TreeEditorState>((set, get) => ({
         field: '',
         operator: 'EQ',
         value: '',
+        secondValue: '',
       } satisfies ConditionNodeData,
     };
     set((state) => ({ nodes: [...state.nodes, newNode] }));
@@ -82,6 +91,20 @@ export const useTreeEditorStore = create<TreeEditorState>((set, get) => ({
         label: 'New Action',
         outputs: {},
       } satisfies ActionNodeData,
+    };
+    set((state) => ({ nodes: [...state.nodes, newNode] }));
+  },
+
+  addGateNode: (position) => {
+    const id = generateNodeId('gate');
+    const newNode: Node = {
+      id,
+      type: 'gateNode',
+      position,
+      data: {
+        label: 'New Gate',
+        expression: '',
+      } satisfies GateNodeData,
     };
     set((state) => ({ nodes: [...state.nodes, newNode] }));
   },
@@ -124,11 +147,24 @@ export const useTreeEditorStore = create<TreeEditorState>((set, get) => ({
   },
 
   onConnect: (connection) => {
+    const { nodes, edges: currentEdges } = get();
+    const sourceNode = nodes.find((n) => n.id === connection.source);
+    const existingOutEdges = currentEdges.filter((e) => e.source === connection.source);
+
+    // Auto-label edges based on node type
+    let label = '';
+    if (sourceNode?.type === 'gateNode') {
+      label = existingOutEdges.length === 0 ? 'true' : 'false';
+    } else if (sourceNode?.type === 'conditionNode' && existingOutEdges.length >= 1) {
+      // When adding a second+ edge from a condition, label it "default"
+      label = 'default';
+    }
+
     const edge: Edge = {
       ...connection,
       id: `edge_${connection.source}_${connection.target}`,
       type: 'labeledEdge',
-      label: '',
+      label,
     } as Edge;
     set((state) => ({
       edges: addEdge(edge, state.edges),
@@ -140,8 +176,11 @@ export const useTreeEditorStore = create<TreeEditorState>((set, get) => ({
   },
 
   loadFromDefinition: (definition) => {
-    // Support both engine format (root tree) and UI format (nodes/edges)
-    const def = definition as Record<string, unknown>;
+    // Backend may return definition as JSON string — parse it
+    let def = definition as Record<string, unknown>;
+    if (typeof def === 'string') {
+      try { def = JSON.parse(def); } catch { /* keep as-is */ }
+    }
 
     if (def.nodes && Array.isArray(def.nodes)) {
       // UI format - React Flow nodes/edges
@@ -180,48 +219,78 @@ export const useTreeEditorStore = create<TreeEditorState>((set, get) => ({
             type: 'actionNode',
             position: { x, y },
             data: {
-              label: 'Action',
+              label: (node.label as string) || 'Action',
               outputs: (node.outputs as Record<string, string>) ?? {},
             },
+          });
+        } else if (nodeType === 'GATE') {
+          nodes.push({
+            id: nodeId,
+            type: 'gateNode',
+            position: { x, y },
+            data: {
+              label: (node.label as string) || ((node.expression as string) ? 'Gate' : 'New Gate'),
+              expression: (node.expression as string) || '',
+            },
+          });
+
+          // GATE has trueChild and falseChild
+          const trueChild = node.trueChild as Record<string, unknown> | undefined;
+          const falseChild = node.falseChild as Record<string, unknown> | undefined;
+          const children = [trueChild, falseChild].filter(Boolean) as Record<string, unknown>[];
+          children.forEach((child, ci) => {
+            const childX = x + (ci - (children.length - 1) / 2) * 250;
+            const childY = y + 150;
+            const childId = flattenNode(child, childX, childY);
+            edges.push({
+              id: `edge_${nodeId}_${childId}`,
+              source: nodeId,
+              target: childId,
+              type: 'labeledEdge',
+              label: ci === 0 && trueChild ? 'true' : 'false',
+            } as Edge);
           });
         } else {
           // CONDITION or other
           const branches = (node.branches as Array<Record<string, unknown>>) ?? [];
-          // For single-branch conditions, put the branch value on the node's value field
-          const nodeValue = branches.length === 1 ? String(branches[0]?.value ?? '') : '';
+          // Always restore the first branch value to the condition node
+          const nodeValue = branches.length > 0 ? String(branches[0]?.value ?? '') : '';
+          const nodeSecondValue = branches.length > 0 ? String(branches[0]?.secondValue ?? '') : '';
 
           nodes.push({
             id: nodeId,
             type: 'conditionNode',
             position: { x, y },
             data: {
-              label: (node.field as string) || 'Condition',
+              label: (node.label as string) || (node.field as string) || 'Condition',
               field: (node.field as string) || '',
               operator: (node.operator as string) || 'EQ',
               value: nodeValue,
+              secondValue: nodeSecondValue,
             },
           });
 
           branches.forEach((branch, bi) => {
-            const childX = x + (bi - (branches.length - 1) / 2) * 250;
+            const totalChildren = branches.length + (node.defaultBranch ? 1 : 0);
+            const childX = x + (bi - (totalChildren - 1) / 2) * 250;
             const childY = y + 150;
             const child = branch.child as Record<string, unknown>;
             if (child) {
               const childId = flattenNode(child, childX, childY);
-              // For multi-branch, edge label shows the branch value; for single-branch, edge label is empty
-              const edgeLabel = branches.length > 1 ? String(branch.value ?? '') : '';
               edges.push({
                 id: `edge_${nodeId}_${childId}`,
                 source: nodeId,
                 target: childId,
                 type: 'labeledEdge',
-                label: edgeLabel,
+                label: '',
               } as Edge);
             }
           });
 
           if (node.defaultBranch) {
-            const defX = x + branches.length * 250;
+            const defIdx = branches.length;
+            const totalChildren = branches.length + 1;
+            const defX = x + (defIdx - (totalChildren - 1) / 2) * 250;
             const defY = y + 150;
             const defId = flattenNode(node.defaultBranch as Record<string, unknown>, defX, defY);
             edges.push({
@@ -265,37 +334,74 @@ export const useTreeEditorStore = create<TreeEditorState>((set, get) => ({
         return {
           nodeType: 'ACTION',
           nodeId: node.id,
+          label: data.label || '',
           outputs: data.outputs ?? {},
         };
       }
 
-      // conditionNode
+      if (node.type === 'gateNode') {
+        const data = node.data as GateNodeData;
+        const outEdges = edges.filter((e) => e.source === node.id);
+        // First edge = trueChild, second edge = falseChild
+        const trueEdge = outEdges.find((e) => e.label === 'true') ?? outEdges[0];
+        const falseEdge = outEdges.find((e) => e.label === 'false') ?? outEdges[1];
+
+        const trueTarget = trueEdge ? nodes.find((n) => n.id === trueEdge.target) : undefined;
+        const falseTarget = falseEdge && falseEdge !== trueEdge ? nodes.find((n) => n.id === falseEdge.target) : undefined;
+
+        return {
+          nodeType: 'GATE',
+          nodeId: node.id,
+          label: data.label || '',
+          expression: data.expression || '',
+          ...(trueTarget ? { trueChild: buildTreeNode(trueTarget) } : {}),
+          ...(falseTarget ? { falseChild: buildTreeNode(falseTarget) } : {}),
+        };
+      }
+
+      // conditionNode — always use node's value for branch thresholds
       const data = node.data as ConditionNodeData;
       const outEdges = edges.filter((e) => e.source === node.id);
 
-      // If only one outgoing edge, the condition node's value is the branch threshold.
-      // If multiple edges, each edge label is used as the branch value (multi-way split).
-      const useNodeValue = outEdges.length === 1 && data.value;
+      const rawValue = data.value || '';
+      const numericValue = rawValue !== '' && !isNaN(Number(rawValue)) ? Number(rawValue) : rawValue;
+      const isBetween = data.operator === 'BETWEEN';
+      const rawSecond = data.secondValue || '';
+      const numericSecond = rawSecond !== '' && !isNaN(Number(rawSecond)) ? Number(rawSecond) : rawSecond;
 
-      const branches = outEdges.map((edge) => {
+      // Separate default edge (labeled "default") from match edges
+      const defaultEdge = outEdges.find((e) => e.label === 'default');
+      const matchEdges = outEdges.filter((e) => e.label !== 'default');
+
+      // If no explicit default label but 2+ edges, treat last as default
+      const effectiveDefaultEdge = defaultEdge ?? (outEdges.length >= 2 ? outEdges[outEdges.length - 1] : undefined);
+      const effectiveMatchEdges = defaultEdge
+        ? matchEdges
+        : (outEdges.length >= 2 ? outEdges.slice(0, -1) : outEdges);
+
+      const branches = effectiveMatchEdges.map((edge) => {
         const targetNode = nodes.find((n) => n.id === edge.target);
-        // Parse numeric values so the engine can do numeric comparisons
-        const rawValue = useNodeValue ? data.value : (edge.label ? String(edge.label) : '');
-        const numericValue = rawValue !== '' && !isNaN(Number(rawValue)) ? Number(rawValue) : rawValue;
         return {
           value: numericValue,
+          ...(isBetween && rawSecond ? { secondValue: numericSecond } : {}),
           child: targetNode ? buildTreeNode(targetNode) : { nodeType: 'ACTION', nodeId: edge.target, outputs: {} },
         };
       });
 
-      // If there are no branches but the node has a value, create a defaultBranch
-      // for any child nodes to handle gracefully
+      let defaultBranch: Record<string, unknown> | undefined;
+      if (effectiveDefaultEdge) {
+        const defTarget = nodes.find((n) => n.id === effectiveDefaultEdge.target);
+        defaultBranch = defTarget ? buildTreeNode(defTarget) : { nodeType: 'ACTION', nodeId: effectiveDefaultEdge.target, outputs: {} };
+      }
+
       return {
         nodeType: 'CONDITION',
         nodeId: node.id,
+        label: data.label || '',
         field: data.field || '',
         operator: data.operator || 'EQ',
         branches,
+        ...(defaultBranch ? { defaultBranch } : {}),
       };
     }
 

@@ -139,7 +139,8 @@ public class RuleService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<RuleDto> listRulesForOrg(UUID orgId, UUID folderId, String status, Pageable pageable) {
+    public PageResponse<RuleDto> listRulesForOrg(UUID orgId, UUID folderId, String status,
+                                                  String type, String search, Pageable pageable) {
         List<UUID> spaceIds = spaceRepository.findByOrgId(orgId).stream()
                 .map(io.ruleforge.management.entity.SpaceEntity::getId)
                 .toList();
@@ -149,12 +150,10 @@ public class RuleService {
         }
 
         Page<RuleEntity> page;
-        if (folderId != null) {
-            page = ruleRepository.findBySpaceIdInAndFolderId(spaceIds, folderId, pageable);
-        } else if (status != null) {
-            page = ruleRepository.findBySpaceIdInAndStatus(spaceIds, status, pageable);
+        if (search != null && !search.isBlank()) {
+            page = ruleRepository.findByFiltersAndSearch(spaceIds, folderId, status, type, search, pageable);
         } else {
-            page = ruleRepository.findBySpaceIdIn(spaceIds, pageable);
+            page = ruleRepository.findByFilters(spaceIds, folderId, status, type, pageable);
         }
 
         List<RuleDto> content = page.getContent().stream()

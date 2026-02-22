@@ -95,9 +95,11 @@ public class RuleController {
     public ApiResponse<PageResponse<RuleDto>> listRulesForOrg(
             @RequestParam(required = false) UUID folderId,
             @RequestParam(required = false) String status,
+            @RequestParam(required = false) String type,
+            @RequestParam(required = false) String search,
             @PageableDefault(size = 20) Pageable pageable) {
         UUID orgId = TenantContext.get().orgId();
-        PageResponse<RuleDto> rules = ruleService.listRulesForOrg(orgId, folderId, status, pageable);
+        PageResponse<RuleDto> rules = ruleService.listRulesForOrg(orgId, folderId, status, type, search, pageable);
         return ApiResponse.ok(rules);
     }
 
@@ -157,9 +159,11 @@ public class RuleController {
 
     @PostMapping("/rules/{ruleId}/test")
     public ApiResponse<TestResultDto> testRule(@PathVariable UUID ruleId,
+                                               @RequestParam(required = false) Integer version,
                                                @Valid @RequestBody TestRuleRequest request) {
         RuleDto rule = ruleService.getRule(ruleId);
-        TestResultDto result = ruleValidationService.testRule(ruleId, rule.latestVersion(), request);
+        int testVersion = version != null ? version : rule.latestVersion();
+        TestResultDto result = ruleValidationService.testRule(ruleId, testVersion, request);
         return ApiResponse.ok(result);
     }
 }
