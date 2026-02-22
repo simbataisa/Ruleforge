@@ -186,6 +186,10 @@ export const useTreeEditorStore = create<TreeEditorState>((set, get) => ({
           });
         } else {
           // CONDITION or other
+          const branches = (node.branches as Array<Record<string, unknown>>) ?? [];
+          // For single-branch conditions, put the branch value on the node's value field
+          const nodeValue = branches.length === 1 ? String(branches[0]?.value ?? '') : '';
+
           nodes.push({
             id: nodeId,
             type: 'conditionNode',
@@ -194,23 +198,24 @@ export const useTreeEditorStore = create<TreeEditorState>((set, get) => ({
               label: (node.field as string) || 'Condition',
               field: (node.field as string) || '',
               operator: (node.operator as string) || 'EQ',
-              value: '',
+              value: nodeValue,
             },
           });
 
-          const branches = (node.branches as Array<Record<string, unknown>>) ?? [];
           branches.forEach((branch, bi) => {
             const childX = x + (bi - (branches.length - 1) / 2) * 250;
             const childY = y + 150;
             const child = branch.child as Record<string, unknown>;
             if (child) {
               const childId = flattenNode(child, childX, childY);
+              // For multi-branch, edge label shows the branch value; for single-branch, edge label is empty
+              const edgeLabel = branches.length > 1 ? String(branch.value ?? '') : '';
               edges.push({
                 id: `edge_${nodeId}_${childId}`,
                 source: nodeId,
                 target: childId,
                 type: 'labeledEdge',
-                label: String(branch.value ?? ''),
+                label: edgeLabel,
               } as Edge);
             }
           });
@@ -267,14 +272,24 @@ export const useTreeEditorStore = create<TreeEditorState>((set, get) => ({
       // conditionNode
       const data = node.data as ConditionNodeData;
       const outEdges = edges.filter((e) => e.source === node.id);
+
+      // If only one outgoing edge, the condition node's value is the branch threshold.
+      // If multiple edges, each edge label is used as the branch value (multi-way split).
+      const useNodeValue = outEdges.length === 1 && data.value;
+
       const branches = outEdges.map((edge) => {
         const targetNode = nodes.find((n) => n.id === edge.target);
+        // Parse numeric values so the engine can do numeric comparisons
+        const rawValue = useNodeValue ? data.value : (edge.label ? String(edge.label) : '');
+        const numericValue = rawValue !== '' && !isNaN(Number(rawValue)) ? Number(rawValue) : rawValue;
         return {
-          value: edge.label ? String(edge.label) : '',
+          value: numericValue,
           child: targetNode ? buildTreeNode(targetNode) : { nodeType: 'ACTION', nodeId: edge.target, outputs: {} },
         };
       });
 
+      // If there are no branches but the node has a value, create a defaultBranch
+      // for any child nodes to handle gracefully
       return {
         nodeType: 'CONDITION',
         nodeId: node.id,
