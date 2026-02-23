@@ -50,6 +50,13 @@ public class RuleEngineRegistry {
     }
 
     /**
+     * Retrieves the engine registered for the given rule type, or null if none.
+     */
+    public RuleTypeEngine findEngine(RuleType type) {
+        return engines.get(type);
+    }
+
+    /**
      * Checks whether an engine is registered for the given rule type.
      *
      * @param type the rule type

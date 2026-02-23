@@ -18,10 +18,12 @@ import io.ruleforge.core.result.RuleResult;
 import io.ruleforge.core.result.RuleResultMetadata;
 import io.ruleforge.core.spi.CompilationPhaseExtension;
 import io.ruleforge.core.spi.ConflictResolutionStrategy;
+import io.ruleforge.core.spi.EvaluationContext;
 import io.ruleforge.core.spi.RuleLifecycleListener;
 import io.ruleforge.core.spi.RuleTypeEngine;
 
 import java.time.Duration;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -90,8 +92,16 @@ public class DefaultRuleForgeEngine implements RuleForgeEngine {
         }
 
         try {
-            // Evaluate the compiled rule against working memory
-            RuleResult result = rule.evaluate(workingMemory);
+            // Dispatch evaluation through the RuleTypeEngine if available,
+            // falling back to direct CompiledRule.evaluate() for engines that support it.
+            RuleResult result;
+            RuleTypeEngine typeEngine = registry.findEngine(rule.type());
+            if (typeEngine != null) {
+                EvaluationContext ctx = new SimpleEvaluationContext(workingMemory);
+                result = typeEngine.evaluate(rule, workingMemory, ctx);
+            } else {
+                result = rule.evaluate(workingMemory);
+            }
 
             Duration elapsed = Duration.ofNanos(System.nanoTime() - startNanos);
 

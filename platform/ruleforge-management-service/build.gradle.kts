@@ -23,6 +23,9 @@ dependencies {
     implementation("io.ruleforge:ruleforge-ensemble:${property("version")}")
     implementation("io.ruleforge:ruleforge-flow:${property("version")}")
     implementation("io.ruleforge:ruleforge-dmn:${property("version")}")
+    implementation("io.ruleforge:ruleforge-script:${property("version")}")
+    implementation("io.ruleforge:ruleforge-cep:${property("version")}")
+    implementation("io.ruleforge:ruleforge-hierarchy:${property("version")}")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }

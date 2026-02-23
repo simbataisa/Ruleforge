@@ -70,7 +70,7 @@ ON CONFLICT (alias) DO NOTHING;
 INSERT INTO rule_versions (id, rule_id, version, definition, input_model, output_model, status, created_by, change_note) VALUES
     ('f0000000-0000-0000-0000-000000000004',
      'e0000000-0000-0000-0000-000000000004', 1,
-     '{"language":"javascript","scriptBody":"function execute(input) { var basePrice = input.basePrice; var factor = Math.min(2.0, Math.max(0.5, input.demandIndex / 100)); var finalPrice = basePrice * factor; return { finalPrice: Math.round(finalPrice * 100) / 100 }; }"}',
+     '{"language":"js","scriptBody":"function evaluate(input) { var basePrice = input.basePrice; var factor = Math.min(2.0, Math.max(0.5, input.demandIndex / 100)); var finalPrice = basePrice * factor; return { finalPrice: Math.round(finalPrice * 100) / 100 }; }"}',
      '{"basePrice":"DECIMAL","demandIndex":"INTEGER"}',
      '{"finalPrice":"DECIMAL"}',
      'PUBLISHED', 'c0000000-0000-0000-0000-000000000001', 'Initial version')

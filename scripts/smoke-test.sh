@@ -333,9 +333,9 @@ else
     test_rule "FLOW" "e0000000-0000-0000-0000-000000000005" '{"orderTotal":500}' "true"
     test_rule "DMN" "e0000000-0000-0000-0000-000000000006" '{"yearsOfService":3,"role":"Senior"}' "true"
 
-    # Test engines NOT registered (SCRIPT=GraalVM, CEP=Kafka) — expect graceful failure
-    test_rule "SCRIPT" "e0000000-0000-0000-0000-000000000004" '{"basePrice":100,"demandIndex":120}' "graceful"
-    test_rule "CEP" "e0000000-0000-0000-0000-000000000008" '{"amount":200,"country":"US"}' "graceful"
+    # All engines now registered — SCRIPT (GraalVM) and CEP (Kafka Streams) work
+    test_rule "SCRIPT" "e0000000-0000-0000-0000-000000000004" '{"basePrice":100,"demandIndex":120}' "true"
+    test_rule "CEP" "e0000000-0000-0000-0000-000000000008" '{"amount":200,"country":"US"}' "true"
 
     # --- 3.8b: Showcase Rules (V024) — richer sample rules ---
     test_rule "TABLE-v2" "e1000000-0000-0000-0000-000000000001" '{"department":"Engineering","yearsOfService":5,"performanceRating":"Exceeds","employeeType":"full-time"}' "true"
@@ -347,8 +347,8 @@ else
     test_rule "FLOW-v2-reject" "e1000000-0000-0000-0000-000000000005" '{"creditScore":500,"annualIncome":40000,"requestedAmount":200000,"existingDebt":25000}' "true"
     test_rule "DMN-v2" "e1000000-0000-0000-0000-000000000006" '{"weightKg":3,"zone":"domestic","priority":"express"}' "true"
     test_rule "ENSEMBLE-v2" "e1000000-0000-0000-0000-000000000007" '{"paymentHistory":95,"debtToIncome":15,"accountAge":7,"creditMix":4,"creditScore":750,"income":60000,"age":35,"accidents":0}' "true"
-    test_rule "SCRIPT-v2" "e1000000-0000-0000-0000-000000000004" '{"grossIncome":85000,"filingStatus":"single","dependents":0,"deductions":0,"stateCode":"CA"}' "graceful"
-    test_rule "CEP-v2" "e1000000-0000-0000-0000-000000000008" '{"userId":"user1","ip":"1.2.3.4","country":"US","success":false}' "graceful"
+    test_rule "SCRIPT-v2" "e1000000-0000-0000-0000-000000000004" '{"grossIncome":85000,"filingStatus":"single","dependents":0,"deductions":0,"stateCode":"CA"}' "true"
+    test_rule "CEP-v2" "e1000000-0000-0000-0000-000000000008" '{"userId":"user1","ip":"1.2.3.4","country":"US","success":false}' "true"
   else
     skip "Rule testing — could not get admin token"
   fi
