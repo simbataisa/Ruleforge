@@ -12,7 +12,7 @@ RuleForge is an enterprise BRMS for authoring, managing, and executing business 
 - **8 Rule Types** — Decision Tables, Decision Trees, Scorecards, Ensembles, DMN, Rule Flows, Scripts (GraalVM), and Complex Event Processing.
 - **Visual Rule Editors** — Spreadsheet-style decision tables, drag-and-drop tree editors, DAG flow designers, scorecard builders, and sandboxed script editors.
 - **Multi-Tenant Platform** — Organization → Space → Folder → Rule hierarchy with PostgreSQL Row-Level Security, JWT authentication, API keys, and SSO support.
-- **Production-Ready** — Multi-layer caching, Kafka-based event streaming, audit trails, batch scheduling, data connectors, and client SDKs (Java, Node.js, Python).
+- **Production-Ready** — Multi-layer caching, Kafka-based event streaming, audit trails, batch scheduling, data connectors, client SDKs (Java, Node.js, Python), approval workflows, real-time notifications, and security hardening.
 
 **Use cases:** Financial services (loan decisioning, risk scoring), insurance (underwriting, claims automation), healthcare (eligibility determination), e-commerce (dynamic pricing, promotions).
 
@@ -80,7 +80,7 @@ ruleforge/
 │   ├── sdk-java/                        # Java SDK
 │   ├── sdk-node/                        # Node.js SDK
 │   └── sdk-python/                      # Python SDK
-├── db/                                  # Flyway SQL migrations (V001–V020)
+├── db/                                  # Flyway SQL migrations (V001–V023)
 ├── infra/                               # Docker Compose, Kong gateway config
 ├── scripts/                             # Dev scripts (start-local, stop-local, smoke-test)
 └── docs/                                # Architecture and developer documentation
@@ -92,7 +92,7 @@ ruleforge/
 | -------------- | -------------------------------------------------------------------------- |
 | Engine         | Java 21, zero-dep core (SLF4J + Jackson only), GraalVM 23.1.2              |
 | Platform       | Spring Boot 3.3.5, PostgreSQL 16, Redis 7, Kafka 3.7.1, Caffeine           |
-| Frontend       | React 18, TypeScript 5.5, Vite 5.4, Tailwind CSS 3.4, Zustand, React Query |
+| Frontend       | React 18, TypeScript 5.5, Vite 5.4, Tailwind CSS 3.4, Zustand, React Query, Recharts, Monaco Editor |
 | AI             | Python 3.12, FastAPI, Anthropic SDK                                        |
 | Infrastructure | Docker, Kong 3.6 API Gateway, Kubernetes (Helm), Flyway                    |
 
@@ -151,7 +151,7 @@ make infra-up
 
 ```bash
 make migrate
-# Runs Flyway V001–V020 against local PostgreSQL
+# Runs Flyway V001–V023 against local PostgreSQL
 ```
 
 #### 3. Build the Engine
@@ -257,9 +257,42 @@ In local development, the Vite dev server routes requests directly to each servi
 - **Multi-Layer Caching** — L1 Caffeine (per-JVM) → L2 Redis (distributed) → L3 PostgreSQL, with Kafka-driven cache invalidation.
 - **Import/Export** — JSON-based single and bulk rule operations for environment promotion and backup.
 - **AI Assistant** — LLM-powered rule generation, optimization suggestions, conflict detection, and natural language querying.
-- **Approval Workflow** — Request approval, approve, or reject rule versions before publishing.
-- **A/B Testing** — Experiment framework for comparing rule versions.
+- **Approval Workflow** — Request approval, approve, or reject rule versions before publishing (DRAFT → PENDING_APPROVAL → PUBLISHED).
+- **A/B Testing** — Experiment framework for comparing rule versions with traffic splitting.
+- **Real-Time Notifications** — Server-Sent Events (SSE) for live rule lifecycle updates with in-app notification bell.
+- **Analytics Dashboard** — Interactive charts (execution timeline, type distribution, pass/fail ratio, latency percentiles) powered by Recharts.
+- **Audit Trail** — Comprehensive event logging with filterable audit log page and resource-level history.
+- **Webhook Management** — CRUD for webhooks with event selection, delivery history tracking, and secret management.
+- **User Profile** — Profile editing, password change, and session timeout management.
+- **Error Handling** — Global error boundary, skeleton loaders, API error toasts, and automatic 503 retry with exponential backoff.
+- **Security Hardening** — CSRF protection, rate-limit display, JWT session timeout with expiry warning, and XSS-safe rendering.
+- **Performance Optimization** — React.lazy() code-splitting for editors and routes, debounced search, memoized components.
+- **Monaco Code Editor** — Syntax-highlighted JavaScript editor with IntelliSense for Script rules (replaces plain textarea).
+- **Version Diff Viewer** — Side-by-side JSON comparison of rule versions with color-coded additions, removals, and changes.
+- **Keyboard Shortcuts** — Ctrl+S to save, Ctrl+Shift+T to test in the rule editor.
 - **Client SDKs** — Java, Node.js, and Python SDKs for rule execution.
+
+## Frontend Pages
+
+| Route                | Page                    | Description                                                         |
+| -------------------- | ----------------------- | ------------------------------------------------------------------- |
+| `/rules`             | Rule List               | Folder tree, search, type/status filters, pagination, import/export |
+| `/rules/:id/edit`    | Rule Editor             | Type-specific editors, versioning, testing, settings, approval      |
+| `/analytics`         | Analytics Dashboard     | Metric cards, execution charts, top rules, decision logs            |
+| `/analytics/rules/:id` | Rule Stats           | Per-rule analytics detail                                           |
+| `/ab-tests`          | A/B Tests               | Create, monitor, and stop A/B test experiments                      |
+| `/approvals`         | Approval Queue          | Review and approve/reject pending rule versions                     |
+| `/audit`             | Audit Trail             | Filterable event log with expandable changes                        |
+| `/webhooks`          | Webhook Management      | CRUD for webhooks, event selection, delivery history                |
+| `/tags`              | Tag Management          | Create and manage rule tags                                         |
+| `/spaces`            | Space Management        | Organization spaces with create capability                          |
+| `/schedules`         | Scheduler               | Batch scheduling with cron expressions                              |
+| `/connectors`        | Connectors              | JDBC/HTTP/Redis data enrichment setup                               |
+| `/api-keys`          | API Keys                | Manage API keys for programmatic access                             |
+| `/settings`          | Organization Settings   | Org name, slug, and configuration                                   |
+| `/settings/sso`      | SSO Configuration       | SAML/OIDC provider setup                                            |
+| `/settings/members`  | Member Management       | Invite members, manage roles (Owner/Editor/Viewer)                  |
+| `/profile`           | User Profile            | Edit name, change password                                          |
 
 ## Makefile Reference
 
@@ -281,6 +314,30 @@ In local development, the Vite dev server routes requests directly to each servi
 | `make dev-frontend`   | Start frontend dev server only                                   |
 | `make lint-frontend`  | Run ESLint on frontend                                           |
 
+## Test Accounts
+
+Seed data (V021 migration) provides three test accounts:
+
+| Email                  | Password      | Organization | Role   |
+| ---------------------- | ------------- | ------------ | ------ |
+| `admin@ruleforge.io`   | `password123` | Acme Corp    | OWNER  |
+| `editor@ruleforge.io`  | `password123` | Acme Corp    | EDITOR |
+| `viewer@ruleforge.io`  | `password123` | Test Org     | VIEWER |
+
+Sample rules for all 8 rule types are seeded via V022.
+
+## Smoke Tests
+
+Verify the full stack is working:
+
+```bash
+./scripts/smoke-test.sh              # Full test suite (health + API flows)
+./scripts/smoke-test.sh --quick      # Health checks only
+./scripts/smoke-test.sh --verbose    # Show response bodies
+```
+
+The smoke test suite validates: infrastructure (5 services), platform services (7 services), frontend, user registration/login, rule CRUD, and rule execution for all 8 rule types.
+
 ## Documentation
 
 - [Getting Started](docs/getting-started.md) — Local development setup walkthrough
@@ -294,12 +351,15 @@ In local development, the Vite dev server routes requests directly to each servi
 
 ## Development Roadmap
 
-| Phase                    | Status      | Scope                                                                                         |
-| ------------------------ | ----------- | --------------------------------------------------------------------------------------------- |
-| **Phase 1 — MVP**        | Done        | Core engine (tables, trees), Auth, Management, Solver, Event, basic frontend                  |
-| **Phase 2 — Platform**   | Done        | Scripting (GraalVM), Flows (DAG), Connectors, Scheduler, SSO config, Import/Export            |
-| **Phase 3 — Enterprise** | Done        | Analytics pipeline, decision dashboards, Scorecard engine, Ensemble engine, SDKs, A/B testing |
-| **Phase 4 — Advanced**   | In Progress | AI Assistant, DMN 1.4, CEP (Kafka Streams), Embedded JAR, WASM, GitOps                        |
+| Phase                              | Status | Scope                                                                                                          |
+| ---------------------------------- | ------ | -------------------------------------------------------------------------------------------------------------- |
+| **Phase 1 — MVP**                  | Done   | Core engine (tables, trees), Auth, Management, Solver, Event, basic frontend                                   |
+| **Phase 2 — Platform**             | Done   | Scripting (GraalVM), Flows (DAG), Connectors, Scheduler, SSO config, Import/Export                             |
+| **Phase 3 — Enterprise**           | Done   | Analytics pipeline, decision dashboards, Scorecard engine, Ensemble engine, SDKs, A/B testing                  |
+| **Phase 4 — Advanced**             | Done   | AI Assistant, DMN 1.4, CEP (Kafka Streams), Hierarchy engine, Embedded JAR, startup scripts                    |
+| **Phase 5 — Quality**              | Done   | Test coverage, completeness, local boot fixes, smoke tests, seed data                                          |
+| **Phase 6 — UX Polish**            | Done   | Monaco editor, analytics charts, FlowEditor modals, missing pages (audit, webhooks, tags, spaces, SSO, members), import/export wiring, version diff viewer, keyboard shortcuts |
+| **Phase 7 — Production Readiness** | Done   | Approval workflow, real-time notifications (SSE), user profile, error boundary & skeletons, security hardening (CSRF, session timeout), performance optimization (code-splitting, debounce, memoization) |
 
 ## License
 
