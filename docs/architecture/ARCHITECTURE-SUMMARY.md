@@ -39,13 +39,13 @@ A concise architectural overview for developers. See linked documents at the bot
 ruleforge-core  (zero deps — standalone, embeddable)
   ├── ruleforge-table       Decision Tables (indexed conditions)
   ├── ruleforge-tree        Decision Trees (BDD compilation)
-  ├── ruleforge-script      GraalVM sandboxed JavaScript
+  ├── ruleforge-script      GraalVM sandboxed JavaScript (bundled polyglot runtime)
   ├── ruleforge-flow        DAG orchestrator (runtime SPI for engines)
-  ├── ruleforge-scorecard   Weighted scoring [Phase 3 stub]
-  ├── ruleforge-ensemble    Voting/averaging [Phase 3 stub]
-  ├── ruleforge-cep         Kafka Streams CEP [Phase 4 stub]
-  ├── ruleforge-dmn         DMN 1.4 / FEEL [Phase 4 stub]
-  └── ruleforge-hierarchy   Hierarchical resolution [Phase 4 stub]
+  ├── ruleforge-scorecard   Weighted scoring
+  ├── ruleforge-ensemble    Voting/averaging
+  ├── ruleforge-cep         Complex event processing (in-memory + Kafka Streams)
+  ├── ruleforge-dmn         DMN 1.4 / FEEL
+  └── ruleforge-hierarchy   Hierarchical resolution
 
 ruleforge-spring-boot-starter  (depends on all modules + Spring Boot)
 ```
@@ -65,12 +65,13 @@ ruleforge-spring-boot-starter  (depends on all modules + Spring Boot)
 |------|--------|--------|
 | Decision Tables | ruleforge-table | Complete |
 | Decision Trees | ruleforge-tree | Complete |
-| GraalVM Scripts | ruleforge-script | Complete |
+| GraalVM Scripts | ruleforge-script | Complete (works on any JDK 21+) |
 | DAG Flows | ruleforge-flow | Complete |
-| Scorecards | ruleforge-scorecard | Phase 3 stub |
-| Ensemble | ruleforge-ensemble | Phase 3 stub |
-| CEP | ruleforge-cep | Phase 4 stub |
-| DMN 1.4 / FEEL | ruleforge-dmn | Phase 4 stub |
+| Scorecards | ruleforge-scorecard | Complete |
+| Ensemble | ruleforge-ensemble | Complete |
+| CEP | ruleforge-cep | Complete |
+| DMN 1.4 / FEEL | ruleforge-dmn | Complete |
+| Hierarchy | ruleforge-hierarchy | Complete |
 
 ## Platform Architecture
 
@@ -94,7 +95,7 @@ JWT token provider, JWT/API key authentication filters, TenantContext (ThreadLoc
 
 ## Data Architecture
 
-- **PostgreSQL 16**: Primary operational database. JSONB for rule definitions, rule versions. 20 Flyway migrations (V001-V020).
+- **PostgreSQL 16**: Primary operational database. JSONB for rule definitions, rule versions. 24 Flyway migrations (V001-V024).
 - **Row-Level Security**: All tenant tables have RLS policies. Session variable `app.current_org_id` enforces organization isolation.
 - **Redis 7**: L2 distributed cache for compiled rules. Key pattern: `tenant:{orgId}:rule:{ruleId}:{version}:compiled`. 256MB max, allkeys-lfu eviction.
 - **Kafka 3.7.1**: Event streaming in KRaft mode (no Zookeeper). Topics: `rule.lifecycle`, `rule.execution`, `user.activity`, `system.events`.
@@ -125,21 +126,21 @@ JWT token provider, JWT/API key authentication filters, TenantContext (ThreadLoc
 | ruleforge-tree | Complete | 1 |
 | ruleforge-script | Complete | 2 |
 | ruleforge-flow | Complete | 2 |
-| ruleforge-scorecard | Stub | 3 |
-| ruleforge-ensemble | Stub | 3 |
-| ruleforge-cep | Stub | 4 |
-| ruleforge-dmn | Stub | 4 |
-| ruleforge-hierarchy | Stub | 4 |
+| ruleforge-scorecard | Complete | 3 |
+| ruleforge-ensemble | Complete | 3 |
+| ruleforge-cep | Complete | 4 |
+| ruleforge-dmn | Complete | 4 |
+| ruleforge-hierarchy | Complete | 4 |
 | ruleforge-spring-boot-starter | Complete | 2 |
 | auth-service | Complete | 1 |
 | management-service | Complete | 1+2 |
 | solver-service | Complete | 1 |
 | event-service | Complete | 1 |
-| analytics-service | Stub | 3 |
+| analytics-service | Complete | 3 |
 | scheduler-service | Complete | 2 |
 | connector-service | Complete | 2 |
 | Frontend | Complete | 1+2 |
-| DB migrations (V001-V020) | Complete | 1+2 |
+| DB migrations (V001-V024) | Complete | 1-5 |
 
 ## For More Detail
 

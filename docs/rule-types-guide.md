@@ -573,7 +573,7 @@ A script rule executes arbitrary JavaScript code in a sandboxed GraalVM Polyglot
 ### When to use
 Use SCRIPT for complex logic that can't easily be expressed in any other rule type — custom algorithms, mathematical formulas, string manipulation, or integration with external APIs (if the sandbox permits).
 
-> **Note:** SCRIPT requires a GraalVM JDK at runtime. It is not registered in the default management service configuration for standard deployments.
+> **Note:** The GraalVM polyglot runtime is bundled as a dependency — any standard JDK 21+ (Temurin, Corretto, etc.) works. A GraalVM JDK is **not** required. The ScriptingEngine is registered in both the management and solver services.
 
 ### Definition format
 
@@ -591,13 +591,13 @@ Use SCRIPT for complex logic that can't easily be expressed in any other rule ty
 | Field          | Required | Notes                                                      |
 |---------------|----------|------------------------------------------------------------|
 | `scriptBody`   | YES      | Non-empty JavaScript string                                |
-| `language`     | NO       | `"js"` or `"javascript"` (default: `"js"`)                 |
+| `language`     | NO       | Must be `"js"` (default: `"js"`). Do **not** use `"javascript"` — GraalVM registers the language as `js`. |
 | `timeout`      | NO       | Execution timeout in milliseconds (default: 5000)          |
 | `maxMemoryMb`  | NO       | Maximum memory in MB (default: 64)                         |
 
 ### Script conventions
 
-- Define a function (name is flexible; `evaluate` and `execute` are conventions).
+- Define a function named **`evaluate`**. The engine looks up this exact name at runtime — other names (e.g. `execute`) will cause a runtime error.
 - The function receives one argument: the input object (all facts from working memory).
 - Return a plain JavaScript object — its keys become the output facts.
 
@@ -650,7 +650,7 @@ CEP detects patterns across a stream of Kafka events over configurable time wind
 ### When to use
 Use CEP for real-time stream processing — for example, detecting fraud (3+ transactions over $100 in 5 minutes), monitoring system alerts (absence of heartbeat events), or session analysis.
 
-> **Note:** CEP requires Kafka Streams and runs in a standalone CEP deployment. It is not evaluated via the standard rule test API.
+> **Note:** CEP supports two modes: (1) **In-memory evaluation** via the standard rule test API — useful for pattern detection against single events or small batches, and (2) **Kafka Streams streaming mode** for real-time continuous processing in a standalone deployment. The CepEngine is registered in both the management and solver services.
 
 ### Definition format
 
@@ -731,6 +731,48 @@ Use CEP for real-time stream processing — for example, detecting fraud (3+ tra
 ### Filter condition operators
 
 `EQ`, `NEQ`, `GT`, `GTE`, `LT`, `LTE`
+
+---
+
+## Showcase Sample Rules (V024)
+
+RuleForge ships with comprehensive sample rules for every rule type, seeded via the `V024__comprehensive_sample_rules.sql` migration. These demonstrate real-world use cases with production-grade complexity.
+
+| Rule Type | Name | ID | Use Case |
+|-----------|------|----|----------|
+| TABLE | Employee Benefits Eligibility | `e1000000-...-01` | 12-row matrix with department, tenure, performance, and employee type columns |
+| TREE | Support Ticket Routing | `e1000000-...-02` | 3-level tree: priority → customer tier → issue category |
+| SCORECARD | Vendor Risk Assessment | `e1000000-...-03` | 5 weighted categories (financial, compliance, delivery, security, tenure) |
+| SCRIPT | Tax Calculation Engine | `e1000000-...-04` | 40-line JS with 7 progressive tax brackets, state taxes, and deductions |
+| FLOW | Loan Application Pipeline | `e1000000-...-05` | 10-node DAG: validation → credit check → debt ratio → manual review → decision |
+| DMN | Shipping Rate Calculator | `e1000000-...-06` | 12 S-FEEL rules across weight, zone, and priority dimensions |
+| ENSEMBLE | Customer Churn Prediction | `e1000000-...-07` | 3 member rules with weighted average aggregation |
+| CEP | Login Anomaly Detector | `e1000000-...-08` | SEQUENCE pattern for failed login attempts within a time window |
+
+### Testing showcase rules
+
+All showcase rules are testable via the management service test endpoint:
+
+```bash
+# Example: Test the Tax Calculation Engine (SCRIPT)
+curl -X POST http://localhost:8082/v1/rules/e1000000-0000-0000-0000-000000000004/test \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{"input":{"grossIncome":85000,"filingStatus":"single","dependents":0,"deductions":12950,"stateCode":"CA"}}'
+```
+
+Expected output:
+```json
+{
+  "federalTax": 10541,
+  "stateTax": 6547.2,
+  "effectiveRate": 20.1,
+  "taxBracket": "22%",
+  "totalDeductions": 14600
+}
+```
+
+The smoke test suite (`scripts/smoke-test.sh`) validates all 8 showcase rules with multiple test scenarios.
 
 ---
 

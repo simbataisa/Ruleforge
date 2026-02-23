@@ -80,7 +80,7 @@ ruleforge/
 │   ├── sdk-java/                        # Java SDK
 │   ├── sdk-node/                        # Node.js SDK
 │   └── sdk-python/                      # Python SDK
-├── db/                                  # Flyway SQL migrations (V001–V023)
+├── db/                                  # Flyway SQL migrations (V001–V024)
 ├── infra/                               # Docker Compose, Kong gateway config
 ├── scripts/                             # Dev scripts (start-local, stop-local, smoke-test)
 └── docs/                                # Architecture and developer documentation
@@ -151,7 +151,7 @@ make infra-up
 
 ```bash
 make migrate
-# Runs Flyway V001–V023 against local PostgreSQL
+# Runs Flyway V001–V024 against local PostgreSQL
 ```
 
 #### 3. Build the Engine
@@ -251,8 +251,8 @@ In local development, the Vite dev server routes requests directly to each servi
 - **Ensembles** — Combine outputs from multiple rules via voting, averaging, or selection strategies.
 - **DMN 1.4** — OMG Decision Model and Notation with S-FEEL expressions and decision chaining.
 - **Rule Flows** — DAG orchestrator with 6 node types (Condition, Action, Gate, Fork, Join, Sub-Rule).
-- **Scripting Rules** — GraalVM-sandboxed JavaScript execution with resource limits.
-- **Complex Event Processing** — Kafka Streams pattern detection (Sequence, Aggregation, Frequency).
+- **Scripting Rules** — GraalVM-sandboxed JavaScript execution with resource limits. Works on any JDK 21+ (GraalVM JDK not required — polyglot runtime is bundled).
+- **Complex Event Processing** — Pattern detection (Sequence, Aggregation, Frequency) with in-memory evaluation and optional Kafka Streams streaming mode.
 - **RFL Expression Language** — Custom recursive-descent parser with null-safe navigation (`?.`), lambdas, and extensible function/operator registries.
 - **Multi-Layer Caching** — L1 Caffeine (per-JVM) → L2 Redis (distributed) → L3 PostgreSQL, with Kafka-driven cache invalidation.
 - **Import/Export** — JSON-based single and bulk rule operations for environment promotion and backup.
@@ -324,7 +324,7 @@ Seed data (V021 migration) provides three test accounts:
 | `editor@ruleforge.io`  | `password123` | Acme Corp    | EDITOR |
 | `viewer@ruleforge.io`  | `password123` | Test Org     | VIEWER |
 
-Sample rules for all 8 rule types are seeded via V022.
+Sample rules for all 8 rule types are seeded via V022. Comprehensive showcase rules with real-world use cases are seeded via V024.
 
 ## Smoke Tests
 

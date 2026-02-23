@@ -15,7 +15,7 @@ RuleForge is an enterprise Business Rule Management System (BRMS) featuring a cu
 **Optional:**
 
 - **Flyway CLI** — for running migrations outside of `make migrate`
-- **GraalVM 21+** — required only for `ruleforge-script` module development (Phase 2)
+- **GraalVM 21+** — not required; the GraalVM polyglot runtime is bundled as a dependency. Any JDK 21+ works.
 - **Python 3.10+** — required only for the AI service (Phase 4)
 
 ## 1. Clone and Explore
@@ -33,7 +33,7 @@ ruleforge/
 ├── platform/        # Microservices (Gradle, Spring Boot 3.3.5) — 8 services
 ├── frontend/        # Web UI (Vite, React 18, TypeScript, Tailwind)
 ├── ai-service/      # AI assistant (Python, FastAPI) — Phase 4
-├── db/migrations/   # Flyway SQL migrations (V001–V020)
+├── db/migrations/   # Flyway SQL migrations (V001–V024)
 ├── infra/docker/    # Docker Compose files, Kong gateway config
 ├── docs/            # Architecture and design documents
 └── Makefile         # Top-level build and orchestration commands
@@ -73,7 +73,7 @@ make infra-down
 make migrate
 ```
 
-This runs Flyway migrations V001 through V020 against the local PostgreSQL instance.
+This runs Flyway migrations V001 through V024 against the local PostgreSQL instance.
 
 **Migration overview:**
 
@@ -114,15 +114,15 @@ The engine is a Gradle multi-module project with 11 modules. The core module (`r
 | `ruleforge-tree`                | Decision Tree engine with BDD compilation                         |
 | `ruleforge-spring-boot-starter` | Spring Boot auto-configuration                                    |
 
-**Phase 2+ modules (planned):**
+**Phase 2-4 modules (complete):**
 
 | Module                | Purpose                                |
 | --------------------- | -------------------------------------- |
-| `ruleforge-script`    | GraalVM sandboxed JavaScript execution |
+| `ruleforge-script`    | GraalVM sandboxed JavaScript execution (works on any JDK 21+) |
 | `ruleforge-flow`      | DAG flow orchestrator                  |
 | `ruleforge-scorecard` | Weighted scoring engine                |
 | `ruleforge-ensemble`  | Voting/averaging across engines        |
-| `ruleforge-cep`       | Kafka Streams complex event processing |
+| `ruleforge-cep`       | Complex event processing (in-memory + Kafka Streams) |
 | `ruleforge-dmn`       | DMN 1.4 / FEEL support                 |
 | `ruleforge-hierarchy` | Hierarchical rule resolution           |
 

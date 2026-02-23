@@ -1094,6 +1094,10 @@ public class FlowOrchestrator {
 
 ## 11. Scripting Engine (GraalVM)
 
+> **Runtime note:** The scripting engine works on **any JDK 21+** — GraalVM is NOT required.
+> The GraalVM polyglot runtime (`org.graalvm.polyglot:polyglot` + `org.graalvm.polyglot:js-community`)
+> is bundled as dependencies in `ruleforge-script/build.gradle.kts`.
+
 ### 11.1 Sandboxed Execution
 
 ```java
@@ -1185,6 +1189,12 @@ console.log("Processing customer:", input.customer.id);
 // ALWAYS end with:
 return output;
 ```
+
+> **Important conventions:**
+> - The GraalVM polyglot language ID is `"js"` (not `"javascript"`)
+> - Scripts **must** define a function named `evaluate` (not `execute`)
+> - The engine calls `context.getBindings("js").getMember("evaluate")` to invoke the script
+> - Example: `function evaluate(input) { output.result = input.age >= 18; return output; }`
 
 ---
 

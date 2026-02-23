@@ -65,7 +65,7 @@ ruleforge/
 ├── platform/        # Microservices (Gradle, Spring Boot 3.3)
 ├── frontend/        # Web UI (Vite, React 18, TypeScript, Tailwind)
 ├── ai-service/      # AI assistant (Python, FastAPI)
-├── db/migrations/   # Flyway SQL migrations (V001-V021)
+├── db/migrations/   # Flyway SQL migrations (V001-V024)
 ├── infra/           # Docker Compose, Kong gateway, Helm charts
 └── docs/            # Architecture design documents
 ```
@@ -85,7 +85,7 @@ RuleForge is an enterprise BRMS with a custom rule execution engine.
 | `ruleforge-tree` | Decision Tree engine (BDD compilation) | core |
 | `ruleforge-scorecard` | Weighted scoring [Phase 3] | core |
 | `ruleforge-flow` | DAG orchestrator [Phase 2] | core (runtime SPI for engines) |
-| `ruleforge-script` | GraalVM sandboxed JS [Phase 2] | core + GraalVM SDK |
+| `ruleforge-script` | GraalVM sandboxed JS [Phase 2] | core + GraalVM SDK + polyglot runtime |
 | `ruleforge-cep` | Kafka Streams CEP [Phase 4] | core + Kafka Streams |
 | `ruleforge-dmn` | DMN 1.4 / FEEL [Phase 4] | core |
 | `ruleforge-ensemble` | Voting/averaging [Phase 3] | core |
@@ -143,6 +143,17 @@ Organization → Space → Folder → Rule. PostgreSQL RLS on all tenant tables.
 - **Phase 3** (DONE): Analytics, Scorecard, Ensemble, SDKs, A/B Testing
 - **Phase 4** (DONE): AI Assistant, DMN, CEP, Hierarchy, Embedded JAR, startup scripts
 - **Phase 5** (DONE): Quality, completeness, tests, local boot fixes
+- **Phase 6** (DONE): UX polish — Monaco editor, analytics charts, FlowEditor modals, missing pages, import/export wiring
+- **Phase 7** (DONE): Production readiness — approval workflow, notifications, user profile, error handling, security, performance
+
+### Engine Registration
+
+Both management-service and solver-service register all 9 rule type engines:
+- DecisionTableEngine, DecisionTreeEngine, ScorecardEngine, EnsembleEngine, FlowEngine, DmnEngine, ScriptingEngine, CepEngine, HierarchyEngine
+- Configuration: `EngineConfig.java` in each service's `config` package
+- ScriptingEngine bundles GraalVM polyglot runtime — works on any JDK 21+ (Temurin, Corretto, etc.)
+- Script rules must define a function named `evaluate` (not `execute`) and use language `"js"` (not `"javascript"`)
+- DefaultRuleForgeEngine dispatches evaluation through RuleTypeEngine when available (required for engines like ScriptingEngine that manage context lifecycle)
 
 ### Local Development Notes
 

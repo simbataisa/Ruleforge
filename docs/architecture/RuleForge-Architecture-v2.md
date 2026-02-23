@@ -383,7 +383,7 @@ erDiagram
         uuid space_id FK
         string name
         string alias UK
-        enum type "TABLE|TREE|SCRIPT|FLOW|DMN|CEP"
+        enum type "TABLE|TREE|SCRIPT|FLOW|DMN|CEP|SCORECARD|ENSEMBLE|HIERARCHY"
         string description
         int latest_version
         enum status "DRAFT|PUBLISHED|ARCHIVED"
@@ -540,7 +540,8 @@ mindmap
       Nested conditions
       Drag-and-drop editor
     Scripting Rule
-      JavaScript (GraalVM sandboxed)
+      JavaScript (GraalVM polyglot — works on any JDK 21+)
+      Language ID: "js", entry function: "evaluate"
       Monaco editor with IntelliSense
       Access to input/output models
       Custom function library
@@ -562,7 +563,7 @@ mindmap
       Temporal patterns
       Sliding windows
       Event correlation
-      Kafka Streams integration
+      In-memory evaluation (default) + Kafka Streams integration
     Lookup Table
       Reference data storage
       Key-value pairs
@@ -1466,7 +1467,7 @@ graph TB
 | **Language** | Java 21 (LTS) | Virtual threads, GraalVM compat, enterprise ecosystem |
 | **Framework** | Spring Boot 3.3 | Mature, battle-tested, great observability |
 | **Rule Engine** | Custom + JEasyRules adapter | JEasyRules for simple rules, custom for performance |
-| **Scripting** | GraalVM CE 23 | Polyglot, sandboxed, high performance JS |
+| **Scripting** | GraalVM CE 23 (bundled polyglot runtime — works on any JDK 21+) | Polyglot, sandboxed, high performance JS |
 | **Database** | PostgreSQL 16 | JSONB, RLS, CTE, proven in banking |
 | **Cache** | Redis 7 Cluster | Sub-ms reads, pub/sub for invalidation |
 | **Search** | Elasticsearch 8 | Decision log analytics, full-text search |
@@ -1565,16 +1566,26 @@ gantt
 | Technical Writer | 1 | Phase 2+ |
 | **Total** | **12-16** | — |
 
-### 20.3 Phase 1 MVP Success Criteria
+### 20.3 Implementation Status
 
-- [ ] Decision Tables with 10+ operators, 3 execution strategies
-- [ ] Decision Trees with visual editor
-- [ ] Rule versioning with publish/draft states
-- [ ] Solver API < 10ms P50 latency
-- [ ] Test Bench with inline testing
-- [ ] JWT + API Key authentication
-- [ ] RBAC with 4 roles
-- [ ] 10 concurrent tenants, 1000 rules each
+> **All phases 1–5 are complete.** The roadmap above reflects the original plan; actual delivery was accelerated.
+
+- [x] Phase 1 (MVP): Tables, Trees, Auth, Management, Solver, Event service, basic frontend
+- [x] Phase 2 (Platform): Scripting (GraalVM), Flows, Connectors, SSO config, Scheduler, Import/Export
+- [x] Phase 3 (Enterprise): Analytics, Scorecard, Ensemble, A/B Testing
+- [x] Phase 4 (Advanced): AI Assistant, DMN 1.4, CEP, Hierarchy, Embedded JAR
+- [x] Phase 5 (Quality): Completeness, tests, local boot fixes, 24 Flyway migrations (V001–V024)
+
+### 20.4 Phase 1 MVP Success Criteria (Achieved)
+
+- [x] Decision Tables with 10+ operators, 3 execution strategies
+- [x] Decision Trees with visual editor
+- [x] Rule versioning with publish/draft states
+- [x] Solver API < 10ms P50 latency
+- [x] Test Bench with inline testing
+- [x] JWT + API Key authentication
+- [x] RBAC with 5 roles (OWNER, ADMIN, EDITOR, VIEWER, SOLVER)
+- [x] 10 concurrent tenants, 1000 rules each
 - [ ] 99.9% uptime in staging
 - [ ] OpenAPI 3.1 spec published
 
