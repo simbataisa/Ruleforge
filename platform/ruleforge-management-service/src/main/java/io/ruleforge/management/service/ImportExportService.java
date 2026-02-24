@@ -67,6 +67,11 @@ public class ImportExportService {
     }
 
     public ImportResult importRulesFromJson(byte[] data, UUID spaceId, UUID createdBy) throws Exception {
+        // If spaceId not provided, use the first available space from existing rules
+        if (spaceId == null) {
+            spaceId = ruleRepository.findFirstByOrderByCreatedAtAsc()
+                    .map(RuleEntity::getSpaceId).orElse(null);
+        }
         List<Map<String, Object>> ruleList;
         try {
             // Try parsing as array first

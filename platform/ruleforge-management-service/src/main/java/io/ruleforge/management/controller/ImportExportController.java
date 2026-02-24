@@ -23,8 +23,18 @@ public class ImportExportController {
     @PostMapping(value = "/import", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<ImportResult> importRules(
             @RequestParam("file") MultipartFile file,
-            @RequestParam UUID spaceId,
-            @RequestParam UUID createdBy) throws Exception {
+            @RequestParam(required = false) UUID spaceId,
+            @RequestParam(required = false) UUID createdBy) throws Exception {
+        // If createdBy is not provided, use the current user from tenant context
+        if (createdBy == null) {
+            var tenant = io.ruleforge.common.tenant.TenantContext.get();
+            createdBy = tenant != null ? tenant.userId() : null;
+        }
+        // If spaceId is not provided, use the current user's space
+        if (spaceId == null) {
+            var tenant = io.ruleforge.common.tenant.TenantContext.get();
+            spaceId = tenant != null ? tenant.spaceId() : null;
+        }
         ImportResult result = importExportService.importRulesFromJson(
             file.getBytes(), spaceId, createdBy);
         return ResponseEntity.ok(result);
@@ -33,7 +43,7 @@ public class ImportExportController {
     @GetMapping("/{id}/export")
     public ResponseEntity<byte[]> exportRule(
             @PathVariable UUID id,
-            @RequestParam UUID spaceId,
+            @RequestParam(required = false) UUID spaceId,
             @RequestParam(defaultValue = "JSON") String format) throws Exception {
         byte[] data = importExportService.exportRuleToJson(id, spaceId);
         return ResponseEntity.ok()
@@ -45,7 +55,7 @@ public class ImportExportController {
     @PostMapping("/export-bulk")
     public ResponseEntity<byte[]> exportBulk(
             @RequestBody List<UUID> ruleIds,
-            @RequestParam UUID spaceId) throws Exception {
+            @RequestParam(required = false) UUID spaceId) throws Exception {
         byte[] data = importExportService.exportBulkToJson(ruleIds, spaceId);
         return ResponseEntity.ok()
             .contentType(MediaType.APPLICATION_JSON)

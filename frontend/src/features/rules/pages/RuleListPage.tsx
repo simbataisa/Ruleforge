@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, Search, RefreshCw, ChevronLeft, ChevronRight, FileDown } from 'lucide-react';
+import { Plus, Search, RefreshCw, ChevronLeft, ChevronRight, Upload, Copy } from 'lucide-react';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
@@ -9,13 +9,14 @@ import { Badge } from '@/shared/components/Badge';
 import { DataTable } from '@/shared/components/DataTable';
 import { SkeletonRow } from '@/components/Skeleton';
 import { EmptyState } from '@/shared/components/EmptyState';
-import { useRules, useCreateRule } from '@/api/rules.api';
+import { useRules, useCreateRule, useCopyRule } from '@/api/rules.api';
 import { useFolders, useCreateFolder } from '@/api/folders.api';
 import { useToastStore } from '@/stores/toast.store';
 import { FolderTree } from '@/features/rules/components/FolderTree';
 import { CreateRuleModal } from '@/features/rules/components/CreateRuleModal';
 import { CreateFolderModal } from '@/features/rules/components/CreateFolderModal';
 import { ImportRuleModal } from '@/features/rules/components/ImportRuleModal';
+import { ExportRuleButton } from '@/features/rules/components/ExportRuleButton';
 import { useAuthStore } from '@/stores/auth.store';
 import type { Rule, RuleType, RuleStatus } from '@/api/types/rule.types';
 
@@ -88,6 +89,7 @@ export function RuleListPage() {
     refetchFolders();
   };
   const createRule = useCreateRule();
+  const copyRule = useCopyRule();
   const createFolder = useCreateFolder();
 
   const rules: Rule[] = useMemo(() => {
@@ -140,6 +142,26 @@ export function RuleListPage() {
     });
   };
 
+  const handleCopyRule = (rule: Rule) => {
+    if (!confirm(`Create a copy of "${rule.name}"? The copy will be created as a new draft rule.`)) {
+      return;
+    }
+    copyRule.mutate(
+      { ruleId: rule.id, name: `${rule.name} (Copy)` },
+      {
+        onSuccess: (response) => {
+          addToast({ type: 'success', title: `Rule copied as "${response?.name ?? 'Copy'}"` });
+          if (response?.id) {
+            navigate(`/rules/${response.id}/edit`);
+          }
+        },
+        onError: () => {
+          addToast({ type: 'error', title: 'Failed to copy rule' });
+        },
+      },
+    );
+  };
+
   const handleOpenCreateFolder = (parentId?: string) => {
     setCreateFolderParentId(parentId);
     setShowCreateFolder(true);
@@ -183,6 +205,31 @@ export function RuleListPage() {
         <span className="text-gray-500">{formatDate(rule.updatedAt)}</span>
       ),
     },
+    {
+      key: 'actions' as const,
+      header: 'Actions',
+      className: 'w-24',
+      render: (rule: Rule) => (
+        <div className="flex items-center gap-1">
+          <ExportRuleButton
+            ruleId={rule.id}
+            ruleName={rule.name}
+            variant="icon"
+          />
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              handleCopyRule(rule);
+            }}
+            disabled={copyRule.isPending}
+            className="p-1.5 rounded hover:bg-gray-100 text-gray-400 hover:text-gray-600 disabled:opacity-50"
+            title="Duplicate this rule as a new draft"
+          >
+            <Copy className={`h-4 w-4 ${copyRule.isPending ? 'animate-pulse' : ''}`} />
+          </button>
+        </div>
+      ),
+    },
   ];
 
   if (rulesLoading || foldersLoading) {
@@ -223,9 +270,9 @@ export function RuleListPage() {
             <Button variant="outline" onClick={handleRefresh} disabled={rulesFetching}>
               <RefreshCw className={`h-4 w-4 ${rulesFetching ? 'animate-spin' : ''}`} />
             </Button>
-            <Button variant="outline" onClick={() => setShowImportRule(true)}>
-              <FileDown className="h-4 w-4" />
-              Import Rule
+            <Button variant="outline" onClick={() => setShowImportRule(true)} title="Import rules from a previously exported JSON file">
+              <Upload className="h-4 w-4" />
+              Import
             </Button>
             <Button onClick={() => setShowCreateRule(true)}>
               <Plus className="h-4 w-4" />

@@ -17,9 +17,20 @@ export interface ConditionNodeData {
   [key: string]: unknown;
 }
 
+export type CallableActionProtocol = 'http' | 'rule' | 'script' | 'log';
+
+export interface CallableAction {
+  id: string;
+  protocol: CallableActionProtocol;
+  target: string;
+  parameters: Record<string, unknown>;
+  outputMapping?: string;
+}
+
 export interface ActionNodeData {
   label: string;
   outputs: Record<string, string>;
+  callableActions?: CallableAction[];
   [key: string]: unknown;
 }
 
@@ -90,6 +101,7 @@ export const useTreeEditorStore = create<TreeEditorState>((set, get) => ({
       data: {
         label: 'New Action',
         outputs: {},
+        callableActions: [],
       } satisfies ActionNodeData,
     };
     set((state) => ({ nodes: [...state.nodes, newNode] }));
@@ -221,6 +233,15 @@ export const useTreeEditorStore = create<TreeEditorState>((set, get) => ({
             data: {
               label: (node.label as string) || 'Action',
               outputs: (node.outputs as Record<string, string>) ?? {},
+              callableActions: Array.isArray(node.callableActions)
+                ? (node.callableActions as Array<Record<string, unknown>>).map((a, i) => ({
+                    id: (a.actionId as string) || (a.id as string) || `action_${i}`,
+                    protocol: (a.protocol as CallableActionProtocol) || 'log',
+                    target: (a.target as string) || '',
+                    parameters: (a.parameters as Record<string, unknown>) ?? {},
+                    outputMapping: (a.outputMapping as string) || undefined,
+                  }))
+                : [],
             },
           });
         } else if (nodeType === 'GATE') {
@@ -331,12 +352,22 @@ export const useTreeEditorStore = create<TreeEditorState>((set, get) => ({
     function buildTreeNode(node: Node): Record<string, unknown> {
       if (node.type === 'actionNode') {
         const data = node.data as ActionNodeData;
-        return {
+        const result: Record<string, unknown> = {
           nodeType: 'ACTION',
           nodeId: node.id,
           label: data.label || '',
           outputs: data.outputs ?? {},
         };
+        if (data.callableActions && data.callableActions.length > 0) {
+          result.callableActions = data.callableActions.map((a) => ({
+            actionId: a.id,
+            protocol: a.protocol,
+            target: a.target,
+            parameters: a.parameters,
+            ...(a.outputMapping ? { outputMapping: a.outputMapping } : {}),
+          }));
+        }
+        return result;
       }
 
       if (node.type === 'gateNode') {

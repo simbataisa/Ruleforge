@@ -4,11 +4,15 @@ import io.ruleforge.common.audit.AuditLog;
 import io.ruleforge.common.dto.ApiResponse;
 import io.ruleforge.common.dto.PageResponse;
 import io.ruleforge.common.tenant.TenantContext;
+import io.ruleforge.management.dto.CopyRuleRequest;
 import io.ruleforge.management.dto.CreateRuleRequest;
+import io.ruleforge.management.dto.CreateSampleInputRequest;
 import io.ruleforge.management.dto.RuleDto;
+import io.ruleforge.management.dto.SampleInputDto;
 import io.ruleforge.management.dto.TestResultDto;
 import io.ruleforge.management.dto.TestRuleRequest;
 import io.ruleforge.management.dto.UpdateRuleRequest;
+import io.ruleforge.management.dto.UpdateSampleInputRequest;
 import io.ruleforge.management.dto.ValidationResultDto;
 import io.ruleforge.management.dto.AbTestDto;
 import io.ruleforge.management.entity.SpaceEntity;
@@ -16,6 +20,7 @@ import io.ruleforge.management.repository.SpaceRepository;
 import io.ruleforge.management.service.AbTestService;
 import io.ruleforge.management.service.RuleService;
 import io.ruleforge.management.service.RuleValidationService;
+import io.ruleforge.management.service.SampleInputService;
 
 import jakarta.validation.Valid;
 import org.springframework.data.domain.Pageable;
@@ -43,13 +48,16 @@ public class RuleController {
     private final RuleValidationService ruleValidationService;
     private final AbTestService abTestService;
     private final SpaceRepository spaceRepository;
+    private final SampleInputService sampleInputService;
 
     public RuleController(RuleService ruleService, RuleValidationService ruleValidationService,
-                          AbTestService abTestService, SpaceRepository spaceRepository) {
+                          AbTestService abTestService, SpaceRepository spaceRepository,
+                          SampleInputService sampleInputService) {
         this.ruleService = ruleService;
         this.ruleValidationService = ruleValidationService;
         this.abTestService = abTestService;
         this.spaceRepository = spaceRepository;
+        this.sampleInputService = sampleInputService;
     }
 
     @PostMapping("/spaces/{spaceId}/rules")
@@ -150,6 +158,16 @@ public class RuleController {
         return ApiResponse.ok(rule, "Rule unlocked successfully");
     }
 
+    @PostMapping("/rules/{ruleId}/copy")
+    @ResponseStatus(HttpStatus.CREATED)
+    @AuditLog(action = "COPY_RULE", resourceType = "Rule")
+    public ApiResponse<RuleDto> copyRule(@PathVariable UUID ruleId,
+                                          @RequestBody(required = false) CopyRuleRequest request) {
+        String nameOverride = request != null ? request.name() : null;
+        RuleDto rule = ruleService.copyRule(ruleId, nameOverride);
+        return ApiResponse.ok(rule, "Rule copied successfully");
+    }
+
     @PostMapping("/rules/{ruleId}/validate")
     public ApiResponse<ValidationResultDto> validateRule(@PathVariable UUID ruleId) {
         RuleDto rule = ruleService.getRule(ruleId);
@@ -165,5 +183,37 @@ public class RuleController {
         int testVersion = version != null ? version : rule.latestVersion();
         TestResultDto result = ruleValidationService.testRule(ruleId, testVersion, request);
         return ApiResponse.ok(result);
+    }
+
+    @GetMapping("/rules/{ruleId}/samples")
+    public ApiResponse<List<SampleInputDto>> getSampleInputs(@PathVariable UUID ruleId) {
+        List<SampleInputDto> samples = sampleInputService.listSampleInputs(ruleId);
+        return ApiResponse.ok(samples);
+    }
+
+    @PostMapping("/rules/{ruleId}/samples")
+    @ResponseStatus(HttpStatus.CREATED)
+    @AuditLog(action = "CREATE_SAMPLE_INPUT", resourceType = "SampleInput")
+    public ApiResponse<SampleInputDto> createSampleInput(@PathVariable UUID ruleId,
+                                                          @Valid @RequestBody CreateSampleInputRequest request) {
+        SampleInputDto sample = sampleInputService.createSampleInput(ruleId, request);
+        return ApiResponse.ok(sample, "Sample input created successfully");
+    }
+
+    @PutMapping("/rules/{ruleId}/samples/{sampleId}")
+    @AuditLog(action = "UPDATE_SAMPLE_INPUT", resourceType = "SampleInput")
+    public ApiResponse<SampleInputDto> updateSampleInput(@PathVariable UUID ruleId,
+                                                          @PathVariable UUID sampleId,
+                                                          @Valid @RequestBody UpdateSampleInputRequest request) {
+        SampleInputDto sample = sampleInputService.updateSampleInput(ruleId, sampleId, request);
+        return ApiResponse.ok(sample, "Sample input updated successfully");
+    }
+
+    @DeleteMapping("/rules/{ruleId}/samples/{sampleId}")
+    @AuditLog(action = "DELETE_SAMPLE_INPUT", resourceType = "SampleInput")
+    public ApiResponse<Void> deleteSampleInput(@PathVariable UUID ruleId,
+                                                @PathVariable UUID sampleId) {
+        sampleInputService.deleteSampleInput(ruleId, sampleId);
+        return ApiResponse.ok(null, "Sample input deleted successfully");
     }
 }

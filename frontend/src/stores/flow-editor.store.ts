@@ -34,7 +34,12 @@ export const useFlowEditorStore = create<FlowEditorState>((set) => ({
   isDirty: false,
   addNode: (type) => set((state) => {
     const id = `node_${Date.now()}`;
-    const newNode: FlowNodeData = { id, type, label: `${type} Node` };
+    const newNode: FlowNodeData = {
+      id,
+      type,
+      label: `${type} Node`,
+      ...(type === 'ACTION' ? { callableActions: [] } : {}),
+    };
     return {
       definition: { ...state.definition, nodes: [...state.definition.nodes, newNode] },
       isDirty: true,

@@ -22,6 +22,8 @@ public interface RuleRepository extends JpaRepository<RuleEntity, UUID> {
 
     Optional<RuleEntity> findByAlias(String alias);
 
+    Optional<RuleEntity> findFirstByOrderByCreatedAtAsc();
+
     Page<RuleEntity> findBySpaceIdAndStatus(UUID spaceId, String status, Pageable pageable);
 
     Page<RuleEntity> findBySpaceIdAndFolderIdAndStatus(UUID spaceId, UUID folderId, String status, Pageable pageable);

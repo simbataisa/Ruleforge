@@ -1,5 +1,6 @@
 package io.ruleforge.flow.compiler;
 
+import io.ruleforge.core.model.CallableAction;
 import io.ruleforge.core.model.RuleDefinition;
 import io.ruleforge.flow.graph.*;
 
@@ -52,7 +53,8 @@ public final class FlowCompiler {
                     Map<String, Object> outputs = outputsObj instanceof Map<?, ?> m
                             ? (Map<String, Object>) m
                             : Map.of();
-                    yield new ActionFlowNode(id, outputs);
+                    List<CallableAction> callableActions = parseCallableActions(nodeDef);
+                    yield new ActionFlowNode(id, outputs, callableActions);
                 }
                 case "GATE" -> new GateFlowNode(id, (String) nodeDef.getOrDefault("gateType", "AND"));
                 case "FORK" -> new ForkFlowNode(id);
@@ -63,6 +65,37 @@ public final class FlowCompiler {
             nodes.add(node);
         }
         return nodes;
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<CallableAction> parseCallableActions(Map<String, Object> nodeDef) {
+        Object actionsObj = nodeDef.get("callableActions");
+        if (!(actionsObj instanceof List<?> actionsList) || actionsList.isEmpty()) {
+            return List.of();
+        }
+        List<CallableAction> actions = new ArrayList<>();
+        for (Object actionObj : actionsList) {
+            if (!(actionObj instanceof Map<?, ?> am)) continue;
+            Map<String, Object> actionMap = (Map<String, Object>) am;
+
+            String actionId = actionMap.getOrDefault("actionId", "action_" + actions.size()).toString();
+            String protocol = actionMap.getOrDefault("protocol", "").toString();
+            String target = actionMap.getOrDefault("target", "").toString();
+
+            Map<String, Object> parameters;
+            Object paramsObj = actionMap.get("parameters");
+            if (paramsObj instanceof Map<?, ?> pm) {
+                parameters = new LinkedHashMap<>((Map<String, Object>) pm);
+            } else {
+                parameters = Map.of();
+            }
+
+            Object outputMappingObj = actionMap.get("outputMapping");
+            String outputMapping = outputMappingObj != null ? outputMappingObj.toString() : null;
+
+            actions.add(new CallableAction(actionId, protocol, target, parameters, outputMapping));
+        }
+        return actions;
     }
 
     private List<FlowEdge> parseEdges(List<Map<String, Object>> edgeDefs) {

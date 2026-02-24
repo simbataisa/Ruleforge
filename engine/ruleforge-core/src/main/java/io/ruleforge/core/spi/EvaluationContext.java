@@ -33,4 +33,12 @@ public interface EvaluationContext {
     default SubRuleInvoker getSubRuleInvoker() {
         return null;
     }
+
+    /**
+     * Get an action executor for the given protocol (e.g., "http", "rule", "script", "log").
+     * May return {@code null} if no executor is registered for this protocol.
+     */
+    default ActionExecutor getActionExecutor(String protocol) {
+        return null;
+    }
 }

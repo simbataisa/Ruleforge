@@ -5,12 +5,15 @@ import io.ruleforge.core.expression.ExpressionEvaluator;
 import io.ruleforge.core.expression.Expression;
 import io.ruleforge.core.expression.RflParser;
 import io.ruleforge.core.memory.WorkingMemory;
+import io.ruleforge.core.model.CallableAction;
 import io.ruleforge.core.model.FactType;
 import io.ruleforge.core.model.PriorityVector;
 import java.time.Instant;
 import io.ruleforge.core.result.MatchedRule;
 import io.ruleforge.core.result.RuleResult;
 import io.ruleforge.core.result.RuleResultMetadata;
+import io.ruleforge.core.spi.ActionExecutor;
+import io.ruleforge.core.spi.EvaluationContext;
 import io.ruleforge.core.spi.SubRuleInvoker;
 import io.ruleforge.flow.graph.*;
 
@@ -25,16 +28,22 @@ public final class FlowExecutor {
 
     private final String ruleId;
     private final SubRuleInvoker subRuleInvoker;
+    private final EvaluationContext evaluationContext;
     private final ExpressionEvaluator expressionEvaluator;
     private final RflParser rflParser;
 
     public FlowExecutor(String ruleId) {
-        this(ruleId, null);
+        this(ruleId, null, null);
     }
 
     public FlowExecutor(String ruleId, SubRuleInvoker subRuleInvoker) {
+        this(ruleId, subRuleInvoker, null);
+    }
+
+    public FlowExecutor(String ruleId, SubRuleInvoker subRuleInvoker, EvaluationContext evaluationContext) {
         this.ruleId = ruleId;
         this.subRuleInvoker = subRuleInvoker;
+        this.evaluationContext = evaluationContext;
         this.expressionEvaluator = new ExpressionEvaluator();
         this.rflParser = new RflParser();
     }
@@ -75,8 +84,14 @@ public final class FlowExecutor {
                 case ActionFlowNode actionNode -> {
                     for (Map.Entry<String, Object> entry : actionNode.outputs().entrySet()) {
                         collectedOutput.put(entry.getKey(), entry.getValue());
-                        workingMemory.assertFact(entry.getKey(), entry.getValue(), FactType.ANY);
+                        if (workingMemory.hasFact(entry.getKey())) {
+                            workingMemory.modifyFact(entry.getKey(), entry.getValue());
+                        } else {
+                            workingMemory.assertFact(entry.getKey(), entry.getValue(), FactType.ANY);
+                        }
                     }
+                    // Execute callable actions
+                    executeCallableActions(actionNode.callableActions(), workingMemory, collectedOutput);
                     for (FlowEdge edge : graph.getOutgoingEdges(nodeId)) {
                         queue.add(edge.toId());
                     }
@@ -137,7 +152,11 @@ public final class FlowExecutor {
         if (subResult != null && subResult.hasOutput()) {
             for (Map.Entry<String, Object> entry : subResult.output().entrySet()) {
                 collectedOutput.put(entry.getKey(), entry.getValue());
-                workingMemory.assertFact(entry.getKey(), entry.getValue(), FactType.ANY);
+                if (workingMemory.hasFact(entry.getKey())) {
+                    workingMemory.modifyFact(entry.getKey(), entry.getValue());
+                } else {
+                    workingMemory.assertFact(entry.getKey(), entry.getValue(), FactType.ANY);
+                }
             }
         }
     }
@@ -194,5 +213,42 @@ public final class FlowExecutor {
         if (condition == null || condition.equals("true")) return true;
         if (condition.equals("false")) return !conditionResult;
         return conditionResult;
+    }
+
+    private void executeCallableActions(List<CallableAction> actions, WorkingMemory workingMemory,
+                                         Map<String, Object> collectedOutput) {
+        if (actions == null || actions.isEmpty() || evaluationContext == null) return;
+
+        for (CallableAction action : actions) {
+            ActionExecutor executor = evaluationContext.getActionExecutor(action.protocol());
+            if (executor == null) continue;
+
+            try {
+                Map<String, Object> result = executor.execute(
+                        action.target(), action.parameters(), evaluationContext);
+
+                if (result != null && !result.isEmpty()) {
+                    if (action.outputMapping() != null && !action.outputMapping().isEmpty()) {
+                        collectedOutput.put(action.outputMapping(), result);
+                        if (workingMemory.hasFact(action.outputMapping())) {
+                            workingMemory.modifyFact(action.outputMapping(), result);
+                        } else {
+                            workingMemory.assertFact(action.outputMapping(), result, FactType.ANY);
+                        }
+                    } else {
+                        for (var entry : result.entrySet()) {
+                            collectedOutput.put(entry.getKey(), entry.getValue());
+                            if (workingMemory.hasFact(entry.getKey())) {
+                                workingMemory.modifyFact(entry.getKey(), entry.getValue());
+                            } else {
+                                workingMemory.assertFact(entry.getKey(), entry.getValue(), FactType.ANY);
+                            }
+                        }
+                    }
+                }
+            } catch (Exception e) {
+                collectedOutput.put("_actionError_" + action.actionId(), e.getMessage());
+            }
+        }
     }
 }

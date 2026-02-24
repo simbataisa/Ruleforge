@@ -4,18 +4,18 @@ function getAuthHeaders(): Record<string, string> {
 }
 
 export const importExportApi = {
-  exportRule: async (ruleId: string, spaceId: string): Promise<Blob> => {
+  exportRule: async (ruleId: string): Promise<Blob> => {
     const response = await fetch(
-      `/v1/rules/${ruleId}/export?spaceId=${encodeURIComponent(spaceId)}&format=JSON`,
+      `/v1/rules/${ruleId}/export?format=JSON`,
       { headers: getAuthHeaders() },
     );
     if (!response.ok) throw new Error('Export failed');
     return response.blob();
   },
 
-  exportBulk: async (ruleIds: string[], spaceId: string): Promise<Blob> => {
+  exportBulk: async (ruleIds: string[]): Promise<Blob> => {
     const response = await fetch(
-      `/v1/rules/export-bulk?spaceId=${encodeURIComponent(spaceId)}`,
+      `/v1/rules/export-bulk`,
       {
         method: 'POST',
         headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },

@@ -70,6 +70,13 @@ apiClient.interceptors.response.use(
     const status = error.response?.status;
 
     if (status === 401) {
+      // Clear all auth state: localStorage, Zustand store, and session timers
+      // Import lazily to avoid circular dependency (auth.store imports nothing from client,
+      // but both modules initialize at load time)
+      import('@/stores/auth.store').then(({ useAuthStore }) => {
+        useAuthStore.getState().logout();
+      });
+      // Remove token immediately (logout() also does this, but we want it synchronous)
       localStorage.removeItem('ruleforge_token');
       window.location.href = '/login';
     } else if (status === 429) {

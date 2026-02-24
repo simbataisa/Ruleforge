@@ -68,7 +68,8 @@ describe('API Client', () => {
           rejected: (error: unknown) => unknown;
         }>;
       };
-      const errorHandler = interceptors.handlers[0].rejected;
+      // handlers[1] is the error-handling interceptor (handlers[0] is 503 retry)
+      const errorHandler = interceptors.handlers[1].rejected;
 
       const originalHref = window.location.href;
       Object.defineProperty(window, 'location', {
@@ -100,7 +101,8 @@ describe('API Client', () => {
           rejected: (error: unknown) => unknown;
         }>;
       };
-      const errorHandler = interceptors.handlers[0].rejected;
+      // handlers[1] is the error-handling interceptor (handlers[0] is 503 retry)
+      const errorHandler = interceptors.handlers[1].rejected;
 
       const error = { response: { status: 500 } };
       await expect(errorHandler(error)).rejects.toEqual(error);

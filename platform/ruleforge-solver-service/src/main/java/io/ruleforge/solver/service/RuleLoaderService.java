@@ -7,6 +7,7 @@ import io.ruleforge.common.exception.EntityNotFoundException;
 import io.ruleforge.common.tenant.TenantContext;
 import io.ruleforge.core.RuleForgeEngine;
 import io.ruleforge.core.model.CompiledRule;
+import io.ruleforge.core.model.FactType;
 import io.ruleforge.core.model.InputSchema;
 import io.ruleforge.core.model.OutputSchema;
 import io.ruleforge.core.model.RuleDefinition;
@@ -22,8 +23,10 @@ import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.UUID;
 
 /**
@@ -116,15 +119,15 @@ public class RuleLoaderService {
 
             InputSchema inputSchema = null;
             if (ruleVersion.getInputModel() != null && !ruleVersion.getInputModel().isBlank()) {
-                inputSchema = objectMapper.readValue(ruleVersion.getInputModel(), InputSchema.class);
+                inputSchema = parseInputSchema(ruleVersion.getInputModel());
             }
 
             OutputSchema outputSchema = null;
             if (ruleVersion.getOutputModel() != null && !ruleVersion.getOutputModel().isBlank()) {
-                outputSchema = objectMapper.readValue(ruleVersion.getOutputModel(), OutputSchema.class);
+                outputSchema = parseOutputSchema(ruleVersion.getOutputModel());
             }
 
-            RuleType ruleType = RuleType.valueOf(rule.getType().toUpperCase());
+            RuleType ruleType = mapRuleType(rule.getType());
 
             RuleDefinition definition = new RuleDefinition(
                     rule.getId().toString(),
@@ -153,6 +156,80 @@ public class RuleLoaderService {
     private UUID getSpaceId() {
         TenantContext.TenantInfo tenant = TenantContext.get();
         return tenant != null ? tenant.spaceId() : null;
+    }
+
+    /**
+     * Parses input_model JSON that may be either:
+     * - Structured: {"fields": {...}, "required": [...]}
+     * - Simple flat map: {"fieldName": "TYPE", ...}
+     */
+    private InputSchema parseInputSchema(String json) throws Exception {
+        try {
+            return objectMapper.readValue(json, InputSchema.class);
+        } catch (Exception e) {
+            // Fall back to simple flat map format: {"fieldName": "TYPE", ...}
+            Map<String, String> flatMap = objectMapper.readValue(json, new TypeReference<>() {});
+            Map<String, InputSchema.FieldDefinition> fields = new LinkedHashMap<>();
+            for (var entry : flatMap.entrySet()) {
+                FactType type = parseFactType(entry.getValue());
+                fields.put(entry.getKey(), new InputSchema.FieldDefinition(entry.getKey(), type, null, null));
+            }
+            return new InputSchema(fields, Set.copyOf(flatMap.keySet()));
+        }
+    }
+
+    /**
+     * Parses output_model JSON that may be either:
+     * - Structured: {"fields": {...}}
+     * - Simple flat map: {"fieldName": "TYPE", ...}
+     */
+    private OutputSchema parseOutputSchema(String json) throws Exception {
+        try {
+            return objectMapper.readValue(json, OutputSchema.class);
+        } catch (Exception e) {
+            // Fall back to simple flat map format
+            Map<String, String> flatMap = objectMapper.readValue(json, new TypeReference<>() {});
+            Map<String, OutputSchema.FieldDefinition> fields = new LinkedHashMap<>();
+            for (var entry : flatMap.entrySet()) {
+                FactType type = parseFactType(entry.getValue());
+                fields.put(entry.getKey(), new OutputSchema.FieldDefinition(entry.getKey(), type, null));
+            }
+            return new OutputSchema(fields);
+        }
+    }
+
+    private static final Map<String, RuleType> RULE_TYPE_MAP = Map.ofEntries(
+            Map.entry("TABLE", RuleType.DECISION_TABLE),
+            Map.entry("DECISION_TABLE", RuleType.DECISION_TABLE),
+            Map.entry("TREE", RuleType.DECISION_TREE),
+            Map.entry("DECISION_TREE", RuleType.DECISION_TREE),
+            Map.entry("SCRIPT", RuleType.SCRIPTING_RULE),
+            Map.entry("SCRIPTING_RULE", RuleType.SCRIPTING_RULE),
+            Map.entry("FLOW", RuleType.RULE_FLOW),
+            Map.entry("RULE_FLOW", RuleType.RULE_FLOW),
+            Map.entry("SCORECARD", RuleType.SCORECARD),
+            Map.entry("CEP", RuleType.CEP_RULE),
+            Map.entry("CEP_RULE", RuleType.CEP_RULE),
+            Map.entry("DMN", RuleType.DMN_RULE),
+            Map.entry("DMN_RULE", RuleType.DMN_RULE),
+            Map.entry("ENSEMBLE", RuleType.ENSEMBLE),
+            Map.entry("HIERARCHY", RuleType.HIERARCHY)
+    );
+
+    private RuleType mapRuleType(String dbType) {
+        RuleType mapped = RULE_TYPE_MAP.get(dbType.toUpperCase());
+        if (mapped == null) {
+            throw new IllegalArgumentException("Unknown rule type: " + dbType);
+        }
+        return mapped;
+    }
+
+    private FactType parseFactType(String typeName) {
+        try {
+            return FactType.valueOf(typeName.toUpperCase());
+        } catch (IllegalArgumentException e) {
+            return FactType.ANY;
+        }
     }
 
     private boolean isUUID(String value) {

@@ -65,7 +65,7 @@ ruleforge/
 ├── platform/        # Microservices (Gradle, Spring Boot 3.3)
 ├── frontend/        # Web UI (Vite, React 18, TypeScript, Tailwind)
 ├── ai-service/      # AI assistant (Python, FastAPI)
-├── db/migrations/   # Flyway SQL migrations (V001-V024)
+├── db/migrations/   # Flyway SQL migrations (V001-V028)
 ├── infra/           # Docker Compose, Kong gateway, Helm charts
 └── docs/            # Architecture design documents
 ```
@@ -155,6 +155,16 @@ Both management-service and solver-service register all 9 rule type engines:
 - Script rules must define a function named `evaluate` (not `execute`) and use language `"js"` (not `"javascript"`)
 - DefaultRuleForgeEngine dispatches evaluation through RuleTypeEngine when available (required for engines like ScriptingEngine that manage context lifecycle)
 
+### Sample Input CRUD API
+
+Management service exposes per-rule sample input endpoints:
+- `GET /v1/rules/{ruleId}/samples` — list sample inputs
+- `POST /v1/rules/{ruleId}/samples` — create (`{ name, description?, input }`)
+- `PUT /v1/rules/{ruleId}/samples/{sampleId}` — update (`{ name?, description?, input?, sortOrder? }`)
+- `DELETE /v1/rules/{ruleId}/samples/{sampleId}` — delete
+
+Name uniqueness is enforced per rule. All endpoints verify tenant ownership via `RuleService.getRule()`.
+
 ### Local Development Notes
 
 - All services use `flyway.enabled: false` + `spring.jpa.hibernate.ddl-auto: update` for local dev (Flyway migrations applied separately via `db/migrations/`)
@@ -163,3 +173,4 @@ Both management-service and solver-service register all 9 rule type engines:
 - `NoOpEventPublisher` bean is auto-registered when Kafka is unavailable (via `@ConditionalOnMissingBean`)
 - Frontend auth response shape: `{ accessToken, refreshToken, user: { id, email, fullName } }`
 - The `/auth/me` endpoint does NOT exist — use `/users/me` for current user info
+- Frontend TestBench uses `react-quill-new` (Quill v2 wrapper) for JSON input editing

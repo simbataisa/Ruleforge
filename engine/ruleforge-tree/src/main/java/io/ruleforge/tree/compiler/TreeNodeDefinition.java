@@ -1,5 +1,7 @@
 package io.ruleforge.tree.compiler;
 
+import io.ruleforge.core.model.CallableAction;
+
 import java.util.List;
 import java.util.Map;
 
@@ -46,15 +48,21 @@ public sealed interface TreeNodeDefinition {
     }
 
     /**
-     * A terminal action node that produces output values.
+     * A terminal action node that produces output values and optionally executes callable actions.
      *
-     * @param nodeId  unique node identifier
-     * @param outputs map of output field names to their values
+     * @param nodeId          unique node identifier
+     * @param outputs         map of output field names to their values
+     * @param callableActions list of callable actions to execute after setting outputs
      */
     record ActionNode(
             String nodeId,
-            Map<String, Object> outputs
-    ) implements TreeNodeDefinition {}
+            Map<String, Object> outputs,
+            List<CallableAction> callableActions
+    ) implements TreeNodeDefinition {
+        public ActionNode(String nodeId, Map<String, Object> outputs) {
+            this(nodeId, outputs, List.of());
+        }
+    }
 
     /**
      * A node that delegates evaluation to another rule by reference.

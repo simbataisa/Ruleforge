@@ -1,6 +1,7 @@
 package io.ruleforge.core.engine;
 
 import io.ruleforge.core.memory.WorkingMemory;
+import io.ruleforge.core.spi.ActionExecutor;
 import io.ruleforge.core.spi.EvaluationContext;
 
 import java.util.Collections;
@@ -13,9 +14,15 @@ import java.util.Map;
 final class SimpleEvaluationContext implements EvaluationContext {
 
     private final WorkingMemory workingMemory;
+    private final ActionExecutorRegistry actionExecutorRegistry;
 
     SimpleEvaluationContext(WorkingMemory workingMemory) {
+        this(workingMemory, null);
+    }
+
+    SimpleEvaluationContext(WorkingMemory workingMemory, ActionExecutorRegistry actionExecutorRegistry) {
         this.workingMemory = workingMemory;
+        this.actionExecutorRegistry = actionExecutorRegistry;
     }
 
     @Override
@@ -41,5 +48,10 @@ final class SimpleEvaluationContext implements EvaluationContext {
     @Override
     public int getDepth() {
         return 0;
+    }
+
+    @Override
+    public ActionExecutor getActionExecutor(String protocol) {
+        return actionExecutorRegistry != null ? actionExecutorRegistry.get(protocol) : null;
     }
 }

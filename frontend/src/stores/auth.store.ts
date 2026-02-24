@@ -17,6 +17,8 @@ function parseJwtExpiry(token: string): number | null {
 
 let sessionExpiryTimer: ReturnType<typeof setTimeout> | null = null;
 let sessionWarningTimer: ReturnType<typeof setTimeout> | null = null;
+let currentTokenExpiresAt: number | null = null;
+let warningShown = false;
 
 function clearSessionTimers() {
   if (sessionExpiryTimer) {
@@ -27,27 +29,28 @@ function clearSessionTimers() {
     clearTimeout(sessionWarningTimer);
     sessionWarningTimer = null;
   }
+  currentTokenExpiresAt = null;
+  warningShown = false;
 }
 
-function startSessionTimer(token: string) {
-  clearSessionTimers();
-
-  const expiresAt = parseJwtExpiry(token);
-  if (!expiresAt) return;
+function scheduleTimers(expiresAt: number) {
+  // Clear existing timers before scheduling new ones
+  if (sessionExpiryTimer) clearTimeout(sessionExpiryTimer);
+  if (sessionWarningTimer) clearTimeout(sessionWarningTimer);
 
   const now = Date.now();
   const timeUntilExpiry = expiresAt - now;
 
   if (timeUntilExpiry <= 0) {
-    // Token already expired
     handleSessionExpired();
     return;
   }
 
   // Warning timer (5 min before expiry)
   const timeUntilWarning = timeUntilExpiry - SESSION_WARNING_BEFORE_MS;
-  if (timeUntilWarning > 0) {
+  if (timeUntilWarning > 0 && !warningShown) {
     sessionWarningTimer = setTimeout(() => {
+      warningShown = true;
       useToastStore.getState().addToast({
         type: 'warning',
         title: 'Session expiring soon. Save your work.',
@@ -60,6 +63,25 @@ function startSessionTimer(token: string) {
   sessionExpiryTimer = setTimeout(() => {
     handleSessionExpired();
   }, timeUntilExpiry);
+}
+
+function startSessionTimer(token: string) {
+  clearSessionTimers();
+
+  const expiresAt = parseJwtExpiry(token);
+  if (!expiresAt) return;
+
+  currentTokenExpiresAt = expiresAt;
+  scheduleTimers(expiresAt);
+}
+
+// Re-check token expiry when tab becomes visible (handles laptop sleep/wake)
+if (typeof document !== 'undefined') {
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible' && currentTokenExpiresAt) {
+      scheduleTimers(currentTokenExpiresAt);
+    }
+  });
 }
 
 function handleSessionExpired() {

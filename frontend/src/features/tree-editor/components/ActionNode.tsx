@@ -1,13 +1,28 @@
 import { memo } from 'react';
 import { Handle, Position } from '@xyflow/react';
 import type { NodeProps } from '@xyflow/react';
-import { Zap } from 'lucide-react';
-import type { ActionNodeData } from '@/stores/tree-editor.store';
+import { Zap, Globe, FileCode, Terminal, MessageSquare } from 'lucide-react';
+import type { ActionNodeData, CallableActionProtocol } from '@/stores/tree-editor.store';
+
+const protocolIcons: Record<CallableActionProtocol, typeof Globe> = {
+  http: Globe,
+  rule: FileCode,
+  script: Terminal,
+  log: MessageSquare,
+};
+
+const protocolLabels: Record<CallableActionProtocol, string> = {
+  http: 'HTTP',
+  rule: 'Rule',
+  script: 'Script',
+  log: 'Log',
+};
 
 function ActionNodeComponent({ data, selected }: NodeProps) {
   const nodeData = data as unknown as ActionNodeData;
   const outputs = nodeData.outputs ?? {};
   const outputEntries = Object.entries(outputs);
+  const callableActions = nodeData.callableActions ?? [];
 
   return (
     <div
@@ -39,6 +54,28 @@ function ActionNodeComponent({ data, selected }: NodeProps) {
                 <span className="font-medium">{key}:</span> {value}
               </p>
             ))}
+          </div>
+        )}
+        {callableActions.length > 0 && (
+          <div className="mt-2 pt-2 border-t border-indigo-100">
+            <p className="text-[10px] font-semibold text-indigo-500 uppercase tracking-wide mb-1">
+              Actions
+            </p>
+            <div className="flex flex-wrap gap-1">
+              {callableActions.map((action) => {
+                const Icon = protocolIcons[action.protocol] ?? Globe;
+                return (
+                  <span
+                    key={action.id}
+                    className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-[10px] text-indigo-700"
+                    title={`${protocolLabels[action.protocol]}: ${action.target}`}
+                  >
+                    <Icon className="h-2.5 w-2.5" />
+                    {protocolLabels[action.protocol]}
+                  </span>
+                );
+              })}
+            </div>
           </div>
         )}
       </div>

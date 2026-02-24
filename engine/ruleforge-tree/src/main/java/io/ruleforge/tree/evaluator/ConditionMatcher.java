@@ -51,10 +51,10 @@ public final class ConditionMatcher {
         return switch (operator.toUpperCase()) {
             case "EQ", "==" -> nullSafeEquals(fieldValue, value);
             case "NEQ", "!=" -> !nullSafeEquals(fieldValue, value);
-            case "GT", ">" -> compare(fieldValue, value) > 0;
-            case "GTE", ">=" -> compare(fieldValue, value) >= 0;
-            case "LT", "<" -> compare(fieldValue, value) < 0;
-            case "LTE", "<=" -> compare(fieldValue, value) <= 0;
+            case "GT", ">" -> fieldValue != null && value != null && compare(fieldValue, value) > 0;
+            case "GTE", ">=" -> fieldValue != null && value != null && compare(fieldValue, value) >= 0;
+            case "LT", "<" -> fieldValue != null && value != null && compare(fieldValue, value) < 0;
+            case "LTE", "<=" -> fieldValue != null && value != null && compare(fieldValue, value) <= 0;
             case "BETWEEN" -> evaluateBetween(fieldValue, value, secondValue);
             case "IN" -> evaluateIn(fieldValue, value, false);
             case "NOT_IN" -> evaluateIn(fieldValue, value, true);

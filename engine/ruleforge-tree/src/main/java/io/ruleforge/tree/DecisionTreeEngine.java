@@ -51,7 +51,7 @@ public final class DecisionTreeEngine implements RuleTypeEngine {
                     "Expected CompiledDecisionTree but got " + rule.getClass().getSimpleName());
         }
         var traverser = new TreeTraverser(
-                tree.ruleId(), tree.scoringMode(), tree.earlyTermination());
+                tree.ruleId(), tree.scoringMode(), tree.earlyTermination(), ctx);
         return traverser.traverse(tree.root(), workingMemory);
     }
 

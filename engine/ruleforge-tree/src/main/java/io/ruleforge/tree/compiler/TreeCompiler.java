@@ -3,6 +3,7 @@ package io.ruleforge.tree.compiler;
 import io.ruleforge.core.RuleCompilationException;
 import io.ruleforge.core.expression.Expression;
 import io.ruleforge.core.expression.RflParser;
+import io.ruleforge.core.model.CallableAction;
 import io.ruleforge.core.model.RuleDefinition;
 
 import java.util.ArrayList;
@@ -148,7 +149,41 @@ public final class TreeCompiler {
         } else {
             outputs = Map.of();
         }
-        return new CompiledTreeNode.CompiledActionNode(nodeId, outputs);
+
+        List<CallableAction> callableActions = compileCallableActions(nodeMap);
+        return new CompiledTreeNode.CompiledActionNode(nodeId, outputs, callableActions);
+    }
+
+    @SuppressWarnings("unchecked")
+    private List<CallableAction> compileCallableActions(Map<String, Object> nodeMap) {
+        Object actionsObj = nodeMap.get("callableActions");
+        if (!(actionsObj instanceof List<?> actionsList) || actionsList.isEmpty()) {
+            return List.of();
+        }
+
+        List<CallableAction> actions = new ArrayList<>();
+        for (Object actionObj : actionsList) {
+            if (!(actionObj instanceof Map<?, ?> actionMap)) continue;
+            Map<String, Object> am = (Map<String, Object>) actionMap;
+
+            String actionId = am.getOrDefault("actionId", "action_" + actions.size()).toString();
+            String protocol = am.getOrDefault("protocol", "").toString();
+            String target = am.getOrDefault("target", "").toString();
+
+            Map<String, Object> parameters;
+            Object paramsObj = am.get("parameters");
+            if (paramsObj instanceof Map<?, ?> pm) {
+                parameters = new LinkedHashMap<>((Map<String, Object>) pm);
+            } else {
+                parameters = Map.of();
+            }
+
+            Object outputMappingObj = am.get("outputMapping");
+            String outputMapping = outputMappingObj != null ? outputMappingObj.toString() : null;
+
+            actions.add(new CallableAction(actionId, protocol, target, parameters, outputMapping));
+        }
+        return Collections.unmodifiableList(actions);
     }
 
     private CompiledTreeNode compileSubRuleNode(Map<String, Object> nodeMap, String nodeId, String ruleId) {

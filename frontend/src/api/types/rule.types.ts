@@ -43,6 +43,14 @@ export interface RuleVersion {
   rejectionReason?: string;
 }
 
+export interface SampleInput {
+  id: string;
+  name: string;
+  description: string | null;
+  input: string | Record<string, unknown>;
+  sortOrder: number;
+}
+
 export interface TestRequest {
   input: Record<string, unknown>;
   options?: Record<string, unknown>;

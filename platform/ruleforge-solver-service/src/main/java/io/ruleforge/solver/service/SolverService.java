@@ -71,8 +71,8 @@ public class SolverService {
         WorkingMemory workingMemory = new WorkingMemory();
         workingMemory.loadFromMap(request.input());
 
-        // 3. Evaluate
-        RuleResult result = compiled.evaluate(workingMemory);
+        // 3. Evaluate via engine (dispatches through RuleTypeEngine for proper lifecycle)
+        RuleResult result = engine.evaluate(compiled, workingMemory);
 
         // 4. Calculate elapsed time
         long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
@@ -118,7 +118,7 @@ public class SolverService {
                         long startNanos = System.nanoTime();
                         WorkingMemory workingMemory = new WorkingMemory();
                         workingMemory.loadFromMap(input);
-                        RuleResult result = compiled.evaluate(workingMemory);
+                        RuleResult result = engine.evaluate(compiled, workingMemory);
                         long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
 
                         successCount.incrementAndGet();

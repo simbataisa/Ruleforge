@@ -482,7 +482,6 @@ export function RuleEditorPage() {
             </Select>
             <ExportRuleButton
               ruleId={id!}
-              spaceId={rule.spaceId}
               ruleName={rule.name}
             />
             <Button

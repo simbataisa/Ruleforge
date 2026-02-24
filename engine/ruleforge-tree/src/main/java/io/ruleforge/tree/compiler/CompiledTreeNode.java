@@ -1,6 +1,7 @@
 package io.ruleforge.tree.compiler;
 
 import io.ruleforge.core.expression.Expression;
+import io.ruleforge.core.model.CallableAction;
 
 import java.util.List;
 import java.util.Map;
@@ -50,15 +51,21 @@ public sealed interface CompiledTreeNode {
     }
 
     /**
-     * Compiled action node that produces output values. Terminal node in the tree.
+     * Compiled action node that produces output values and optionally executes callable actions.
      *
-     * @param nodeId  unique node identifier
-     * @param outputs immutable map of output field names to values
+     * @param nodeId          unique node identifier
+     * @param outputs         immutable map of output field names to values
+     * @param callableActions list of callable actions to execute after setting outputs
      */
     record CompiledActionNode(
             String nodeId,
-            Map<String, Object> outputs
-    ) implements CompiledTreeNode {}
+            Map<String, Object> outputs,
+            List<CallableAction> callableActions
+    ) implements CompiledTreeNode {
+        public CompiledActionNode(String nodeId, Map<String, Object> outputs) {
+            this(nodeId, outputs, List.of());
+        }
+    }
 
     /**
      * Compiled sub-rule reference node for deferred resolution.

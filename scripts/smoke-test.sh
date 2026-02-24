@@ -349,6 +349,10 @@ else
     test_rule "ENSEMBLE-v2" "e1000000-0000-0000-0000-000000000007" '{"paymentHistory":95,"debtToIncome":15,"accountAge":7,"creditMix":4,"creditScore":750,"income":60000,"age":35,"accidents":0}' "true"
     test_rule "SCRIPT-v2" "e1000000-0000-0000-0000-000000000004" '{"grossIncome":85000,"filingStatus":"single","dependents":0,"deductions":0,"stateCode":"CA"}' "true"
     test_rule "CEP-v2" "e1000000-0000-0000-0000-000000000008" '{"userId":"user1","ip":"1.2.3.4","country":"US","success":false}' "true"
+
+    # --- 3.8c: Callable Actions sample (V025) ---
+    test_rule "TREE-callable-approve" "e2000000-0000-0000-0000-000000000001" '{"creditScore":750,"annualIncome":80000}' "true"
+    test_rule "TREE-callable-reject" "e2000000-0000-0000-0000-000000000001" '{"creditScore":500,"annualIncome":30000}' "true"
   else
     skip "Rule testing — could not get admin token"
   fi

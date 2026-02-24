@@ -44,6 +44,7 @@ public class DefaultRuleForgeEngine implements RuleForgeEngine {
     private final List<CompilationPhaseExtension> compilationPhases;
     private final int maxForwardChainIterations;
     private final Duration defaultTimeout;
+    private final ActionExecutorRegistry actionExecutorRegistry;
 
     /**
      * Constructs the engine from builder configuration.
@@ -60,6 +61,7 @@ public class DefaultRuleForgeEngine implements RuleForgeEngine {
                 .toList();
         this.maxForwardChainIterations = builder.getMaxForwardChainIterations();
         this.defaultTimeout = builder.getDefaultTimeout();
+        this.actionExecutorRegistry = builder.getActionExecutorRegistry();
     }
 
     @Override
@@ -97,7 +99,7 @@ public class DefaultRuleForgeEngine implements RuleForgeEngine {
             RuleResult result;
             RuleTypeEngine typeEngine = registry.findEngine(rule.type());
             if (typeEngine != null) {
-                EvaluationContext ctx = new SimpleEvaluationContext(workingMemory);
+                EvaluationContext ctx = new SimpleEvaluationContext(workingMemory, actionExecutorRegistry);
                 result = typeEngine.evaluate(rule, workingMemory, ctx);
             } else {
                 result = rule.evaluate(workingMemory);

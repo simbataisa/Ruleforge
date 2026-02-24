@@ -1,9 +1,11 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Play, Copy, Check, AlertCircle, Clock, ChevronDown, ChevronRight, CheckCircle, XCircle } from 'lucide-react';
+import { Play, Copy, Check, AlertCircle, Clock, ChevronDown, ChevronRight, CheckCircle, XCircle, Save, Pencil, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Badge } from '@/shared/components/Badge';
-import { useTestRule } from '@/api/rules.api';
+import { useTestRule, useSampleInputs, useCreateSampleInput, useUpdateSampleInput, useDeleteSampleInput } from '@/api/rules.api';
 import { useToastStore } from '@/stores/toast.store';
+import { JsonQuillEditor } from './JsonQuillEditor';
+import { SaveSampleModal } from './SaveSampleModal';
 import type { TestResponse } from '@/api/types/rule.types';
 
 interface TestBenchProps {
@@ -24,12 +26,43 @@ const SAMPLE_INPUT = JSON.stringify(
 export function TestBench({ ruleId, version }: TestBenchProps) {
   const addToast = useToastStore((s) => s.addToast);
   const testRule = useTestRule();
+  const { data: sampleInputs } = useSampleInputs(ruleId);
+  const createSample = useCreateSampleInput();
+  const updateSample = useUpdateSampleInput();
+  const deleteSample = useDeleteSampleInput();
 
   const [input, setInput] = useState(SAMPLE_INPUT);
+  const [selectedSampleId, setSelectedSampleId] = useState('');
+  const [sampleDescription, setSampleDescription] = useState<string | null>(null);
   const [result, setResult] = useState<TestResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [logsExpanded, setLogsExpanded] = useState(false);
+  const [saveModalOpen, setSaveModalOpen] = useState(false);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+
+  const selectedSample = useMemo(
+    () => sampleInputs?.find((s) => s.id === selectedSampleId),
+    [sampleInputs, selectedSampleId],
+  );
+
+  const handleSampleChange = useCallback(
+    (sampleId: string) => {
+      setSelectedSampleId(sampleId);
+      if (!sampleId) {
+        setSampleDescription(null);
+        return;
+      }
+      const sample = sampleInputs?.find((s) => s.id === sampleId);
+      if (sample) {
+        // input may be a JSON string from the API or a parsed object
+        const parsed = typeof sample.input === 'string' ? JSON.parse(sample.input) : sample.input;
+        setInput(JSON.stringify(parsed, null, 2));
+        setSampleDescription(sample.description);
+      }
+    },
+    [sampleInputs],
+  );
 
   const handleRun = useCallback(() => {
     setError(null);
@@ -64,7 +97,7 @@ export function TestBench({ ruleId, version }: TestBenchProps) {
         },
       },
     );
-  }, [input, ruleId, testRule, addToast]);
+  }, [input, ruleId, version, testRule, addToast]);
 
   const handleCopyResult = useCallback(() => {
     if (!result) return;
@@ -82,29 +115,167 @@ export function TestBench({ ruleId, version }: TestBenchProps) {
     }
   }, [input]);
 
+  const handleSaveNew = useCallback(
+    (name: string, description: string) => {
+      let parsedInput: unknown;
+      try {
+        parsedInput = JSON.parse(input);
+      } catch {
+        addToast({ type: 'error', title: 'Invalid JSON — cannot save' });
+        return;
+      }
+
+      createSample.mutate(
+        { ruleId, data: { name, description: description || undefined, input: parsedInput } },
+        {
+          onSuccess: (saved) => {
+            setSaveModalOpen(false);
+            setSelectedSampleId(saved.id);
+            setSampleDescription(saved.description);
+            addToast({ type: 'success', title: 'Sample input saved' });
+          },
+          onError: (err) => {
+            const msg =
+              (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+              'Failed to save sample input';
+            addToast({ type: 'error', title: msg });
+          },
+        },
+      );
+    },
+    [input, ruleId, createSample, addToast],
+  );
+
+  const handleEditSave = useCallback(
+    (name: string, description: string) => {
+      if (!selectedSampleId) return;
+
+      let parsedInput: unknown;
+      try {
+        parsedInput = JSON.parse(input);
+      } catch {
+        addToast({ type: 'error', title: 'Invalid JSON — cannot save' });
+        return;
+      }
+
+      updateSample.mutate(
+        {
+          ruleId,
+          sampleId: selectedSampleId,
+          data: { name, description: description || undefined, input: parsedInput },
+        },
+        {
+          onSuccess: (saved) => {
+            setEditModalOpen(false);
+            setSampleDescription(saved.description);
+            addToast({ type: 'success', title: 'Sample input updated' });
+          },
+          onError: (err) => {
+            const msg =
+              (err as { response?: { data?: { message?: string } } })?.response?.data?.message ??
+              'Failed to update sample input';
+            addToast({ type: 'error', title: msg });
+          },
+        },
+      );
+    },
+    [input, ruleId, selectedSampleId, updateSample, addToast],
+  );
+
+  const handleDeleteSample = useCallback(() => {
+    if (!selectedSampleId) return;
+    if (!window.confirm('Delete this sample input?')) return;
+
+    deleteSample.mutate(
+      { ruleId, sampleId: selectedSampleId },
+      {
+        onSuccess: () => {
+          setSelectedSampleId('');
+          setSampleDescription(null);
+          addToast({ type: 'success', title: 'Sample input deleted' });
+        },
+        onError: () => {
+          addToast({ type: 'error', title: 'Failed to delete sample input' });
+        },
+      },
+    );
+  }, [ruleId, selectedSampleId, deleteSample, addToast]);
+
+  const handleInputChange = useCallback((value: string) => {
+    setInput(value);
+    setSelectedSampleId('');
+    setSampleDescription(null);
+  }, []);
+
   return (
     <div className="flex h-full">
       {/* Left Panel - Input */}
       <div className="flex-1 flex flex-col border-r border-gray-200">
         <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50">
           <h3 className="text-sm font-semibold text-gray-700">Input</h3>
-          <Button
-            size="sm"
-            onClick={handleRun}
-            loading={testRule.isPending}
-            disabled={!isValidJson()}
-          >
-            <Play className="h-3.5 w-3.5" />
-            Run Test
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSaveModalOpen(true)}
+              disabled={!isValidJson()}
+            >
+              <Save className="h-3.5 w-3.5" />
+              Save as Sample
+            </Button>
+            <Button
+              size="sm"
+              onClick={handleRun}
+              loading={testRule.isPending}
+              disabled={!isValidJson()}
+            >
+              <Play className="h-3.5 w-3.5" />
+              Run Test
+            </Button>
+          </div>
+        </div>
+        <div className="px-4 py-2 border-b border-gray-200 bg-gray-50/50">
+          <div className="flex items-center gap-2">
+            <select
+              value={selectedSampleId}
+              onChange={(e) => handleSampleChange(e.target.value)}
+              className="block flex-1 rounded-md border border-gray-300 bg-white px-3 py-1.5 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="">Load sample input...</option>
+              {sampleInputs?.map((sample) => (
+                <option key={sample.id} value={sample.id}>
+                  {sample.name}
+                </option>
+              ))}
+            </select>
+            {selectedSampleId && (
+              <>
+                <button
+                  onClick={() => setEditModalOpen(true)}
+                  className="p-1.5 rounded-md text-gray-400 hover:text-indigo-600 hover:bg-indigo-50 transition-colors"
+                  title="Edit sample"
+                >
+                  <Pencil className="h-3.5 w-3.5" />
+                </button>
+                <button
+                  onClick={handleDeleteSample}
+                  className="p-1.5 rounded-md text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                  title="Delete sample"
+                >
+                  <Trash2 className="h-3.5 w-3.5" />
+                </button>
+              </>
+            )}
+          </div>
+          {sampleDescription && (
+            <p className="mt-1 text-xs text-gray-500">{sampleDescription}</p>
+          )}
         </div>
         <div className="flex-1 relative">
-          <textarea
+          <JsonQuillEditor
             value={input}
-            onChange={(e) => setInput(e.target.value)}
-            className="w-full h-full resize-none border-none outline-none p-4 font-mono text-sm leading-relaxed bg-white text-gray-800 focus:ring-0"
-            spellCheck={false}
-            placeholder='Enter JSON input...\n{\n  "key": "value"\n}'
+            onChange={handleInputChange}
+            placeholder={'Enter JSON input...\n{\n  "key": "value"\n}'}
           />
           {!isValidJson() && input.trim().length > 0 && (
             <div className="absolute bottom-3 left-4 right-4">
@@ -244,6 +415,26 @@ export function TestBench({ ruleId, version }: TestBenchProps) {
           )}
         </div>
       </div>
+
+      {/* Save as Sample Modal */}
+      <SaveSampleModal
+        open={saveModalOpen}
+        onClose={() => setSaveModalOpen(false)}
+        onSave={handleSaveNew}
+        loading={createSample.isPending}
+        title="Save as Sample Input"
+      />
+
+      {/* Edit Sample Modal */}
+      <SaveSampleModal
+        open={editModalOpen}
+        onClose={() => setEditModalOpen(false)}
+        onSave={handleEditSave}
+        loading={updateSample.isPending}
+        initialName={selectedSample?.name ?? ''}
+        initialDescription={selectedSample?.description ?? ''}
+        title="Edit Sample Input"
+      />
     </div>
   );
 }

@@ -2,12 +2,16 @@ package io.ruleforge.tree.evaluator;
 
 import io.ruleforge.core.expression.ExpressionEvaluator;
 import io.ruleforge.core.memory.WorkingMemory;
+import io.ruleforge.core.model.CallableAction;
+import io.ruleforge.core.model.FactType;
 import io.ruleforge.core.model.PriorityVector;
 import io.ruleforge.core.result.DecisionTrace;
 import io.ruleforge.core.result.MatchedRule;
 import io.ruleforge.core.result.RuleResult;
 import io.ruleforge.core.result.RuleResultMetadata;
 import io.ruleforge.core.result.TraceNode;
+import io.ruleforge.core.spi.ActionExecutor;
+import io.ruleforge.core.spi.EvaluationContext;
 import io.ruleforge.tree.compiler.CompiledTreeNode;
 import io.ruleforge.tree.compiler.CompiledTreeNode.CompiledActionNode;
 import io.ruleforge.tree.compiler.CompiledTreeNode.CompiledConditionNode;
@@ -42,6 +46,7 @@ public final class TreeTraverser {
     private final boolean scoringMode;
     private final boolean earlyTermination;
     private final ExpressionEvaluator expressionEvaluator;
+    private final EvaluationContext evaluationContext;
 
     /**
      * Creates a new tree traverser.
@@ -51,10 +56,24 @@ public final class TreeTraverser {
      * @param earlyTermination whether to stop at the first terminal node
      */
     public TreeTraverser(String ruleId, boolean scoringMode, boolean earlyTermination) {
+        this(ruleId, scoringMode, earlyTermination, null);
+    }
+
+    /**
+     * Creates a new tree traverser with an evaluation context for callable actions.
+     *
+     * @param ruleId            the rule identifier for trace and matched rule reporting
+     * @param scoringMode       whether to traverse all matching branches and accumulate scores
+     * @param earlyTermination  whether to stop at the first terminal node
+     * @param evaluationContext the evaluation context (may be null)
+     */
+    public TreeTraverser(String ruleId, boolean scoringMode, boolean earlyTermination,
+                         EvaluationContext evaluationContext) {
         this.ruleId = ruleId;
         this.scoringMode = scoringMode;
         this.earlyTermination = earlyTermination;
         this.expressionEvaluator = new ExpressionEvaluator();
+        this.evaluationContext = evaluationContext;
     }
 
     /**
@@ -202,13 +221,81 @@ public final class TreeTraverser {
             if (wm.hasFact(entry.getKey())) {
                 wm.modifyFact(entry.getKey(), entry.getValue());
             } else {
-                wm.assertFact(entry.getKey(), entry.getValue(),
-                        io.ruleforge.core.model.FactType.ANY);
+                wm.assertFact(entry.getKey(), entry.getValue(), FactType.ANY);
             }
+        }
+
+        // Execute callable actions
+        if (node.callableActions() != null && !node.callableActions().isEmpty() && evaluationContext != null) {
+            executeCallableActions(node.callableActions(), wm, state);
         }
 
         if (earlyTermination) {
             state.terminate();
+        }
+    }
+
+    private void executeCallableActions(java.util.List<CallableAction> actions,
+                                         WorkingMemory wm, TraversalState state) {
+        for (CallableAction action : actions) {
+            long actionStart = System.nanoTime();
+            ActionExecutor executor = evaluationContext.getActionExecutor(action.protocol());
+
+            if (executor == null) {
+                state.addTraceNode(new TraceNode.ActionExec(
+                        "CALL_ACTION",
+                        action.actionId(),
+                        null,
+                        "No executor for protocol: " + action.protocol(),
+                        Duration.ZERO
+                ));
+                continue;
+            }
+
+            try {
+                Map<String, Object> result = executor.execute(action.target(), action.parameters(), evaluationContext);
+                Duration actionTime = Duration.ofNanos(System.nanoTime() - actionStart);
+
+                // Merge results into outputs and working memory
+                if (result != null && !result.isEmpty()) {
+                    if (action.outputMapping() != null && !action.outputMapping().isEmpty()) {
+                        // Store entire result under the output mapping key
+                        state.addOutputs(Map.of(action.outputMapping(), result));
+                        if (wm.hasFact(action.outputMapping())) {
+                            wm.modifyFact(action.outputMapping(), result);
+                        } else {
+                            wm.assertFact(action.outputMapping(), result, FactType.ANY);
+                        }
+                    } else {
+                        // Merge result keys directly into outputs
+                        state.addOutputs(result);
+                        for (var entry : result.entrySet()) {
+                            if (wm.hasFact(entry.getKey())) {
+                                wm.modifyFact(entry.getKey(), entry.getValue());
+                            } else {
+                                wm.assertFact(entry.getKey(), entry.getValue(), FactType.ANY);
+                            }
+                        }
+                    }
+                }
+
+                state.addTraceNode(new TraceNode.ActionExec(
+                        "CALL_ACTION",
+                        action.actionId() + " [" + action.protocol() + ":" + action.target() + "]",
+                        null,
+                        result,
+                        actionTime
+                ));
+            } catch (Exception e) {
+                Duration actionTime = Duration.ofNanos(System.nanoTime() - actionStart);
+                state.addTraceNode(new TraceNode.ActionExec(
+                        "CALL_ACTION_ERROR",
+                        action.actionId(),
+                        null,
+                        e.getMessage(),
+                        actionTime
+                ));
+            }
         }
     }
 

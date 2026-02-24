@@ -243,6 +243,74 @@ public class RuleService {
         return toDto(rule);
     }
 
+    @Transactional
+    public RuleDto copyRule(UUID ruleId, String nameOverride) {
+        TenantContext.TenantInfo tenant = TenantContext.get();
+        RuleEntity original = findRuleOrThrow(ruleId);
+
+        // Determine name for the copy
+        String copyName = (nameOverride != null && !nameOverride.isBlank())
+                ? nameOverride
+                : "Copy of " + original.getName();
+
+        // Generate a unique alias
+        String baseAlias = copyName.toLowerCase()
+                .replaceAll("\\s+", "-")
+                .replaceAll("[^a-z0-9_-]", "");
+        String alias = baseAlias;
+        int suffix = 1;
+        while (ruleRepository.findByAlias(alias).isPresent()) {
+            alias = baseAlias + "-" + suffix;
+            suffix++;
+        }
+
+        // Create the new rule entity
+        RuleEntity copy = new RuleEntity();
+        copy.setSpaceId(original.getSpaceId());
+        copy.setFolderId(original.getFolderId());
+        copy.setName(copyName);
+        copy.setAlias(alias);
+        copy.setDescription(original.getDescription());
+        copy.setType(original.getType());
+        copy.setStatus("DRAFT");
+        copy.setLatestVersion(1);
+        copy.setLocked(false);
+        copy.setCreatedBy(tenant.userId());
+        copy = ruleRepository.save(copy);
+
+        // Deep copy the latest version's definition, input_model, output_model
+        RuleVersionEntity latestVersion = ruleVersionRepository
+                .findByRuleIdAndVersion(ruleId, original.getLatestVersion())
+                .orElseGet(() -> ruleVersionRepository.findTopByRuleIdOrderByVersionDesc(ruleId)
+                        .orElse(null));
+
+        RuleVersionEntity versionCopy = new RuleVersionEntity();
+        versionCopy.setRuleId(copy.getId());
+        versionCopy.setVersion(1);
+        versionCopy.setDefinition(latestVersion != null ? latestVersion.getDefinition() : "{}");
+        versionCopy.setInputModel(latestVersion != null ? latestVersion.getInputModel() : "{}");
+        versionCopy.setOutputModel(latestVersion != null ? latestVersion.getOutputModel() : "{}");
+        versionCopy.setStatus("DRAFT");
+        versionCopy.setChangeNote("Copied from rule " + original.getName());
+        versionCopy.setCreatedBy(tenant.userId());
+        ruleVersionRepository.save(versionCopy);
+
+        // Copy tags
+        List<RuleTagEntity> originalTags = ruleTagRepository.findByRuleId(ruleId);
+        final UUID copyId = copy.getId();
+        for (RuleTagEntity originalTag : originalTags) {
+            RuleTagEntity tagCopy = new RuleTagEntity();
+            tagCopy.setRuleId(copyId);
+            tagCopy.setTagId(originalTag.getTagId());
+            ruleTagRepository.save(tagCopy);
+        }
+
+        log.info("Rule copied: originalId={}, newId={}, name={}", ruleId, copy.getId(), copyName);
+        publishEvent("rule.created", copy, tenant);
+
+        return toDto(copy);
+    }
+
     private RuleEntity findRuleOrThrow(UUID ruleId) {
         return ruleRepository.findById(ruleId)
                 .orElseThrow(() -> new EntityNotFoundException("Rule", ruleId.toString()));

@@ -1,5 +1,6 @@
 package io.ruleforge.core;
 
+import io.ruleforge.core.engine.ActionExecutorRegistry;
 import io.ruleforge.core.engine.DefaultRuleForgeEngine;
 import io.ruleforge.core.engine.RuleEngineRegistry;
 import io.ruleforge.core.spi.CompilationPhaseExtension;
@@ -39,6 +40,7 @@ public class RuleForgeEngineBuilder {
     private final List<DataEnricherExtension> enrichers = new ArrayList<>();
     private final List<RuleLifecycleListener> listeners = new ArrayList<>();
     private final List<CompilationPhaseExtension> compilationPhases = new ArrayList<>();
+    private ActionExecutorRegistry actionExecutorRegistry;
     private int maxForwardChainIterations = 100;
     private Duration defaultTimeout = Duration.ofSeconds(5);
 
@@ -155,6 +157,17 @@ public class RuleForgeEngineBuilder {
     }
 
     /**
+     * Sets the action executor registry for callable actions in action nodes.
+     *
+     * @param registry the action executor registry
+     * @return this builder for fluent chaining
+     */
+    public RuleForgeEngineBuilder actionExecutorRegistry(ActionExecutorRegistry registry) {
+        this.actionExecutorRegistry = registry;
+        return this;
+    }
+
+    /**
      * Builds and returns a configured {@link RuleForgeEngine} instance.
      *
      * @return a new engine instance
@@ -201,5 +214,9 @@ public class RuleForgeEngineBuilder {
 
     public Duration getDefaultTimeout() {
         return defaultTimeout;
+    }
+
+    public ActionExecutorRegistry getActionExecutorRegistry() {
+        return actionExecutorRegistry;
     }
 }

@@ -3,6 +3,7 @@ import { apiClient } from './client';
 import type {
   Rule,
   RuleVersion,
+  SampleInput,
   TestRequest,
   TestResponse,
 } from './types/rule.types';
@@ -264,6 +265,109 @@ export function useRejectVersion() {
       queryClient.invalidateQueries({
         queryKey: ['rules', variables.ruleId],
       });
+    },
+  });
+}
+
+export function useSampleInputs(ruleId: string) {
+  return useQuery({
+    queryKey: ['rules', ruleId, 'samples'],
+    queryFn: async () => {
+      const res = await apiClient.get<ApiResponse<SampleInput[]>>(
+        `/rules/${ruleId}/samples`,
+      );
+      return res.data.data;
+    },
+    enabled: !!ruleId,
+  });
+}
+
+export function useCreateSampleInput() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      ruleId,
+      data,
+    }: {
+      ruleId: string;
+      data: { name: string; description?: string; input: unknown };
+    }) => {
+      const res = await apiClient.post<ApiResponse<SampleInput>>(
+        `/rules/${ruleId}/samples`,
+        data,
+      );
+      return res.data.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['rules', variables.ruleId, 'samples'] });
+    },
+  });
+}
+
+export function useUpdateSampleInput() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      ruleId,
+      sampleId,
+      data,
+    }: {
+      ruleId: string;
+      sampleId: string;
+      data: { name?: string; description?: string; input?: unknown; sortOrder?: number };
+    }) => {
+      const res = await apiClient.put<ApiResponse<SampleInput>>(
+        `/rules/${ruleId}/samples/${sampleId}`,
+        data,
+      );
+      return res.data.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['rules', variables.ruleId, 'samples'] });
+    },
+  });
+}
+
+export function useDeleteSampleInput() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      ruleId,
+      sampleId,
+    }: {
+      ruleId: string;
+      sampleId: string;
+    }) => {
+      await apiClient.delete(`/rules/${ruleId}/samples/${sampleId}`);
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['rules', variables.ruleId, 'samples'] });
+    },
+  });
+}
+
+export function useCopyRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      ruleId,
+      name,
+    }: {
+      ruleId: string;
+      name?: string;
+    }) => {
+      const res = await apiClient.post<ApiResponse<Rule>>(
+        `/rules/${ruleId}/copy`,
+        name ? { name } : {},
+      );
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rules'] });
     },
   });
 }

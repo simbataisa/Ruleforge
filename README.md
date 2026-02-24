@@ -80,7 +80,7 @@ ruleforge/
 │   ├── sdk-java/                        # Java SDK
 │   ├── sdk-node/                        # Node.js SDK
 │   └── sdk-python/                      # Python SDK
-├── db/                                  # Flyway SQL migrations (V001–V024)
+├── db/                                  # Flyway SQL migrations (V001–V028)
 ├── infra/                               # Docker Compose, Kong gateway config
 ├── scripts/                             # Dev scripts (start-local, stop-local, smoke-test)
 └── docs/                                # Architecture and developer documentation
@@ -151,7 +151,7 @@ make infra-up
 
 ```bash
 make migrate
-# Runs Flyway V001–V024 against local PostgreSQL
+# Runs Flyway V001–V028 against local PostgreSQL
 ```
 
 #### 3. Build the Engine
@@ -324,7 +324,7 @@ Seed data (V021 migration) provides three test accounts:
 | `editor@ruleforge.io`  | `password123` | Acme Corp    | EDITOR |
 | `viewer@ruleforge.io`  | `password123` | Test Org     | VIEWER |
 
-Sample rules for all 8 rule types are seeded via V022. Comprehensive showcase rules with real-world use cases are seeded via V024.
+Sample rules for all 8 rule types are seeded via V022. Comprehensive showcase rules with real-world use cases are seeded via V024. Callable action samples are seeded via V025. V026–V028 add the `rule_sample_inputs` table with seed data and RLS policies, enabling per-rule sample input CRUD (create, edit, delete) from the TestBench UI.
 
 ## Smoke Tests
 
