@@ -49,11 +49,11 @@ make stack-down        # Stop everything
 
 ### Test Accounts (from V021 seed migration)
 
-| Email | Password | Org | Role |
-|-------|----------|-----|------|
-| admin@ruleforge.io | password123 | Acme Corp | OWNER |
+| Email               | Password    | Org       | Role   |
+| ------------------- | ----------- | --------- | ------ |
+| admin@ruleforge.io  | password123 | Acme Corp | OWNER  |
 | editor@ruleforge.io | password123 | Acme Corp | EDITOR |
-| viewer@ruleforge.io | password123 | Test Org | VIEWER |
+| viewer@ruleforge.io | password123 | Test Org  | VIEWER |
 
 Run `docker exec -i docker-postgres-1 psql -U ruleforge -d ruleforge < db/migrations/V021__seed_test_accounts.sql` to apply seed data.
 
@@ -78,21 +78,22 @@ RuleForge is an enterprise BRMS with a custom rule execution engine.
 
 11 modules — `ruleforge-core` has zero external dependencies (embeddable):
 
-| Module | Purpose | Dependencies |
-|--------|---------|-------------|
-| `ruleforge-core` | Abstractions, WorkingMemory, RFL parser, SPI | SLF4J API + Jackson only |
-| `ruleforge-table` | Decision Table engine (indexed conditions) | core |
-| `ruleforge-tree` | Decision Tree engine (BDD compilation) | core |
-| `ruleforge-scorecard` | Weighted scoring [Phase 3] | core |
-| `ruleforge-flow` | DAG orchestrator [Phase 2] | core (runtime SPI for engines) |
-| `ruleforge-script` | GraalVM sandboxed JS [Phase 2] | core + GraalVM SDK + polyglot runtime |
-| `ruleforge-cep` | Kafka Streams CEP [Phase 4] | core + Kafka Streams |
-| `ruleforge-dmn` | DMN 1.4 / FEEL [Phase 4] | core |
-| `ruleforge-ensemble` | Voting/averaging [Phase 3] | core |
-| `ruleforge-hierarchy` | Hierarchical resolution [Phase 4] | core |
-| `ruleforge-spring-boot-starter` | Auto-configuration | all modules + Spring Boot |
+| Module                          | Purpose                                      | Dependencies                          |
+| ------------------------------- | -------------------------------------------- | ------------------------------------- |
+| `ruleforge-core`                | Abstractions, WorkingMemory, RFL parser, SPI | SLF4J API + Jackson only              |
+| `ruleforge-table`               | Decision Table engine (indexed conditions)   | core                                  |
+| `ruleforge-tree`                | Decision Tree engine (BDD compilation)       | core                                  |
+| `ruleforge-scorecard`           | Weighted scoring [Phase 3]                   | core                                  |
+| `ruleforge-flow`                | DAG orchestrator [Phase 2]                   | core (runtime SPI for engines)        |
+| `ruleforge-script`              | GraalVM sandboxed JS [Phase 2]               | core + GraalVM SDK + polyglot runtime |
+| `ruleforge-cep`                 | Kafka Streams CEP [Phase 4]                  | core + Kafka Streams                  |
+| `ruleforge-dmn`                 | DMN 1.4 / FEEL [Phase 4]                     | core                                  |
+| `ruleforge-ensemble`            | Voting/averaging [Phase 3]                   | core                                  |
+| `ruleforge-hierarchy`           | Hierarchical resolution [Phase 4]            | core                                  |
+| `ruleforge-spring-boot-starter` | Auto-configuration                           | all modules + Spring Boot             |
 
 Key engine design:
+
 - Multi-dimensional priority: `(salience, specificity, weight, recency, order)`
 - 7 execution modes: FIRST_MATCH, ALL_MATCH, BEST_MATCH, SEQUENTIAL, PARALLEL, FORWARD_CHAIN, CASCADING
 - Condition indexing: HashMap (EQ/IN), IntervalTree (BETWEEN), SortedArray (GT/LT), Trie (CONTAINS), Bitmap (IS_NULL)
@@ -102,15 +103,15 @@ Key engine design:
 
 ### Platform Services (`platform/`, ports 8081-8087)
 
-| Service | Port | Purpose |
-|---------|------|---------|
-| auth-service | 8081 | JWT, API keys, RBAC, SSO |
-| management-service | 8082 | Rule CRUD, versioning, folders, tags |
-| solver-service | 8083 | Rule execution (L1 Caffeine → L2 Redis → PG) |
-| event-service | 8084 | Audit trail, webhooks (Kafka consumer) |
-| analytics-service | 8085 | Decision logs → Elasticsearch [Phase 3] |
-| scheduler-service | 8086 | Quartz-based batch scheduling |
-| connector-service | 8087 | JDBC/HTTP/Redis data enrichment |
+| Service            | Port | Purpose                                      |
+| ------------------ | ---- | -------------------------------------------- |
+| auth-service       | 8081 | JWT, API keys, RBAC, SSO                     |
+| management-service | 8082 | Rule CRUD, versioning, folders, tags         |
+| solver-service     | 8083 | Rule execution (L1 Caffeine → L2 Redis → PG) |
+| event-service      | 8084 | Audit trail, webhooks (Kafka consumer)       |
+| analytics-service  | 8085 | Decision logs → Elasticsearch [Phase 3]      |
+| scheduler-service  | 8086 | Quartz-based batch scheduling                |
+| connector-service  | 8087 | JDBC/HTTP/Redis data enrichment              |
 
 Shared module `ruleforge-common`: TenantContext, DTOs (ErrorResponse, PageResponse), Kafka schemas.
 
@@ -149,6 +150,7 @@ Organization → Space → Folder → Rule. PostgreSQL RLS on all tenant tables.
 ### Engine Registration
 
 Both management-service and solver-service register all 9 rule type engines:
+
 - DecisionTableEngine, DecisionTreeEngine, ScorecardEngine, EnsembleEngine, FlowEngine, DmnEngine, ScriptingEngine, CepEngine, HierarchyEngine
 - Configuration: `EngineConfig.java` in each service's `config` package
 - ScriptingEngine bundles GraalVM polyglot runtime — works on any JDK 21+ (Temurin, Corretto, etc.)
@@ -158,6 +160,7 @@ Both management-service and solver-service register all 9 rule type engines:
 ### Sample Input CRUD API
 
 Management service exposes per-rule sample input endpoints:
+
 - `GET /v1/rules/{ruleId}/samples` — list sample inputs
 - `POST /v1/rules/{ruleId}/samples` — create (`{ name, description?, input }`)
 - `PUT /v1/rules/{ruleId}/samples/{sampleId}` — update (`{ name?, description?, input?, sortOrder? }`)
@@ -174,3 +177,22 @@ Name uniqueness is enforced per rule. All endpoints verify tenant ownership via 
 - Frontend auth response shape: `{ accessToken, refreshToken, user: { id, email, fullName } }`
 - The `/auth/me` endpoint does NOT exist — use `/users/me` for current user info
 - Frontend TestBench uses `react-quill-new` (Quill v2 wrapper) for JSON input editing
+
+## BMAD Agent Skills
+
+This project uses BMAD method agents for structured SDLC. Agent skill definitions
+are in `.bmad-agents/`. When working on:
+
+- Requirements or analysis: read `.bmad-agents/bmad-business-analyst/SKILL.md`
+- Product planning or PRD: read `.bmad-agents/bmad-product-owner/SKILL.md`
+- System architecture: read `.bmad-agents/bmad-solution-architect/SKILL.md`
+- Enterprise/cloud architecture: read `.bmad-agents/bmad-enterprise-architect/SKILL.md`
+- UX/UI design: read `.bmad-agents/bmad-ux-ui-designer/SKILL.md`
+- Technical leadership or code review: read `.bmad-agents/bmad-tech-lead/SKILL.md`
+- Testing or QA: read `.bmad-agents/bmad-tester-qe/SKILL.md`
+- Backend development: read `.bmad-agents/bmad-backend-engineer/SKILL.md`
+- Frontend development: read `.bmad-agents/bmad-frontend-engineer/SKILL.md`
+- Mobile development: read `.bmad-agents/bmad-mobile-engineer/SKILL.md`
+
+Always read `BMAD-SHARED-CONTEXT.md` first for the overall workflow and artifact structure.
+All artifacts go in `docs/` per the BMAD directory convention.

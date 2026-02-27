@@ -114,29 +114,77 @@ make dev-up
 # or: ./scripts/start-local.sh
 ```
 
-This script will:
+#### What the script does
 
-1. Check prerequisites (Java 21+, Node.js 18+, Docker)
-2. Start infrastructure containers (PostgreSQL, Redis, Kafka, Elasticsearch, MinIO)
-3. Build the engine and platform (Gradle)
-4. Start all 7 platform services in dependency order
-5. Start the AI service (if Python is available)
-6. Start the frontend dev server
+`start-local.sh` orchestrates the full local development stack in six sequential phases:
 
-Use flags to skip steps:
+| Phase | What happens |
+|-------|--------------|
+| **1. Prerequisites** | Validates Java 21+, Node.js 18+, and Docker are available. Aborts with a clear error if any are missing. |
+| **2. Infrastructure** | Runs `docker compose up -d` for the infra stack (PostgreSQL 5432, Redis 6379, Kafka 9092, Elasticsearch 9200, MinIO 9000). Waits with retries for each service to become healthy before proceeding. |
+| **3. Build** | Compiles the engine (`./gradlew build -x test`) and all platform services (`./gradlew build -x test`). Installs frontend npm dependencies. |
+| **4. Platform services** | Starts the 7 Spring Boot JARs from `platform/*/build/libs/` as background processes, in dependency order: auth-service first, then management/event/connector/solver in parallel, then analytics, then scheduler. Each service is health-checked via its `/actuator/health` endpoint. |
+| **5. AI service** | Starts `uvicorn` if Python 3 is available. Skipped silently otherwise. |
+| **6. Frontend** | Starts the Vite dev server (`npm run dev`) as a background process. |
+
+After startup, the script prints a service status table showing the port, PID, and running state of every process.
+
+#### Flags
+
+| Flag | Effect |
+|------|--------|
+| `--skip-build` | Skip Gradle and npm builds. Uses existing JARs in `build/libs/`. Fastest way to restart after a code change that doesn't need a rebuild. |
+| `--skip-infra` | Skip starting Docker infrastructure. Use when containers are already running. |
+| `--no-frontend` | Skip starting the Vite dev server. Useful for backend-only work. |
 
 ```bash
-./scripts/start-local.sh --skip-build     # Skip Gradle builds (use existing JARs)
-./scripts/start-local.sh --skip-infra     # Skip Docker infrastructure
-./scripts/start-local.sh --no-frontend    # Skip the frontend dev server
+# Fast restart (services only, infra already up, no code changes):
+./scripts/start-local.sh --skip-build --skip-infra
+
+# Backend dev only:
+./scripts/start-local.sh --no-frontend
 ```
 
-Stop everything:
+#### Service logs
+
+Each process writes its output to `logs/` in the project root:
+
+```
+logs/
+├── ruleforge-auth-service.log
+├── ruleforge-management-service.log
+├── ruleforge-solver-service.log
+├── ruleforge-event-service.log
+├── ruleforge-analytics-service.log
+├── ruleforge-scheduler-service.log
+├── ruleforge-connector-service.log
+├── ai-service.log
+└── frontend.log
+```
+
+To tail a service log:
 
 ```bash
-make dev-down
-# or: Ctrl+C in the start-local.sh terminal
+tail -f logs/ruleforge-solver-service.log
 ```
+
+#### Common issues
+
+| Symptom | Fix |
+|---------|-----|
+| `Java 21+ required (found )` | Ensure `JAVA_HOME` is set to a valid absolute path (e.g. `export JAVA_HOME="/path/to/java21"`). |
+| `PostgreSQL did not become ready` | Check that `docker-postgres-1` is running: `docker ps`. If `pg_isready` isn't installed locally, the script falls back to `docker exec` automatically. |
+| `No JAR found for <service>` | Run without `--skip-build` or rebuild manually: `cd platform && ./gradlew build -x test`. |
+| Services start but return 500 | Database migrations may not have run. Apply them with `make migrate`. |
+
+#### Stopping
+
+```bash
+make dev-down        # Stop all services started by start-local.sh
+make dev-down --include-infra  # Also stop Docker infrastructure containers
+```
+
+Or use `Ctrl+C` if running in the foreground — the script traps signals and shuts down all child processes cleanly.
 
 ### Option B: Step-by-Step
 

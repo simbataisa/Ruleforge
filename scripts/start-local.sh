@@ -51,7 +51,7 @@ check_prereqs() {
     missing=true
   else
     local java_ver
-    java_ver=$(java -version 2>&1 | head -1 | sed 's/.*"\([0-9]*\).*/\1/')
+    java_ver=$(java -version 2>&1 | head -1 | sed -E 's/.*"([0-9]+)\..*/\1/')
     if [[ "$java_ver" -lt 21 ]]; then
       fail "Java 21+ required (found $java_ver)."
       missing=true
@@ -137,7 +137,8 @@ wait_for_pg() {
   info "Waiting for PostgreSQL..."
   local retries=30
   while [[ $retries -gt 0 ]]; do
-    if pg_isready -h localhost -p 5432 -U ruleforge &>/dev/null; then
+    if (command -v pg_isready &>/dev/null && pg_isready -h localhost -p 5432 -U ruleforge &>/dev/null) || \
+       docker exec docker-postgres-1 pg_isready -U ruleforge &>/dev/null; then
       ok "PostgreSQL is ready"
       return 0
     fi
@@ -152,7 +153,8 @@ wait_for_redis() {
   info "Waiting for Redis..."
   local retries=30
   while [[ $retries -gt 0 ]]; do
-    if redis-cli -h localhost -p 6379 ping 2>/dev/null | grep -q PONG; then
+    if (command -v redis-cli &>/dev/null && redis-cli -h localhost -p 6379 ping 2>/dev/null | grep -q PONG) || \
+       docker exec docker-redis-1 redis-cli ping 2>/dev/null | grep -q PONG; then
       ok "Redis is ready"
       return 0
     fi
@@ -276,7 +278,7 @@ main() {
   # --- Build ---
   if [[ "$SKIP_BUILD" == false ]]; then
     info "Building engine..."
-    (cd "$PROJECT_ROOT/engine" && ./gradlew build -x test)
+    (cd "$PROJECT_ROOT/engine" && ./gradlew build -x test -x jacocoTestCoverageVerification)
     ok "Engine build complete"
 
     info "Building platform..."
