@@ -3,7 +3,9 @@ package io.ruleforge.event.controller;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ruleforge.common.tenant.TenantContext;
 import io.ruleforge.event.entity.AuditEventEntity;
+import io.ruleforge.event.entity.NotificationEntity;
 import io.ruleforge.event.repository.AuditEventRepository;
+import io.ruleforge.event.repository.NotificationRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -15,6 +17,7 @@ import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.io.IOException;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -29,27 +32,36 @@ public class NotificationController {
     private static final long EMITTER_TIMEOUT = 30 * 60 * 1000L; // 30 minutes
 
     private final AuditEventRepository auditEventRepository;
+    private final NotificationRepository notificationRepository;
     private final ObjectMapper objectMapper;
 
-    // orgId -> list of active emitters
-    private final ConcurrentHashMap<UUID, CopyOnWriteArrayList<SseEmitter>> emitters = new ConcurrentHashMap<>();
+    /**
+     * Emitter registry keyed by orgId, storing (userId, SseEmitter) pairs
+     * for user-level notification filtering.
+     */
+    private final ConcurrentHashMap<UUID, CopyOnWriteArrayList<UserEmitter>> emitters = new ConcurrentHashMap<>();
     private volatile Instant lastPollTime = Instant.now();
 
-    public NotificationController(AuditEventRepository auditEventRepository, ObjectMapper objectMapper) {
+    public NotificationController(AuditEventRepository auditEventRepository,
+                                   NotificationRepository notificationRepository,
+                                   ObjectMapper objectMapper) {
         this.auditEventRepository = auditEventRepository;
+        this.notificationRepository = notificationRepository;
         this.objectMapper = objectMapper;
     }
 
     @GetMapping(value = "/stream", produces = "text/event-stream")
     public SseEmitter stream() {
         UUID orgId = TenantContext.get().orgId();
+        UUID userId = TenantContext.get().userId();
         SseEmitter emitter = new SseEmitter(EMITTER_TIMEOUT);
 
-        CopyOnWriteArrayList<SseEmitter> orgEmitters = emitters.computeIfAbsent(orgId, k -> new CopyOnWriteArrayList<>());
-        orgEmitters.add(emitter);
+        UserEmitter userEmitter = new UserEmitter(userId, emitter);
+        CopyOnWriteArrayList<UserEmitter> orgEmitters = emitters.computeIfAbsent(orgId, k -> new CopyOnWriteArrayList<>());
+        orgEmitters.add(userEmitter);
 
         Runnable removeEmitter = () -> {
-            orgEmitters.remove(emitter);
+            orgEmitters.remove(userEmitter);
             if (orgEmitters.isEmpty()) {
                 emitters.remove(orgId);
             }
@@ -80,40 +92,90 @@ public class NotificationController {
         Instant pollSince = lastPollTime;
         lastPollTime = Instant.now();
 
-        for (Map.Entry<UUID, CopyOnWriteArrayList<SseEmitter>> entry : emitters.entrySet()) {
+        for (Map.Entry<UUID, CopyOnWriteArrayList<UserEmitter>> entry : emitters.entrySet()) {
             UUID orgId = entry.getKey();
-            CopyOnWriteArrayList<SseEmitter> orgEmitters = entry.getValue();
+            CopyOnWriteArrayList<UserEmitter> orgEmitters = entry.getValue();
 
             if (orgEmitters.isEmpty()) {
                 continue;
             }
 
-            try {
-                List<AuditEventEntity> newEvents = auditEventRepository
-                        .findByOrgIdAndTimestampAfterOrderByTimestampDesc(orgId, pollSince);
+            // Push audit events to all org emitters (existing behavior)
+            pushAuditEvents(orgId, orgEmitters, pollSince);
 
-                for (AuditEventEntity event : newEvents) {
-                    String json = objectMapper.writeValueAsString(Map.of(
-                            "id", event.getId().toString(),
-                            "eventType", event.getEventType(),
-                            "resourceType", event.getResourceType() != null ? event.getResourceType() : "",
-                            "resourceId", event.getResourceId() != null ? event.getResourceId() : "",
-                            "timestamp", event.getTimestamp().toString()
-                    ));
-
-                    List<SseEmitter> deadEmitters = new java.util.ArrayList<>();
-                    for (SseEmitter emitter : orgEmitters) {
-                        try {
-                            emitter.send(SseEmitter.event().name("notification").data(json));
-                        } catch (IOException e) {
-                            deadEmitters.add(emitter);
-                        }
-                    }
-                    orgEmitters.removeAll(deadEmitters);
-                }
-            } catch (Exception e) {
-                log.warn("Error polling events for org {}: {}", orgId, e.getMessage());
-            }
+            // Push user-targeted notifications (new behavior)
+            pushUserNotifications(orgId, orgEmitters, pollSince);
         }
     }
+
+    private void pushAuditEvents(UUID orgId, CopyOnWriteArrayList<UserEmitter> orgEmitters, Instant pollSince) {
+        try {
+            List<AuditEventEntity> newEvents = auditEventRepository
+                    .findByOrgIdAndTimestampAfterOrderByTimestampDesc(orgId, pollSince);
+
+            for (AuditEventEntity event : newEvents) {
+                String json = objectMapper.writeValueAsString(Map.of(
+                        "id", event.getId().toString(),
+                        "eventType", event.getEventType(),
+                        "resourceType", event.getResourceType() != null ? event.getResourceType() : "",
+                        "resourceId", event.getResourceId() != null ? event.getResourceId() : "",
+                        "timestamp", event.getTimestamp().toString()
+                ));
+
+                List<UserEmitter> deadEmitters = new ArrayList<>();
+                for (UserEmitter ue : orgEmitters) {
+                    try {
+                        ue.emitter().send(SseEmitter.event().name("notification").data(json));
+                    } catch (IOException e) {
+                        deadEmitters.add(ue);
+                    }
+                }
+                orgEmitters.removeAll(deadEmitters);
+            }
+        } catch (Exception e) {
+            log.warn("Error polling audit events for org {}: {}", orgId, e.getMessage());
+        }
+    }
+
+    private void pushUserNotifications(UUID orgId, CopyOnWriteArrayList<UserEmitter> orgEmitters, Instant pollSince) {
+        try {
+            List<NotificationEntity> notifications = notificationRepository
+                    .findByOrgIdAndCreatedAtAfterOrderByCreatedAtDesc(orgId, pollSince);
+
+            for (NotificationEntity notification : notifications) {
+                String json = objectMapper.writeValueAsString(Map.of(
+                        "id", notification.getId().toString(),
+                        "type", notification.getType(),
+                        "title", notification.getTitle(),
+                        "body", notification.getBody() != null ? notification.getBody() : "",
+                        "resourceType", notification.getResourceType() != null ? notification.getResourceType() : "",
+                        "resourceId", notification.getResourceId() != null ? notification.getResourceId() : "",
+                        "read", notification.isRead(),
+                        "createdAt", notification.getCreatedAt().toString()
+                ));
+
+                UUID targetUserId = notification.getUserId();
+
+                List<UserEmitter> deadEmitters = new ArrayList<>();
+                for (UserEmitter ue : orgEmitters) {
+                    // Only send user-notification to the targeted user
+                    if (ue.userId().equals(targetUserId)) {
+                        try {
+                            ue.emitter().send(SseEmitter.event().name("user-notification").data(json));
+                        } catch (IOException e) {
+                            deadEmitters.add(ue);
+                        }
+                    }
+                }
+                orgEmitters.removeAll(deadEmitters);
+            }
+        } catch (Exception e) {
+            log.warn("Error polling notifications for org {}: {}", orgId, e.getMessage());
+        }
+    }
+
+    /**
+     * Pairs a userId with its SseEmitter for user-level notification filtering.
+     */
+    private record UserEmitter(UUID userId, SseEmitter emitter) {}
 }

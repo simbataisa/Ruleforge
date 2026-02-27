@@ -20,6 +20,9 @@ interface AbTestFormData {
   trafficSplit: number;
   startDate: string;
   endDate: string;
+  hypothesis: string;
+  minSampleSize: number;
+  significanceThreshold: number;
 }
 
 async function createAbTest(
@@ -40,6 +43,9 @@ async function createAbTest(
       trafficSplit: data.trafficSplit,
       startDate: data.startDate || undefined,
       endDate: data.endDate || undefined,
+      hypothesis: data.hypothesis || undefined,
+      minSampleSize: data.minSampleSize,
+      significanceThreshold: data.significanceThreshold,
     }),
   });
 
@@ -65,6 +71,9 @@ export function CreateAbTestModal({
     trafficSplit: 50,
     startDate: '',
     endDate: '',
+    hypothesis: '',
+    minSampleSize: 1000,
+    significanceThreshold: 95,
   });
 
   const handleClose = () => {
@@ -75,6 +84,9 @@ export function CreateAbTestModal({
       trafficSplit: 50,
       startDate: '',
       endDate: '',
+      hypothesis: '',
+      minSampleSize: 1000,
+      significanceThreshold: 95,
     });
     setError(null);
     onClose();
@@ -244,6 +256,73 @@ export function CreateAbTestModal({
               onChange={(e) => setForm((f) => ({ ...f, endDate: e.target.value }))}
               min={form.startDate || undefined}
             />
+          </div>
+        </div>
+
+        <div>
+          <label
+            htmlFor="ab-hypothesis"
+            className="block text-sm font-medium text-gray-700 mb-1"
+          >
+            Hypothesis (optional)
+          </label>
+          <textarea
+            id="ab-hypothesis"
+            value={form.hypothesis}
+            onChange={(e) =>
+              setForm((f) => ({ ...f, hypothesis: e.target.value.slice(0, 500) }))
+            }
+            placeholder="e.g. Version B will reduce error rate by at least 20%..."
+            rows={2}
+            maxLength={500}
+            className="block w-full rounded-md border border-gray-300 px-3 py-2 text-sm shadow-sm placeholder:text-gray-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500"
+          />
+          <p className="mt-1 text-xs text-gray-400 text-right">
+            {form.hypothesis.length}/500
+          </p>
+        </div>
+
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label
+              htmlFor="ab-min-sample"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Min. Sample Size
+            </label>
+            <Input
+              id="ab-min-sample"
+              type="number"
+              min={100}
+              step={100}
+              value={form.minSampleSize.toString()}
+              onChange={(e) =>
+                setForm((f) => ({ ...f, minSampleSize: Number(e.target.value) || 1000 }))
+              }
+            />
+          </div>
+
+          <div>
+            <label
+              htmlFor="ab-significance"
+              className="block text-sm font-medium text-gray-700 mb-1"
+            >
+              Significance Threshold
+            </label>
+            <Select
+              id="ab-significance"
+              value={form.significanceThreshold.toString()}
+              onChange={(e) =>
+                setForm((f) => ({
+                  ...f,
+                  significanceThreshold: Number(e.target.value),
+                }))
+              }
+            >
+              <option value="90">90%</option>
+              <option value="95">95%</option>
+              <option value="99">99%</option>
+            </Select>
           </div>
         </div>
 

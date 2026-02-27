@@ -71,6 +71,8 @@ public class DecisionEventConsumer {
         doc.setCorrelationId(getString(event, "correlationId"));
         doc.setStatus(getString(event, "status"));
         doc.setErrorMessage(getString(event, "errorMessage"));
+        doc.setAbTestId(getString(event, "abTestId"));
+        doc.setAbTestVersion(getString(event, "abTestVersion"));
 
         Object inputFacts = event.get("inputFacts");
         if (inputFacts instanceof Map) {

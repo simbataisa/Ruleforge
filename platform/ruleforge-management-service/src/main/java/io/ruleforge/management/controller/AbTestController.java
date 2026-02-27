@@ -1,9 +1,11 @@
 package io.ruleforge.management.controller;
 
+import io.ruleforge.common.audit.AuditLog;
 import io.ruleforge.common.dto.ApiResponse;
 import io.ruleforge.common.tenant.TenantContext;
 import io.ruleforge.management.dto.AbTestDto;
 import io.ruleforge.management.dto.CreateAbTestRequest;
+import io.ruleforge.management.dto.RuleVersionDto;
 import io.ruleforge.management.service.AbTestService;
 
 import jakarta.validation.Valid;
@@ -66,5 +68,14 @@ public class AbTestController {
     public void deleteAbTest(@PathVariable UUID ruleId,
                              @PathVariable UUID id) {
         abTestService.delete(id);
+    }
+
+    @PostMapping("/{id}/promote")
+    @AuditLog(action = "PROMOTE_AB_TEST", resourceType = "AbTest")
+    public ApiResponse<RuleVersionDto> promoteAbTest(@PathVariable UUID ruleId,
+                                                      @PathVariable UUID id,
+                                                      @RequestParam String winner) {
+        RuleVersionDto promoted = abTestService.promote(ruleId, id, winner);
+        return ApiResponse.ok(promoted, "A/B test winner promoted successfully");
     }
 }

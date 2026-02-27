@@ -67,6 +67,12 @@ public class DecisionLogDocument {
     @Field(type = FieldType.Date)
     private Instant timestamp;
 
+    @Field(type = FieldType.Keyword)
+    private String abTestId;
+
+    @Field(type = FieldType.Keyword)
+    private String abTestVersion;
+
     // --- Constructors ---
 
     public DecisionLogDocument() {}
@@ -123,4 +129,10 @@ public class DecisionLogDocument {
 
     public Instant getTimestamp() { return timestamp; }
     public void setTimestamp(Instant timestamp) { this.timestamp = timestamp; }
+
+    public String getAbTestId() { return abTestId; }
+    public void setAbTestId(String abTestId) { this.abTestId = abTestId; }
+
+    public String getAbTestVersion() { return abTestVersion; }
+    public void setAbTestVersion(String abTestVersion) { this.abTestVersion = abTestVersion; }
 }

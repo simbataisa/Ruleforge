@@ -1,8 +1,10 @@
 package io.ruleforge.management.service;
 
+import io.ruleforge.common.exception.ConflictException;
 import io.ruleforge.common.exception.EntityNotFoundException;
 import io.ruleforge.management.dto.AbTestDto;
 import io.ruleforge.management.dto.CreateAbTestRequest;
+import io.ruleforge.management.dto.RuleVersionDto;
 import io.ruleforge.management.entity.AbTestEntity;
 import io.ruleforge.management.entity.SpaceEntity;
 import io.ruleforge.management.repository.AbTestRepository;
@@ -10,10 +12,12 @@ import io.ruleforge.management.repository.SpaceRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -23,10 +27,17 @@ public class AbTestService {
 
     private final AbTestRepository abTestRepository;
     private final SpaceRepository spaceRepository;
+    private final VersionService versionService;
+    private final StringRedisTemplate redisTemplate;
 
-    public AbTestService(AbTestRepository abTestRepository, SpaceRepository spaceRepository) {
+    public AbTestService(AbTestRepository abTestRepository,
+                         SpaceRepository spaceRepository,
+                         VersionService versionService,
+                         StringRedisTemplate redisTemplate) {
         this.abTestRepository = abTestRepository;
         this.spaceRepository = spaceRepository;
+        this.versionService = versionService;
+        this.redisTemplate = redisTemplate;
     }
 
     @Transactional
@@ -99,6 +110,50 @@ public class AbTestService {
         abTestRepository.delete(entity);
         log.info("A/B test deleted: id={}", id);
         return dto;
+    }
+
+    @Transactional
+    public RuleVersionDto promote(UUID ruleId, UUID testId, String winner) {
+        AbTestEntity test = findOrThrow(testId);
+
+        if (!test.getRuleId().equals(ruleId)) {
+            throw new EntityNotFoundException("AbTest", testId.toString());
+        }
+
+        if (!"ACTIVE".equals(test.getStatus()) && !"STOPPED".equals(test.getStatus())) {
+            throw new ConflictException("Only ACTIVE or STOPPED A/B tests can be promoted. Current status: %s"
+                    .formatted(test.getStatus()));
+        }
+
+        int winningVersion;
+        if ("A".equalsIgnoreCase(winner)) {
+            winningVersion = test.getVersionA();
+        } else if ("B".equalsIgnoreCase(winner)) {
+            winningVersion = test.getVersionB();
+        } else {
+            throw new IllegalArgumentException("Winner must be 'A' or 'B', got: " + winner);
+        }
+
+        // Mark test as COMPLETED
+        test.setStatus("COMPLETED");
+        abTestRepository.save(test);
+
+        // Publish the winning version
+        RuleVersionDto promoted = versionService.publishVersion(ruleId, winningVersion);
+
+        // Invalidate Redis caches
+        try {
+            redisTemplate.delete("ab_test:" + ruleId + ":active");
+            Set<String> ruleKeys = redisTemplate.keys("tenant:*:rule:" + ruleId + ":*");
+            if (ruleKeys != null && !ruleKeys.isEmpty()) {
+                redisTemplate.delete(ruleKeys);
+            }
+        } catch (Exception e) {
+            log.warn("Failed to invalidate Redis caches for ruleId={}: {}", ruleId, e.getMessage());
+        }
+
+        log.info("A/B test promoted: testId={}, winner={}, version={}", testId, winner, winningVersion);
+        return promoted;
     }
 
     private AbTestEntity findOrThrow(UUID id) {

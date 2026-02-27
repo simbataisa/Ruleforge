@@ -47,6 +47,9 @@ const ConnectorsPage = lazy(() =>
 const AbTestListPage = lazy(() =>
   import('@/features/ab-testing/pages/AbTestListPage').then((m) => ({ default: m.AbTestListPage })),
 );
+const AbTestDetailPage = lazy(() =>
+  import('@/features/ab-testing/pages/AbTestDetailPage').then((m) => ({ default: m.AbTestDetailPageRoute })),
+);
 const ProfilePage = lazy(() =>
   import('@/features/admin/pages/ProfilePage').then((m) => ({ default: m.ProfilePage })),
 );
@@ -92,6 +95,7 @@ export const router = createBrowserRouter([
       { path: '/schedules', element: <Lazy><SchedulerPage /></Lazy> },
       { path: '/connectors', element: <Lazy><ConnectorsPage /></Lazy> },
       { path: '/ab-tests', element: <Lazy><AbTestListPage /></Lazy> },
+      { path: '/ab-tests/:id', element: <Lazy><AbTestDetailPage /></Lazy> },
       { path: '/profile', element: <Lazy><ProfilePage /></Lazy> },
       { path: '/audit', element: <Lazy><AuditLogPage /></Lazy> },
       { path: '/webhooks', element: <Lazy><WebhookListPage /></Lazy> },

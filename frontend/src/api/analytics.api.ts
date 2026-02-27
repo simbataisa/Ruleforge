@@ -5,6 +5,10 @@ import type {
   RuleStatsDto,
   DashboardMetricsDto,
   DecisionQueryParams,
+  TimelinePointDto,
+  TypeDistributionItemDto,
+  LatencyPercentilesDto,
+  PassFailPointDto,
 } from './types/analytics.types';
 import type { PageResponse } from './types/common.types';
 
@@ -59,5 +63,80 @@ export function useDecisionLogs(params: DecisionQueryParams) {
   return useQuery({
     queryKey: ['analytics', 'decisions', params],
     queryFn: () => fetchDecisionLogs(params),
+  });
+}
+
+export function useExecutionTimeline(hours = 24, interval = 'hour') {
+  return useQuery({
+    queryKey: ['analytics', 'timeline', hours, interval],
+    queryFn: async () => {
+      const res = await apiClient.get<TimelinePointDto[]>(
+        '/analytics/timeline',
+        { params: { hours, interval } },
+      );
+      return res.data;
+    },
+  });
+}
+
+export function useTypeDistribution(hours = 24) {
+  return useQuery({
+    queryKey: ['analytics', 'type-distribution', hours],
+    queryFn: async () => {
+      const res = await apiClient.get<TypeDistributionItemDto[]>(
+        '/analytics/type-distribution',
+        { params: { hours } },
+      );
+      return res.data;
+    },
+  });
+}
+
+export function useLatencyPercentiles(hours = 24) {
+  return useQuery({
+    queryKey: ['analytics', 'latency-percentiles', hours],
+    queryFn: async () => {
+      const res = await apiClient.get<LatencyPercentilesDto>(
+        '/analytics/latency-percentiles',
+        { params: { hours } },
+      );
+      return res.data;
+    },
+  });
+}
+
+export function usePassFail(hours = 24, interval = 'hour') {
+  return useQuery({
+    queryKey: ['analytics', 'pass-fail', hours, interval],
+    queryFn: async () => {
+      const res = await apiClient.get<PassFailPointDto[]>(
+        '/analytics/pass-fail',
+        { params: { hours, interval } },
+      );
+      return res.data;
+    },
+  });
+}
+
+// A/B test results
+export function useAbTestResults(testId: string) {
+  return useQuery({
+    queryKey: ['ab-test', testId, 'results'],
+    queryFn: async () => {
+      const res = await apiClient.get(`/analytics/ab-tests/${testId}/results`);
+      return res.data;
+    },
+    enabled: !!testId,
+  });
+}
+
+export function useAbTestSignificance(testId: string) {
+  return useQuery({
+    queryKey: ['ab-test', testId, 'significance'],
+    queryFn: async () => {
+      const res = await apiClient.get(`/analytics/ab-tests/${testId}/significance`);
+      return res.data;
+    },
+    enabled: !!testId,
   });
 }

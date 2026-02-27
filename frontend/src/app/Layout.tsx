@@ -25,6 +25,7 @@ import {
 import { cn } from '@/shared/utils/cn';
 import { useAuthStore } from '@/stores/auth.store';
 import { useCurrentUser } from '@/api/auth.api';
+import { usePendingApprovalCount } from '@/api/rules.api';
 import { AiPanel } from '@/features/ai-assistant/components/AiPanel';
 import { NotificationBell } from '@/features/notifications/NotificationBell';
 import { useNotificationStore } from '@/stores/notification.store';
@@ -76,6 +77,7 @@ export function Layout() {
   const user = useAuthStore((s) => s.user);
   useCurrentUser();
 
+  const { data: pendingApprovalCount } = usePendingApprovalCount();
   const connectNotifications = useNotificationStore((s) => s.connect);
   const disconnectNotifications = useNotificationStore((s) => s.disconnect);
 
@@ -158,7 +160,14 @@ export function Layout() {
                     }
                   >
                     <item.icon className="h-5 w-5" />
-                    {item.label}
+                    <span className="flex-1">{item.label}</span>
+                    {item.to === '/approvals' &&
+                      typeof pendingApprovalCount === 'number' &&
+                      pendingApprovalCount > 0 && (
+                        <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-500 px-1.5 text-xs font-medium text-white">
+                          {pendingApprovalCount > 99 ? '99+' : pendingApprovalCount}
+                        </span>
+                      )}
                   </NavLink>
                 ))}
               </div>

@@ -1,8 +1,10 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { FlaskConical, Plus } from 'lucide-react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Button } from '@/shared/components/Button';
+import { Badge } from '@/shared/components/Badge';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { Spinner } from '@/shared/components/Spinner';
 import { useToastStore } from '@/stores/toast.store';
@@ -22,6 +24,20 @@ interface AbTest {
   status: string;
   startDate?: string;
   endDate?: string;
+}
+
+type StatusTab = 'ALL' | 'ACTIVE' | 'SCHEDULED' | 'COMPLETED';
+
+const STATUS_TABS: StatusTab[] = ['ALL', 'ACTIVE', 'SCHEDULED', 'COMPLETED'];
+
+function matchesTab(status: string, tab: StatusTab): boolean {
+  if (tab === 'ALL') return true;
+  const upper = status.toUpperCase();
+  if (tab === 'ACTIVE') return upper === 'ACTIVE' || upper === 'RUNNING';
+  if (tab === 'SCHEDULED') return upper === 'SCHEDULED' || upper === 'PENDING';
+  if (tab === 'COMPLETED')
+    return upper === 'COMPLETED' || upper === 'STOPPED' || upper === 'CANCELLED';
+  return false;
 }
 
 function useAbTests() {
@@ -47,17 +63,35 @@ function useStopAbTest() {
 }
 
 export function AbTestListPage() {
+  const navigate = useNavigate();
   const addToast = useToastStore((s) => s.addToast);
   const queryClient = useQueryClient();
   const { data: tests, isLoading } = useAbTests();
   const stopTest = useStopAbTest();
-  const [, setSelectedId] = useState<string | null>(null);
   const [showCreate, setShowCreate] = useState(false);
   const [selectedRuleId, setSelectedRuleId] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<StatusTab>('ALL');
   const { data: rulesData } = useRules({ size: 100 });
   const { data: versionsData } = useRuleVersions(selectedRuleId);
   const rules = rulesData?.content ?? [];
   const versions = Array.isArray(versionsData) ? versionsData : [];
+
+  const allTests = tests ?? [];
+
+  const tabCounts = useMemo(() => {
+    const counts: Record<StatusTab, number> = { ALL: allTests.length, ACTIVE: 0, SCHEDULED: 0, COMPLETED: 0 };
+    for (const t of allTests) {
+      for (const tab of STATUS_TABS) {
+        if (tab !== 'ALL' && matchesTab(t.status, tab)) counts[tab]++;
+      }
+    }
+    return counts;
+  }, [allTests]);
+
+  const filteredTests = useMemo(
+    () => allTests.filter((t) => matchesTab(t.status, activeTab)),
+    [allTests, activeTab],
+  );
 
   const handleStop = async (testId: string) => {
     try {
@@ -69,8 +103,7 @@ export function AbTestListPage() {
   };
 
   const handleViewResults = (testId: string) => {
-    setSelectedId(testId);
-    // Could navigate to detail page or show modal
+    navigate(`/ab-tests/${testId}`);
   };
 
   if (isLoading) {
@@ -109,15 +142,44 @@ export function AbTestListPage() {
         }
       />
 
-      {!tests || tests.length === 0 ? (
+      {/* Status tabs */}
+      <div className="mb-4 border-b border-gray-200">
+        <nav className="flex gap-4">
+          {STATUS_TABS.map((tab) => (
+            <button
+              key={tab}
+              onClick={() => setActiveTab(tab)}
+              className={`flex items-center gap-2 border-b-2 pb-3 text-sm font-medium transition-colors ${
+                activeTab === tab
+                  ? 'border-indigo-600 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700'
+              }`}
+            >
+              {tab === 'ALL' ? 'All' : tab.charAt(0) + tab.slice(1).toLowerCase()}
+              <Badge
+                color={activeTab === tab ? 'blue' : 'gray'}
+                className="text-xs"
+              >
+                {tabCounts[tab]}
+              </Badge>
+            </button>
+          ))}
+        </nav>
+      </div>
+
+      {filteredTests.length === 0 ? (
         <EmptyState
           icon={<FlaskConical className="h-12 w-12" />}
-          title="No A/B tests"
-          description="Create an A/B test from the rule editor to compare rule versions."
+          title={activeTab === 'ALL' ? 'No A/B tests' : `No ${activeTab.toLowerCase()} tests`}
+          description={
+            activeTab === 'ALL'
+              ? 'Create an A/B test from the rule editor to compare rule versions.'
+              : `No tests with ${activeTab.toLowerCase()} status.`
+          }
         />
       ) : (
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {tests.map((test) => (
+          {filteredTests.map((test) => (
             <AbTestCard
               key={test.id}
               test={test}

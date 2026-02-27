@@ -18,14 +18,17 @@ import io.ruleforge.solver.dto.MatchedRuleDto;
 import io.ruleforge.solver.dto.SolveMetadata;
 import io.ruleforge.solver.dto.SolveRequest;
 import io.ruleforge.solver.dto.SolveResponse;
+import io.ruleforge.solver.service.AbTestRouter.AbTestAssignment;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -44,13 +47,16 @@ public class SolverService {
     private final RuleCacheService cacheService;
     private final RuleForgeEngine engine;
     private final EventPublisher eventPublisher;
+    private final AbTestRouter abTestRouter;
 
     public SolverService(RuleCacheService cacheService,
                          RuleForgeEngine engine,
-                         EventPublisher eventPublisher) {
+                         EventPublisher eventPublisher,
+                         AbTestRouter abTestRouter) {
         this.cacheService = cacheService;
         this.engine = engine;
         this.eventPublisher = eventPublisher;
+        this.abTestRouter = abTestRouter;
     }
 
     /**
@@ -64,24 +70,49 @@ public class SolverService {
     public SolveResponse solve(String ruleIdOrAlias, Integer version, SolveRequest request) {
         long startNanos = System.nanoTime();
 
-        // 1. Load compiled rule (from cache or database)
-        CompiledRule compiled = cacheService.getCompiledRule(ruleIdOrAlias, version);
+        // 1. Check for active A/B test and route if applicable
+        AbTestAssignment abAssignment = null;
+        Integer effectiveVersion = version;
+        if (version == null) {
+            // Only route A/B when no explicit version is requested
+            UUID ruleUuid = tryParseUuid(ruleIdOrAlias);
+            if (ruleUuid != null) {
+                Optional<AbTestAssignment> assignment = abTestRouter.route(ruleUuid);
+                if (assignment.isPresent()) {
+                    abAssignment = assignment.get();
+                    effectiveVersion = abAssignment.versionNumber();
+                    log.debug("A/B test routing: testId={}, version={}, variant={}",
+                            abAssignment.testId(), abAssignment.versionNumber(), abAssignment.abTestVersion());
+                }
+            }
+        }
 
-        // 2. Create WorkingMemory from input
+        // 2. Load compiled rule (from cache or database)
+        CompiledRule compiled = cacheService.getCompiledRule(ruleIdOrAlias, effectiveVersion);
+
+        // 3. Create WorkingMemory from input
         WorkingMemory workingMemory = new WorkingMemory();
         workingMemory.loadFromMap(request.input());
 
-        // 3. Evaluate via engine (dispatches through RuleTypeEngine for proper lifecycle)
+        // 4. Evaluate via engine (dispatches through RuleTypeEngine for proper lifecycle)
         RuleResult result = engine.evaluate(compiled, workingMemory);
 
-        // 4. Calculate elapsed time
+        // 5. Calculate elapsed time
         long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
 
-        // 5. Publish execution event asynchronously
-        publishExecutionEvent(compiled, result, elapsedMs);
+        // 6. Publish execution event asynchronously (with A/B test metadata)
+        publishExecutionEvent(compiled, result, elapsedMs, abAssignment);
 
-        // 6. Map to response
+        // 7. Map to response
         return mapToResponse(compiled, result, elapsedMs);
+    }
+
+    private UUID tryParseUuid(String value) {
+        try {
+            return UUID.fromString(value);
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 
     /**
@@ -211,19 +242,24 @@ public class SolverService {
         );
     }
 
-    private void publishExecutionEvent(CompiledRule compiled, RuleResult result, long elapsedMs) {
+    private void publishExecutionEvent(CompiledRule compiled, RuleResult result, long elapsedMs,
+                                       AbTestAssignment abAssignment) {
         try {
             TenantContext.TenantInfo tenant = TenantContext.get();
             UUID orgId = tenant != null ? tenant.orgId() : null;
             UUID actorId = tenant != null ? tenant.userId() : null;
 
-            Map<String, Object> payload = Map.of(
-                    "ruleType", compiled.type().name(),
-                    "executionTimeMs", elapsedMs,
-                    "rulesEvaluated", result.metadata() != null ? result.metadata().rulesEvaluated() : 0,
-                    "rulesMatched", result.matchedRules() != null ? result.matchedRules().size() : 0,
-                    "hasOutput", result.hasOutput()
-            );
+            Map<String, Object> payload = new HashMap<>();
+            payload.put("ruleType", compiled.type().name());
+            payload.put("executionTimeMs", elapsedMs);
+            payload.put("rulesEvaluated", result.metadata() != null ? result.metadata().rulesEvaluated() : 0);
+            payload.put("rulesMatched", result.matchedRules() != null ? result.matchedRules().size() : 0);
+            payload.put("hasOutput", result.hasOutput());
+
+            if (abAssignment != null) {
+                payload.put("abTestId", abAssignment.testId().toString());
+                payload.put("abTestVersion", abAssignment.abTestVersion());
+            }
 
             DomainEvent event = DomainEvent.create(
                     "rule.executed",

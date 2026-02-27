@@ -14,6 +14,7 @@ dependencies {
     implementation("org.flywaydb:flyway-database-postgresql:${property("flywayVersion")}")
 
     implementation("org.apache.poi:poi-ooxml:5.2.3")
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
 
     // Engine dependencies (composite build from engine project)
     implementation("io.ruleforge:ruleforge-core:${property("version")}")

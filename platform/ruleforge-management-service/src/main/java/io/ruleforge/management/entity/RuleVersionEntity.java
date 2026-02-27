@@ -66,6 +66,12 @@ public class RuleVersionEntity {
     @Column(name = "rejection_reason")
     private String rejectionReason;
 
+    @Column(name = "approval_deadline")
+    private Instant approvalDeadline;
+
+    @Column(name = "sla_hours")
+    private Integer slaHours;
+
     @PrePersist
     protected void onCreate() {
         this.createdAt = Instant.now();
@@ -191,5 +197,21 @@ public class RuleVersionEntity {
 
     public void setRejectionReason(String rejectionReason) {
         this.rejectionReason = rejectionReason;
+    }
+
+    public Instant getApprovalDeadline() {
+        return approvalDeadline;
+    }
+
+    public void setApprovalDeadline(Instant approvalDeadline) {
+        this.approvalDeadline = approvalDeadline;
+    }
+
+    public Integer getSlaHours() {
+        return slaHours;
+    }
+
+    public void setSlaHours(Integer slaHours) {
+        this.slaHours = slaHours;
     }
 }

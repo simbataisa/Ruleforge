@@ -7,6 +7,7 @@ interface MetricCardProps {
   description?: string;
   icon?: ReactNode;
   className?: string;
+  onClick?: () => void;
 }
 
 export function MetricCard({
@@ -15,13 +16,19 @@ export function MetricCard({
   description,
   icon,
   className,
+  onClick,
 }: MetricCardProps) {
   return (
     <div
       className={cn(
         'rounded-lg border border-gray-200 bg-white p-6 shadow-sm',
+        onClick && 'cursor-pointer',
         className,
       )}
+      onClick={onClick}
+      role={onClick ? 'button' : undefined}
+      tabIndex={onClick ? 0 : undefined}
+      onKeyDown={onClick ? (e) => { if (e.key === 'Enter') onClick(); } : undefined}
     >
       <div className="flex items-center justify-between">
         <p className="text-sm font-medium text-gray-500">{label}</p>

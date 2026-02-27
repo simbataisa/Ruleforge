@@ -372,6 +372,75 @@ export function useCopyRule() {
   });
 }
 
+// --- Approval Comments ---
+
+export interface ApprovalComment {
+  id: string;
+  ruleId: string;
+  version: number;
+  userId: string;
+  userName: string;
+  body: string;
+  parentId?: string;
+  createdAt: string;
+}
+
+export function useApprovalComments(ruleId: string, version: number) {
+  return useQuery({
+    queryKey: ['rules', ruleId, 'versions', version, 'comments'],
+    queryFn: async () => {
+      const res = await apiClient.get<ApiResponse<ApprovalComment[]>>(
+        `/rules/${ruleId}/versions/${version}/comments`,
+      );
+      return res.data.data;
+    },
+    enabled: !!ruleId && version > 0,
+  });
+}
+
+export function useAddApprovalComment() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      ruleId,
+      version,
+      body,
+      parentId,
+    }: {
+      ruleId: string;
+      version: number;
+      body: string;
+      parentId?: string;
+    }) => {
+      const res = await apiClient.post<ApiResponse<ApprovalComment>>(
+        `/rules/${ruleId}/versions/${version}/comments`,
+        { body, parentId },
+      );
+      return res.data.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({
+        queryKey: ['rules', variables.ruleId, 'versions', variables.version, 'comments'],
+      });
+    },
+  });
+}
+
+export function usePendingApprovalCount() {
+  return useQuery({
+    queryKey: ['rules', 'pending-approval-count'],
+    queryFn: async () => {
+      const res = await apiClient.get<ApiResponse<PageResponse<Rule>>>(
+        '/rules',
+        { params: { status: 'PENDING_APPROVAL', page: 0, size: 1 } },
+      );
+      return res.data.data.totalElements;
+    },
+    refetchInterval: 60000,
+  });
+}
+
 export function useTestRule() {
   return useMutation({
     mutationFn: async ({

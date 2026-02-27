@@ -15,12 +15,14 @@ import io.ruleforge.management.repository.RuleVersionRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -28,6 +30,7 @@ public class VersionService {
 
     private static final Logger log = LoggerFactory.getLogger(VersionService.class);
     private static final String TOPIC_RULE_LIFECYCLE = "rule.lifecycle";
+    private static final Set<String> APPROVAL_ROLES = Set.of("OWNER", "APPROVER");
 
     private final RuleVersionRepository versionRepository;
     private final RuleRepository ruleRepository;
@@ -185,6 +188,12 @@ public class VersionService {
         return toDto(versionEntity);
     }
 
+    private void enforceApprovalRole(TenantContext.TenantInfo tenant) {
+        if (tenant.role() == null || !APPROVAL_ROLES.contains(tenant.role())) {
+            throw new AccessDeniedException("Only OWNER or APPROVER roles can approve or reject versions");
+        }
+    }
+
     private RuleEntity findRuleOrThrow(UUID ruleId) {
         return ruleRepository.findById(ruleId)
                 .orElseThrow(() -> new EntityNotFoundException("Rule", ruleId.toString()));
@@ -213,6 +222,7 @@ public class VersionService {
     @Transactional
     public RuleVersionDto approve(UUID ruleId, int version, UUID approverId) {
         TenantContext.TenantInfo tenant = TenantContext.get();
+        enforceApprovalRole(tenant);
         RuleEntity rule = findRuleOrThrow(ruleId);
 
         RuleVersionEntity versionEntity = versionRepository.findByRuleIdAndVersion(ruleId, version)
@@ -222,6 +232,11 @@ public class VersionService {
         if (!"PENDING_APPROVAL".equals(versionEntity.getStatus())) {
             throw new ConflictException("Only PENDING_APPROVAL versions can be approved. Current status: %s"
                     .formatted(versionEntity.getStatus()));
+        }
+
+        // Prevent self-approval
+        if (versionEntity.getCreatedBy().equals(tenant.userId())) {
+            throw new AccessDeniedException("Cannot approve your own version");
         }
 
         // Deprecate any currently published versions
@@ -266,6 +281,9 @@ public class VersionService {
 
     @Transactional
     public RuleVersionDto reject(UUID ruleId, int version, String reason) {
+        TenantContext.TenantInfo tenant = TenantContext.get();
+        enforceApprovalRole(tenant);
+
         RuleVersionEntity versionEntity = versionRepository.findByRuleIdAndVersion(ruleId, version)
                 .orElseThrow(() -> new EntityNotFoundException("RuleVersion",
                         "ruleId=%s, version=%d".formatted(ruleId, version)));

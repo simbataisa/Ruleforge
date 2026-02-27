@@ -32,6 +32,35 @@ export interface DecisionQueryParams {
   ruleId?: string;
   from?: string;
   to?: string;
+  status?: string;
+  search?: string;
+  minLatency?: number;
+  maxLatency?: number;
   page?: number;
   size?: number;
+}
+
+export interface TimelinePointDto {
+  timestamp: string;
+  count: number;
+}
+
+export interface TypeDistributionItemDto {
+  type: string;
+  count: number;
+  percentage: number;
+}
+
+export interface LatencyPercentilesDto {
+  p50: number;
+  p75: number;
+  p90: number;
+  p95: number;
+  p99: number;
+}
+
+export interface PassFailPointDto {
+  timestamp: string;
+  passed: number;
+  failed: number;
 }
