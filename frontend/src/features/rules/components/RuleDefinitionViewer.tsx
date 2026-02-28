@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { ReactFlow, Background, Controls } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
+import Editor from '@monaco-editor/react';
 import { buildTreeFlowNodes } from '../utils/buildTreeFlowNodes';
 import { JsonModelEditor } from './JsonModelEditor';
 import type { Node, Edge } from '@xyflow/react';
@@ -231,6 +232,53 @@ function EnsembleReadOnlyView({ definition }: { definition: Record<string, unkno
           </tbody>
         </table>
       )}
+    </div>
+  );
+}
+
+// ─── SCRIPT read-only view ───────────────────────────────────────────────────
+
+const LANGUAGE_LABELS: Record<string, string> = { js: 'JavaScript', python: 'Python', groovy: 'Groovy' };
+
+function ScriptReadOnlyView({ definition, height }: { definition: Record<string, unknown>; height?: string }) {
+  const scriptBody = (definition.scriptBody as string) ?? '';
+  const language = (definition.language as string) ?? 'js';
+  const timeout = definition.timeout as number | undefined;
+  const maxMemoryMb = definition.maxMemoryMb as number | undefined;
+
+  const monacoLang = language === 'js' ? 'javascript' : language;
+
+  return (
+    <div className="h-full flex flex-col gap-2 p-3">
+      {/* Metadata bar */}
+      <div className="flex flex-wrap gap-3 px-3 py-2 rounded-md border border-gray-200 bg-gray-50 text-xs shrink-0">
+        <div>
+          <span className="text-gray-500 font-medium mr-1">Language:</span>
+          <span className="font-semibold text-indigo-700">{LANGUAGE_LABELS[language] ?? language}</span>
+        </div>
+        {timeout != null && (
+          <div>
+            <span className="text-gray-500 font-medium mr-1">Timeout:</span>
+            <span className="text-gray-700">{timeout} ms</span>
+          </div>
+        )}
+        {maxMemoryMb != null && (
+          <div>
+            <span className="text-gray-500 font-medium mr-1">Max Memory:</span>
+            <span className="text-gray-700">{maxMemoryMb} MB</span>
+          </div>
+        )}
+      </div>
+      {/* Code viewer */}
+      <div className="flex-1 min-h-0 border border-gray-200 rounded-md overflow-hidden">
+        <Editor
+          value={scriptBody || '// No script defined'}
+          language={monacoLang}
+          height={height ?? '100%'}
+          theme="vs"
+          options={{ readOnly: true, minimap: { enabled: false }, scrollBeyondLastLine: false, fontSize: 13 }}
+        />
+      </div>
     </div>
   );
 }
@@ -638,6 +686,9 @@ export function RuleDefinitionViewer({ ruleType, definition, height = '100%' }: 
   }
   if (ruleType === 'SCORECARD') {
     return <ScorecardReadOnlyView definition={definition} />;
+  }
+  if (ruleType === 'SCRIPT') {
+    return <ScriptReadOnlyView definition={definition} height={height} />;
   }
   if (ruleType === 'DMN') {
     return <DmnReadOnlyView definition={definition} />;
