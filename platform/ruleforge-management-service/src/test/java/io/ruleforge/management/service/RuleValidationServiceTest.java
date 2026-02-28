@@ -118,7 +118,7 @@ class RuleValidationServiceTest {
         ValidationResultDto result = validationService.validateRule(ruleId, 1);
 
         assertFalse(result.valid());
-        assertTrue(result.errors().stream().anyMatch(e -> "MISSING_CHARACTERISTICS".equals(e.code())));
+        assertTrue(result.errors().stream().anyMatch(e -> "MISSING_CATEGORIES".equals(e.code())));
     }
 
     @Test
@@ -136,7 +136,7 @@ class RuleValidationServiceTest {
         ValidationResultDto result = validationService.validateRule(ruleId, 1);
 
         assertFalse(result.valid());
-        assertTrue(result.errors().stream().anyMatch(e -> "MISSING_SUB_RULES".equals(e.code())));
+        assertTrue(result.errors().stream().anyMatch(e -> "MISSING_MEMBERS".equals(e.code())));
     }
 
     @Test
@@ -182,7 +182,7 @@ class RuleValidationServiceTest {
                 List.of(),
                 null
         );
-        when(ruleForgeEngine.evaluate(eq(ruleId.toString()), eq(1), any())).thenReturn(engineResult);
+        when(ruleForgeEngine.evaluate(eq(compiledRule), any())).thenReturn(engineResult);
 
         TestRuleRequest request = new TestRuleRequest(Map.of("age", 25), null);
         TestResultDto result = validationService.testRule(ruleId, 1, request);

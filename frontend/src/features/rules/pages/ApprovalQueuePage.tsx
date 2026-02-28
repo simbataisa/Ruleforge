@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Check, X, ClipboardCheck, Clock } from 'lucide-react';
+import { Check, X, ClipboardCheck, Clock, Search } from 'lucide-react';
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { Spinner } from '@/shared/components/Spinner';
@@ -15,6 +15,7 @@ import { useToastStore } from '@/stores/toast.store';
 import { useAuthStore } from '@/stores/auth.store';
 import { ApprovalDetailPanel } from '../components/ApprovalDetailPanel';
 import { formatRelativeTime } from '../utils/formatRelativeTime';
+import { useNavigate } from 'react-router-dom';
 import { cn } from '@/shared/utils/cn';
 import type { Rule } from '@/api/types/rule.types';
 
@@ -76,9 +77,9 @@ function AvatarStack({ assignees }: { assignees: ApprovalAssigneeDto[] }) {
                 ? 'bg-red-100 text-red-700'
                 : 'bg-indigo-100 text-indigo-700',
           )}
-          title={`${a.name} - ${a.status}`}
+          title={`${a.name ?? 'Unknown'} - ${a.status}`}
         >
-          {a.name
+          {(a.name ?? '?')
             .split(' ')
             .map((p) => p[0])
             .slice(0, 2)
@@ -131,13 +132,14 @@ export function ApprovalQueuePage() {
   const approveVersion = useApproveVersion();
   const rejectVersion = useRejectVersion();
   const cancelRequest = useCancelApprovalRequest();
+  const navigate = useNavigate();
 
   const canSeeMyQueue = ['OWNER', 'ADMIN', 'APPROVER'].includes(userRole);
   const canSeeAllRequests = ['OWNER', 'ADMIN'].includes(userRole);
 
-  const defaultTab: TabId = canSeeMyQueue ? 'my-queue' : 'my-requests';
-  const [activeTab, setActiveTab] = useState<TabId>(defaultTab);
+  const [activeTab, setActiveTab] = useState<TabId>('my-requests');
   const [statusFilter, setStatusFilter] = useState<string>('');
+  const [nameFilter, setNameFilter] = useState('');
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -151,8 +153,13 @@ export function ApprovalQueuePage() {
     return params;
   }, [activeTab, statusFilter]);
 
-  const { data, isLoading, refetch } = useApprovalRequests(queryParams as never);
-  const requests: ApprovalRequestDto[] = data?.content ?? [];
+  const { data, isLoading } = useApprovalRequests(queryParams as never);
+  const allRequests: ApprovalRequestDto[] = data?.content ?? [];
+  const requests = useMemo(() => {
+    if (!nameFilter.trim()) return allRequests;
+    const q = nameFilter.toLowerCase();
+    return allRequests.filter((r) => r.ruleName?.toLowerCase().includes(q));
+  }, [allRequests, nameFilter]);
 
   const selectedRequest = requests.find((r) => r.id === selectedRequestId) ?? null;
 
@@ -165,14 +172,21 @@ export function ApprovalQueuePage() {
   useEffect(() => {
     setSelectedRequestId(null);
     setStatusFilter('');
+    setNameFilter('');
   }, [activeTab]);
 
-  const pendingCount = requests.filter((r) => r.status === 'PENDING').length;
-  const overdueCount = requests.filter((r) => {
+  useEffect(() => {
+    if (canSeeMyQueue && activeTab === 'my-requests') {
+      setActiveTab('my-queue');
+    }
+  }, [canSeeMyQueue]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const pendingCount = allRequests.filter((r) => r.status === 'PENDING').length;
+  const overdueCount = allRequests.filter((r) => {
     const rem = slaHoursRemaining(r.deadline);
     return r.status === 'PENDING' && rem != null && rem <= 0;
   }).length;
-  const approvedTodayCount = requests.filter((r) => {
+  const approvedTodayCount = allRequests.filter((r) => {
     if (r.status !== 'APPROVED' || !r.resolvedAt) return false;
     const resolved = new Date(r.resolvedAt);
     const today = new Date();
@@ -209,7 +223,7 @@ export function ApprovalQueuePage() {
     approveVersion.mutate(
       { ruleId: req.ruleId, version: req.version },
       {
-        onSuccess: () => { addToast({ type: 'success', title: `Approved ${req.ruleName}` }); refetch(); },
+        onSuccess: () => { addToast({ type: 'success', title: `Approved ${req.ruleName}` }); },
         onError: () => addToast({ type: 'error', title: 'Failed to approve' }),
       },
     );
@@ -224,7 +238,6 @@ export function ApprovalQueuePage() {
           addToast({ type: 'success', title: `Rejected ${req.ruleName}` });
           setRejectingId(null);
           setRejectReason('');
-          refetch();
         },
         onError: () => addToast({ type: 'error', title: 'Failed to reject' }),
       },
@@ -234,14 +247,14 @@ export function ApprovalQueuePage() {
   const handleCancel = (req: ApprovalRequestDto) => {
     if (!confirm(`Cancel approval request for "${req.ruleName}"?`)) return;
     cancelRequest.mutate(req.id, {
-      onSuccess: () => { addToast({ type: 'success', title: `Cancelled request for ${req.ruleName}` }); refetch(); },
+      onSuccess: () => { addToast({ type: 'success', title: `Cancelled request for ${req.ruleName}` }); },
       onError: () => addToast({ type: 'error', title: 'Failed to cancel request' }),
     });
   };
 
   const tabs: { id: TabId; label: string; visible: boolean; count?: number }[] = [
-    { id: 'my-queue', label: 'My Queue', visible: canSeeMyQueue, count: activeTab === 'my-queue' ? pendingCount : undefined },
-    { id: 'my-requests', label: 'My Requests', visible: true },
+    { id: 'my-queue', label: 'My Queue', visible: canSeeMyQueue, count: pendingCount > 0 ? pendingCount : undefined },
+    { id: 'my-requests', label: 'My Requests', visible: true, count: activeTab === 'my-requests' && pendingCount > 0 ? pendingCount : undefined },
     { id: 'all-requests', label: 'All Requests', visible: canSeeAllRequests },
   ];
 
@@ -308,20 +321,36 @@ export function ApprovalQueuePage() {
         </div>
       </div>
 
-      {/* Status filter */}
-      <div className="mb-3 flex items-center gap-2">
-        <select
-          value={statusFilter}
-          onChange={(e) => setStatusFilter(e.target.value)}
-          className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:border-indigo-500 focus:outline-none"
-        >
-          <option value="">All Statuses</option>
-          <option value="PENDING">Pending</option>
-          <option value="APPROVED">Approved</option>
-          <option value="REJECTED">Rejected</option>
-          <option value="CANCELLED">Cancelled</option>
-        </select>
-        <span className="text-xs text-gray-400 ml-2">J/K to navigate</span>
+      {/* Filters bar */}
+      <div className="mb-3 flex items-center gap-2 flex-wrap">
+        {/* Search */}
+        <div className="relative">
+          <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+          <input
+            value={nameFilter}
+            onChange={(e) => setNameFilter(e.target.value)}
+            placeholder="Search by rule name..."
+            className="h-8 rounded-lg border border-gray-200 bg-white pl-8 pr-3 text-sm text-gray-700 focus:border-indigo-500 focus:outline-none w-52"
+          />
+        </div>
+        {/* Status pills */}
+        <div className="flex items-center gap-1">
+          {['', 'PENDING', 'APPROVED', 'REJECTED', 'CANCELLED'].map((s) => (
+            <button
+              key={s}
+              onClick={() => setStatusFilter(s)}
+              className={cn(
+                'h-7 rounded-full px-3 text-xs font-medium transition-colors',
+                statusFilter === s
+                  ? 'bg-indigo-100 text-indigo-700 border border-indigo-300'
+                  : 'bg-white text-gray-500 border border-gray-200 hover:bg-gray-50',
+              )}
+            >
+              {s === '' ? 'All' : s.charAt(0) + s.slice(1).toLowerCase()}
+            </button>
+          ))}
+        </div>
+        <span className="text-xs text-gray-400 ml-auto">J/K to navigate</span>
       </div>
 
       {/* Content */}
@@ -343,55 +372,76 @@ export function ApprovalQueuePage() {
           }
         />
       ) : activeTab === 'all-requests' ? (
-        /* ALL REQUESTS -- Table view */
-        <div className="flex-1 overflow-auto rounded-lg border border-gray-200 bg-white">
-          <table className="w-full text-left text-sm">
-            <thead>
-              <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 min-w-[200px]">Rule</th>
-                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[80px]">Version</th>
-                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[160px]">Requested by</th>
-                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[120px]">Requested at</th>
-                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[140px]">Assignees</th>
-                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[140px]">SLA</th>
-                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[100px]">Status</th>
-                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[80px]">Actions</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-100">
-              {requests.map((req) => (
-                <tr
-                  key={req.id}
-                  className={cn(
-                    'hover:bg-gray-50 cursor-pointer transition-colors',
-                    selectedRequestId === req.id && 'bg-indigo-50',
-                  )}
-                  onClick={() => setSelectedRequestId(req.id)}
-                >
-                  <td className="px-4 py-3">
-                    <div className="flex items-center gap-2">
-                      <span className="font-semibold text-gray-900">{req.ruleName}</span>
-                      <Badge className="bg-gray-100 text-gray-600 text-[10px]">{req.ruleType}</Badge>
-                    </div>
-                  </td>
-                  <td className="px-4 py-3 text-gray-600">v{req.version}</td>
-                  <td className="px-4 py-3 text-gray-700 text-[13px]">{req.requestedByName}</td>
-                  <td className="px-4 py-3 text-gray-500 text-[13px]">{formatRelativeTime(req.requestedAt)}</td>
-                  <td className="px-4 py-3"><AvatarStack assignees={req.assignees} /></td>
-                  <td className="px-4 py-3"><SlaBar deadline={req.deadline} /></td>
-                  <td className="px-4 py-3"><ApprovalStatusBadge status={req.status} /></td>
-                  <td className="px-4 py-3">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setSelectedRequestId(req.id); }}
-                      className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+        /* ALL REQUESTS -- Split view: table + detail panel */
+        <div className="flex flex-1 gap-0 overflow-hidden rounded-lg border border-gray-200 bg-white">
+          {/* Table */}
+          <div className={`flex flex-col overflow-hidden transition-all ${selectedRequest ? 'flex-1 min-w-0' : 'flex-1'}`}>
+            <div className="overflow-auto flex-1">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="bg-gray-50 border-b border-gray-200">
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 min-w-[200px]">Rule</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[80px]">Version</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[160px]">Requested by</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[120px]">Requested at</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[140px]">Assignees</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[140px]">SLA</th>
+                    <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[100px]">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {requests.map((req) => (
+                    <tr
+                      key={req.id}
+                      className={cn(
+                        'hover:bg-gray-50 cursor-pointer transition-colors',
+                        selectedRequestId === req.id && 'bg-indigo-50',
+                      )}
+                      onClick={() => setSelectedRequestId(req.id)}
                     >
-                      View
-                    </button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-2">
+                          <span className="font-semibold text-gray-900">{req.ruleName}</span>
+                          <Badge className="bg-gray-100 text-gray-600 text-[10px]">{req.ruleType}</Badge>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">v{req.version}</td>
+                      <td className="px-4 py-3 text-gray-700 text-[13px]">{req.requestedByName}</td>
+                      <td className="px-4 py-3 text-gray-500 text-[13px]">{formatRelativeTime(req.requestedAt)}</td>
+                      <td className="px-4 py-3"><AvatarStack assignees={req.assignees} /></td>
+                      <td className="px-4 py-3"><SlaBar deadline={req.deadline} /></td>
+                      <td className="px-4 py-3"><ApprovalStatusBadge status={req.status} /></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Detail panel — slides in when a row is selected */}
+          {selectedRequest && (
+            <div className="w-[440px] shrink-0 border-l border-gray-200 flex flex-col overflow-hidden">
+              {/* Panel header with close */}
+              <div className="flex items-center justify-between px-4 py-3 border-b border-gray-200 bg-gray-50 shrink-0">
+                <div className="flex items-center gap-2">
+                  <AvatarStack assignees={selectedRequest.assignees} />
+                  <span className="text-xs text-gray-500">
+                    {selectedRequest.assignees.length} assignee{selectedRequest.assignees.length !== 1 ? 's' : ''}
+                  </span>
+                </div>
+                <button
+                  onClick={() => setSelectedRequestId(null)}
+                  className="p-1 rounded hover:bg-gray-200 transition-colors"
+                  title="Close panel"
+                >
+                  <X className="h-4 w-4 text-gray-500" />
+                </button>
+              </div>
+              <div className="flex-1 min-h-0 overflow-hidden">
+                <ApprovalDetailPanel rule={toRuleLike(selectedRequest)} onOpenInEditor={(id) => navigate(`/rules/${id}/edit`)} />
+              </div>
+            </div>
+          )}
         </div>
       ) : (
         /* MY QUEUE / MY REQUESTS -- Two-panel layout */
@@ -401,14 +451,23 @@ export function ApprovalQueuePage() {
             <div className="flex-1 overflow-y-auto">
               {requests.map((req) => {
                 const isSelected = selectedRequestId === req.id;
+                const slaHrs = slaHoursRemaining(req.deadline);
+                const slaAccentColor = req.status !== 'PENDING'
+                  ? 'border-l-gray-200'
+                  : slaHrs == null
+                    ? 'border-l-transparent'
+                    : slaHrs <= 0
+                      ? 'border-l-red-500'
+                      : slaHrs < 12
+                        ? 'border-l-amber-400'
+                        : 'border-l-green-400';
                 return (
                   <div
                     key={req.id}
                     className={cn(
-                      'cursor-pointer border-b border-gray-100 px-4 py-3 transition-colors',
-                      isSelected
-                        ? 'bg-indigo-50 border-l-[3px] border-l-indigo-600'
-                        : 'hover:bg-gray-50 border-l-[3px] border-l-transparent',
+                      'cursor-pointer border-b border-gray-100 px-4 py-3 transition-colors border-l-[3px]',
+                      slaAccentColor,
+                      isSelected ? 'bg-indigo-50' : 'hover:bg-gray-50',
                     )}
                     onClick={() => setSelectedRequestId(req.id)}
                   >
@@ -524,9 +583,9 @@ export function ApprovalQueuePage() {
                                 : 'bg-indigo-100 text-indigo-700',
                           )}
                         >
-                          {a.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()}
+                          {(a.name ?? '?').split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()}
                         </div>
-                        <span className="text-sm font-medium text-gray-900">{a.name}</span>
+                        <span className="text-sm font-medium text-gray-900">{a.name ?? 'Unknown'}</span>
                         <div className="ml-auto flex items-center gap-1.5">
                           {a.status === 'PENDING' && (
                             <>
@@ -564,7 +623,7 @@ export function ApprovalQueuePage() {
                   )}
                 </div>
                 <div className="flex-1 min-h-0">
-                  <ApprovalDetailPanel rule={toRuleLike(selectedRequest)} />
+                  <ApprovalDetailPanel rule={toRuleLike(selectedRequest)} onOpenInEditor={(id) => navigate(`/rules/${id}/edit`)} />
                 </div>
               </>
             ) : (

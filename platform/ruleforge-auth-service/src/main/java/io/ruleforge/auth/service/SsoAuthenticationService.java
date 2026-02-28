@@ -143,7 +143,7 @@ public class SsoAuthenticationService {
         String accessToken = jwtTokenProvider.generateAccessToken(user.getId(), orgId, user.getEmail(), role);
         String refreshToken = jwtTokenProvider.generateRefreshToken(user.getId());
 
-        UserDto userDto = new UserDto(user.getId(), user.getEmail(), user.getFullName());
+        UserDto userDto = new UserDto(user.getId(), user.getEmail(), user.getFullName(), role);
         return new AuthResponse(accessToken, refreshToken, userDto);
     }
 

@@ -70,6 +70,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (header != null && header.startsWith(SecurityConstants.TOKEN_PREFIX)) {
             return header.substring(SecurityConstants.TOKEN_PREFIX.length());
         }
+        // Fallback: query param for SSE/EventSource connections that cannot set headers
+        String queryToken = request.getParameter("token");
+        if (queryToken != null && !queryToken.isBlank()) {
+            return queryToken;
+        }
         return null;
     }
 }

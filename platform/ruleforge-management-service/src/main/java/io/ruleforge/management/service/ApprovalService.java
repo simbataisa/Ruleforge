@@ -16,11 +16,13 @@ import io.ruleforge.management.entity.ApprovalRequestEntity;
 import io.ruleforge.management.entity.RuleEntity;
 import io.ruleforge.management.entity.RuleVersionEntity;
 import io.ruleforge.management.entity.SpaceApprovalSettingsEntity;
+import io.ruleforge.management.entity.UserEntity;
 import io.ruleforge.management.repository.ApprovalRequestAssigneeRepository;
 import io.ruleforge.management.repository.ApprovalRequestRepository;
 import io.ruleforge.management.repository.RuleRepository;
 import io.ruleforge.management.repository.RuleVersionRepository;
 import io.ruleforge.management.repository.SpaceApprovalSettingsRepository;
+import io.ruleforge.management.repository.UserRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -30,11 +32,14 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @Service
 public class ApprovalService {
@@ -50,19 +55,22 @@ public class ApprovalService {
     private final RuleRepository ruleRepository;
     private final RuleVersionRepository versionRepository;
     private final EventPublisher eventPublisher;
+    private final UserRepository userRepository;
 
     public ApprovalService(ApprovalRequestRepository approvalRequestRepository,
                            ApprovalRequestAssigneeRepository assigneeRepository,
                            SpaceApprovalSettingsRepository settingsRepository,
                            RuleRepository ruleRepository,
                            RuleVersionRepository versionRepository,
-                           EventPublisher eventPublisher) {
+                           EventPublisher eventPublisher,
+                           UserRepository userRepository) {
         this.approvalRequestRepository = approvalRequestRepository;
         this.assigneeRepository = assigneeRepository;
         this.settingsRepository = settingsRepository;
         this.ruleRepository = ruleRepository;
         this.versionRepository = versionRepository;
         this.eventPublisher = eventPublisher;
+        this.userRepository = userRepository;
     }
 
     @Transactional
@@ -394,8 +402,27 @@ public class ApprovalService {
 
     public ApprovalRequestDto toApprovalRequestDto(ApprovalRequestEntity entity) {
         RuleEntity rule = ruleRepository.findById(entity.getRuleId()).orElse(null);
-        List<AssigneeStatusDto> assignees = assigneeRepository.findByRequestId(entity.getId()).stream()
-                .map(a -> new AssigneeStatusDto(a.getAssigneeId(), a.getStatus(), a.getRespondedAt()))
+        List<ApprovalRequestAssigneeEntity> assigneeEntities = assigneeRepository.findByRequestId(entity.getId());
+
+        // Collect all user IDs to batch-load
+        List<UUID> userIds = new ArrayList<>();
+        userIds.add(entity.getRequestedBy());
+        for (ApprovalRequestAssigneeEntity a : assigneeEntities) {
+            userIds.add(a.getAssigneeId());
+        }
+
+        // Batch-load users and build name map
+        Map<UUID, UserEntity> userMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(UserEntity::getId, Function.identity()));
+
+        String requestedByName = resolveUserName(userMap, entity.getRequestedBy());
+
+        List<AssigneeStatusDto> assignees = assigneeEntities.stream()
+                .map(a -> new AssigneeStatusDto(
+                        a.getAssigneeId(),
+                        resolveUserName(userMap, a.getAssigneeId()),
+                        a.getStatus(),
+                        a.getRespondedAt()))
                 .toList();
 
         return new ApprovalRequestDto(
@@ -405,6 +432,7 @@ public class ApprovalService {
                 rule != null ? rule.getType() : null,
                 entity.getVersion(),
                 entity.getRequestedBy(),
+                requestedByName,
                 entity.getRequestedAt(),
                 entity.getNote(),
                 entity.getStatus(),
@@ -413,6 +441,12 @@ public class ApprovalService {
                 entity.getDeadline(),
                 assignees
         );
+    }
+
+    private String resolveUserName(Map<UUID, UserEntity> userMap, UUID userId) {
+        UserEntity user = userMap.get(userId);
+        if (user == null) return null;
+        return user.getFullName() != null ? user.getFullName() : user.getEmail();
     }
 
     // Helpers

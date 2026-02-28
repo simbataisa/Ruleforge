@@ -12,7 +12,7 @@ import io.ruleforge.management.entity.RuleVersionEntity;
 import io.ruleforge.management.repository.RuleRepository;
 import io.ruleforge.management.repository.RuleTagRepository;
 import io.ruleforge.management.repository.RuleVersionRepository;
-import io.ruleforge.management.repository.TagRepository;
+import io.ruleforge.management.repository.SpaceRepository;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
@@ -37,7 +37,7 @@ class RuleServiceTest {
     @Mock private RuleRepository ruleRepository;
     @Mock private RuleVersionRepository ruleVersionRepository;
     @Mock private RuleTagRepository ruleTagRepository;
-    @Mock private TagRepository tagRepository;
+    @Mock private SpaceRepository spaceRepository;
     @Mock private EventPublisher eventPublisher;
 
     private RuleService ruleService;
@@ -49,7 +49,7 @@ class RuleServiceTest {
     @BeforeEach
     void setUp() {
         ruleService = new RuleService(ruleRepository, ruleVersionRepository,
-                ruleTagRepository, tagRepository, eventPublisher);
+                ruleTagRepository, eventPublisher, spaceRepository);
         TenantContext.set(new TenantContext.TenantInfo(orgId, spaceId, userId, "OWNER"));
     }
 
@@ -61,8 +61,8 @@ class RuleServiceTest {
     @Test
     void createRule_savesRuleAndVersion() {
         CreateRuleRequest request = new CreateRuleRequest(
-                "Test Rule", "test-rule", "DECISION_TABLE",
-                null, "{}", null, null, "Initial version"
+                "Test Rule", "test-rule", "TABLE",
+                null, null, "{}", null, null, "Initial version"
         );
 
         when(ruleRepository.findByAlias("test-rule")).thenReturn(Optional.empty());
@@ -70,8 +70,6 @@ class RuleServiceTest {
         RuleEntity savedRule = createRuleEntity("Test Rule", "test-rule");
         when(ruleRepository.save(any(RuleEntity.class))).thenReturn(savedRule);
         when(ruleVersionRepository.save(any(RuleVersionEntity.class))).thenAnswer(inv -> inv.getArgument(0));
-        when(ruleTagRepository.findByRuleId(any())).thenReturn(List.of());
-
         RuleDto result = ruleService.createRule(spaceId, request);
 
         assertNotNull(result);
@@ -86,8 +84,8 @@ class RuleServiceTest {
     @Test
     void createRule_throwsConflictOnDuplicateAlias() {
         CreateRuleRequest request = new CreateRuleRequest(
-                "Test Rule", "existing-alias", "DECISION_TABLE",
-                null, null, null, null, null
+                "Test Rule", "existing-alias", "TABLE",
+                null, null, null, null, null, null
         );
 
         when(ruleRepository.findByAlias("existing-alias"))
@@ -104,8 +102,6 @@ class RuleServiceTest {
         entity.setId(ruleId);
 
         when(ruleRepository.findById(ruleId)).thenReturn(Optional.of(entity));
-        when(ruleTagRepository.findByRuleId(ruleId)).thenReturn(List.of());
-
         RuleDto result = ruleService.getRule(ruleId);
 
         assertEquals("My Rule", result.name());
@@ -145,7 +141,6 @@ class RuleServiceTest {
 
         when(ruleRepository.findById(ruleId)).thenReturn(Optional.of(entity));
         when(ruleRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(ruleTagRepository.findByRuleId(any())).thenReturn(List.of());
 
         RuleDto result = ruleService.lockRule(ruleId, userId);
 
@@ -175,7 +170,6 @@ class RuleServiceTest {
 
         when(ruleRepository.findById(ruleId)).thenReturn(Optional.of(entity));
         when(ruleRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-        when(ruleTagRepository.findByRuleId(any())).thenReturn(List.of());
 
         RuleDto result = ruleService.unlockRule(ruleId, userId);
 
@@ -201,7 +195,7 @@ class RuleServiceTest {
         entity.setSpaceId(spaceId);
         entity.setName(name);
         entity.setAlias(alias);
-        entity.setType("DECISION_TABLE");
+        entity.setType("TABLE");
         entity.setStatus("ACTIVE");
         entity.setLatestVersion(1);
         entity.setLocked(false);

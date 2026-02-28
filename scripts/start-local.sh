@@ -5,6 +5,14 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 LOGS_DIR="$PROJECT_ROOT/logs"
 
+# Ensure SDKMAN Java is on PATH if system java is missing
+if ! command -v java &>/dev/null || ! java -version &>/dev/null 2>&1; then
+  if [[ -d "$HOME/.sdkman/candidates/java/current/bin" ]]; then
+    export JAVA_HOME="$HOME/.sdkman/candidates/java/current"
+    export PATH="$JAVA_HOME/bin:$PATH"
+  fi
+fi
+
 # --- Flags ---
 SKIP_BUILD=false
 SKIP_INFRA=false
@@ -233,6 +241,49 @@ wait_for_http() {
   return 1
 }
 
+# --- Run database migrations ---
+run_migrations() {
+  info "Running database migrations..."
+
+  if command -v flyway &>/dev/null; then
+    # Flyway CLI available — use it (tracks state, safe to re-run)
+    (cd "$PROJECT_ROOT/db" && flyway -configFiles=flyway.conf migrate)
+    ok "Migrations applied via Flyway"
+  else
+    # No Flyway CLI — apply SQL files in order via psql through Docker
+    # Uses a simple tracking table to skip already-applied migrations
+    docker exec docker-postgres-1 psql -U ruleforge -d ruleforge -c "
+      CREATE TABLE IF NOT EXISTS _migration_log (
+        filename TEXT PRIMARY KEY,
+        applied_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+      );" &>/dev/null
+
+    local count=0
+    for sql_file in $(ls "$PROJECT_ROOT/db/migrations"/V*.sql | sort); do
+      local filename
+      filename=$(basename "$sql_file")
+      local already_applied
+      already_applied=$(docker exec docker-postgres-1 psql -U ruleforge -d ruleforge -tAq \
+        -c "SELECT COUNT(*) FROM _migration_log WHERE filename = '$filename';" 2>/dev/null)
+      if [[ "$already_applied" == "1" ]]; then
+        continue
+      fi
+      docker exec -i docker-postgres-1 psql -U ruleforge -d ruleforge \
+        < "$sql_file" &>/dev/null && \
+        docker exec docker-postgres-1 psql -U ruleforge -d ruleforge -q \
+          -c "INSERT INTO _migration_log(filename) VALUES ('$filename') ON CONFLICT DO NOTHING;" \
+          &>/dev/null
+      count=$((count + 1))
+    done
+
+    if [[ $count -gt 0 ]]; then
+      ok "Applied $count migration(s) via psql"
+    else
+      ok "No new migrations to apply"
+    fi
+  fi
+}
+
 # --- Start a platform service ---
 start_service() {
   local name=$1 port=$2
@@ -273,7 +324,11 @@ main() {
     wait_for_minio
   else
     warn "Skipping infrastructure (--skip-infra)"
+    wait_for_pg
   fi
+
+  # --- Migrations ---
+  run_migrations
 
   # --- Build ---
   if [[ "$SKIP_BUILD" == false ]]; then

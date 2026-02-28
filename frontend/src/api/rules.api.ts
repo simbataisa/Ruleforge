@@ -236,6 +236,7 @@ export function useApproveVersion() {
       return res.data.data;
     },
     onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['approval-requests'] });
       queryClient.invalidateQueries({
         queryKey: ['rules', variables.ruleId, 'versions'],
       });
@@ -266,6 +267,7 @@ export function useRejectVersion() {
       return res.data.data;
     },
     onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['approval-requests'] });
       queryClient.invalidateQueries({
         queryKey: ['rules', variables.ruleId, 'versions'],
       });

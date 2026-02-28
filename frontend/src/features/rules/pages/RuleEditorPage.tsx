@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { useParams, useNavigate, useBlocker } from 'react-router-dom';
 import {
   ArrowLeft,
@@ -10,6 +10,8 @@ import {
   Settings,
   Plus,
   GitCompareArrows,
+  Lock,
+  Copy,
 } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Badge } from '@/shared/components/Badge';
@@ -24,7 +26,6 @@ import {
   usePublishVersion,
   useUpdateVersion,
   useCreateVersion,
-  useRequestApproval,
   useApproveVersion,
   useRejectVersion,
 } from '@/api/rules.api';
@@ -52,7 +53,12 @@ const CepEditor = React.lazy(() => import('@/features/cep-editor/components/CepE
 import { ExportRuleButton } from '@/features/rules/components/ExportRuleButton';
 import { ApprovalBadge } from '@/features/rules/components/ApprovalBadge';
 import { VersionDiffModal } from '@/features/rules/components/VersionDiffModal';
+import { RequestApprovalModal } from '@/features/rules/components/RequestApprovalModal';
 import type { RuleVersion } from '@/api/types/rule.types';
+import { ViewToggle } from '@/features/rules/components/ViewToggle';
+import { JsonModelEditor } from '@/features/rules/components/JsonModelEditor';
+import { ModelViewStatusBar } from '@/features/rules/components/ModelViewStatusBar';
+import { RuleDefinitionViewer } from '@/features/rules/components/RuleDefinitionViewer';
 
 type EditorTab = 'definition' | 'versions' | 'test' | 'settings';
 
@@ -139,12 +145,17 @@ export function RuleEditorPage() {
   const publishVersion = usePublishVersion();
   const updateVersion = useUpdateVersion();
   const createVersion = useCreateVersion();
-  const requestApproval = useRequestApproval();
   const approveVersion = useApproveVersion();
   const rejectVersion = useRejectVersion();
 
   const [rejectModalOpen, setRejectModalOpen] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [requestApprovalModalOpen, setRequestApprovalModalOpen] = useState(false);
+
+  const [viewMode, setViewMode] = useState<'designer' | 'model'>('designer');
+  const [modelJson, setModelJson] = useState('');
+  const [jsonStatus, setJsonStatus] = useState<'valid' | 'invalid' | 'syncing'>('valid');
+  const syncTimerRef = useRef<number | null>(null);
 
   const tableToDefinition = useTableEditorStore((s) => s.toDefinition);
   const treeToDefinition = useTreeEditorStore((s) => s.toDefinition);
@@ -317,20 +328,6 @@ export function RuleEditorPage() {
     );
   }, [id, currentVersion, publishVersion, addToast]);
 
-  const handleRequestApproval = useCallback(() => {
-    if (!id || !currentVersion) return;
-    requestApproval.mutate(
-      { ruleId: id, version: currentVersion.version },
-      {
-        onSuccess: () => {
-          addToast({ type: 'success', title: 'Approval requested successfully' });
-        },
-        onError: () => {
-          addToast({ type: 'error', title: 'Failed to request approval' });
-        },
-      },
-    );
-  }, [id, currentVersion, requestApproval, addToast]);
 
   const handleApprove = useCallback(() => {
     if (!id || !currentVersion) return;
@@ -365,6 +362,49 @@ export function RuleEditorPage() {
     );
   }, [id, currentVersion, rejectReason, rejectVersion, addToast]);
 
+  const handleSwitchToModel = useCallback(() => {
+    if (!rule) return;
+    const def = getDefinitionFromStore(
+      rule.type, tableToDefinition, treeToDefinition, scriptState,
+      () => flowDefinition, scorecardToDefinition, ensembleToDefinition,
+      dmnToDefinition, cepToDefinition,
+    );
+    setModelJson(JSON.stringify(def, null, 2));
+    setJsonStatus('valid');
+    setViewMode('model');
+  }, [rule, tableToDefinition, treeToDefinition, scriptState, flowDefinition, scorecardToDefinition, ensembleToDefinition, dmnToDefinition, cepToDefinition]);
+
+  const syncModelToDesigner = useCallback((jsonStr: string) => {
+    if (syncTimerRef.current !== null) window.clearTimeout(syncTimerRef.current);
+    setJsonStatus('syncing');
+    syncTimerRef.current = window.setTimeout(() => {
+      try {
+        const def = JSON.parse(jsonStr);
+        if (!rule) return;
+        switch (rule.type) {
+          case 'TABLE': loadTableDefinition(def); break;
+          case 'TREE': loadTreeDefinition(def); break;
+          case 'SCRIPT':
+            setScriptDefinition({
+              scriptBody: (def.scriptBody as string) ?? '',
+              language: (def.language as string) ?? 'js',
+              timeout: (def.timeout as number) ?? 5000,
+              maxMemoryMb: (def.maxMemoryMb as number) ?? 64,
+            });
+            break;
+          case 'SCORECARD': loadScorecardDefinition(def); break;
+          case 'ENSEMBLE': loadEnsembleDefinition(def); break;
+          case 'DMN': loadDmnDefinition(def); break;
+          case 'CEP': loadCepDefinition(def); break;
+        }
+        setDirty(true);
+        setJsonStatus('valid');
+      } catch {
+        setJsonStatus('invalid');
+      }
+    }, 500);
+  }, [rule, loadTableDefinition, loadTreeDefinition, setScriptDefinition, loadScorecardDefinition, loadEnsembleDefinition, loadDmnDefinition, loadCepDefinition, setDirty]);
+
   const handleSaveSettings = useCallback(() => {
     if (!id) return;
     updateRule.mutate(
@@ -379,6 +419,16 @@ export function RuleEditorPage() {
       },
     );
   }, [id, settingsName, settingsDescription, settingsAlias, updateRule, addToast]);
+
+  // Reset view mode when version changes
+  useEffect(() => {
+    setViewMode('designer');
+  }, [currentVersion?.id]);
+
+  // Cleanup debounce timer on unmount
+  useEffect(() => {
+    return () => { if (syncTimerRef.current !== null) window.clearTimeout(syncTimerRef.current); };
+  }, []);
 
   // Keyboard shortcuts: Ctrl/Cmd+S to save, Ctrl/Cmd+Shift+T to open test tab
   useEffect(() => {
@@ -497,8 +547,7 @@ export function RuleEditorPage() {
               <>
                 <Button
                   variant="outline"
-                  onClick={handleRequestApproval}
-                  loading={requestApproval.isPending}
+                  onClick={() => setRequestApprovalModalOpen(true)}
                 >
                   Request Approval
                 </Button>
@@ -555,31 +604,94 @@ export function RuleEditorPage() {
       <div className="flex-1 overflow-hidden">
         {activeTab === 'definition' && (
           <Suspense fallback={<div className="flex items-center justify-center h-64"><Spinner size="lg" /></div>}>
-            <div className="h-full p-4">
-              {rule.type === 'TABLE' && <TableEditor />}
-              {rule.type === 'TREE' && <TreeEditor />}
-              {rule.type === 'SCRIPT' && (
-                <ScriptEditor
-                  scriptBody={scriptState.scriptBody}
-                  language={scriptState.language}
-                  timeout={scriptState.timeout}
-                  maxMemoryMb={scriptState.maxMemoryMb}
-                  onChange={(def) => {
-                    setScriptDefinition(def);
-                    setDirty(true);
+            <div className="h-full flex flex-col">
+              <div className="flex items-center justify-end px-4 py-2 border-b border-gray-100 shrink-0 bg-white">
+                <ViewToggle
+                  mode={viewMode}
+                  onChange={(mode) => {
+                    if (mode === 'model') handleSwitchToModel();
+                    else setViewMode('designer');
                   }}
                 />
-              )}
-              {rule.type === 'FLOW' && <FlowEditor />}
-              {rule.type === 'SCORECARD' && <ScorecardEditor />}
-              {rule.type === 'ENSEMBLE' && <EnsembleEditor />}
-              {rule.type === 'DMN' && <DmnEditor />}
-              {rule.type === 'CEP' && <CepEditor />}
-              {!['TABLE', 'TREE', 'SCRIPT', 'FLOW', 'SCORECARD', 'ENSEMBLE', 'DMN', 'CEP'].includes(rule.type) && (
-                <div className="flex items-center justify-center h-full text-gray-500">
-                  Editor for {rule.type} type is not yet supported.
-                </div>
-              )}
+              </div>
+              <div className={`flex-1 overflow-hidden ${viewMode === 'model' ? '' : 'p-4'}`}>
+                {viewMode === 'model' ? (
+                  <div className="flex flex-col h-full">
+                    {currentVersion?.status !== 'DRAFT' && (
+                      <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-200 bg-gray-50 shrink-0">
+                        <Lock className="h-3.5 w-3.5 text-gray-400" />
+                        <span className="text-xs text-gray-500">
+                          Read-only · {currentVersion?.status} v{currentVersion?.version}
+                        </span>
+                        <button
+                          className="ml-auto text-xs text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
+                          onClick={() => {
+                            navigator.clipboard.writeText(modelJson);
+                          }}
+                        >
+                          <Copy className="h-3 w-3" /> Copy JSON
+                        </button>
+                      </div>
+                    )}
+                    <div className="flex-1 min-h-0">
+                      <JsonModelEditor
+                        value={modelJson}
+                        readOnly={currentVersion?.status !== 'DRAFT'}
+                        onChange={currentVersion?.status === 'DRAFT'
+                          ? (v) => { setModelJson(v); syncModelToDesigner(v); }
+                          : undefined}
+                        height="100%"
+                      />
+                    </div>
+                    {currentVersion?.status === 'DRAFT' && (
+                      <ModelViewStatusBar status={jsonStatus} />
+                    )}
+                  </div>
+                ) : currentVersion?.status !== 'DRAFT' ? (
+                  <div className="flex flex-col h-full">
+                    <div className="flex items-center gap-2 px-4 py-2 border-b border-gray-200 bg-gray-50 shrink-0">
+                      <Lock className="h-3.5 w-3.5 text-gray-400" />
+                      <span className="text-xs text-gray-500">
+                        Read-only · {currentVersion?.status} v{currentVersion?.version}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-h-0 overflow-hidden">
+                      <RuleDefinitionViewer
+                        ruleType={rule.type}
+                        definition={parseDefinition(currentVersion?.definition as Record<string, unknown> | string ?? {})}
+                        height="100%"
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    {rule.type === 'TABLE' && <TableEditor />}
+                    {rule.type === 'TREE' && <TreeEditor />}
+                    {rule.type === 'SCRIPT' && (
+                      <ScriptEditor
+                        scriptBody={scriptState.scriptBody}
+                        language={scriptState.language}
+                        timeout={scriptState.timeout}
+                        maxMemoryMb={scriptState.maxMemoryMb}
+                        onChange={(def) => {
+                          setScriptDefinition(def);
+                          setDirty(true);
+                        }}
+                      />
+                    )}
+                    {rule.type === 'FLOW' && <FlowEditor />}
+                    {rule.type === 'SCORECARD' && <ScorecardEditor />}
+                    {rule.type === 'ENSEMBLE' && <EnsembleEditor />}
+                    {rule.type === 'DMN' && <DmnEditor />}
+                    {rule.type === 'CEP' && <CepEditor />}
+                    {!['TABLE', 'TREE', 'SCRIPT', 'FLOW', 'SCORECARD', 'ENSEMBLE', 'DMN', 'CEP'].includes(rule.type) && (
+                      <div className="flex items-center justify-center h-full text-gray-500">
+                        Editor for {rule.type} type is not yet supported.
+                      </div>
+                    )}
+                  </>
+                )}
+              </div>
             </div>
           </Suspense>
         )}
@@ -742,6 +854,19 @@ export function RuleEditorPage() {
             definition: parseDefinition(
               versions.find((v) => v.version === compareVersion)?.definition ?? {},
             ),
+          }}
+        />
+      )}
+
+      {/* Request Approval Modal */}
+      {rule && requestApprovalModalOpen && (
+        <RequestApprovalModal
+          open={requestApprovalModalOpen}
+          onClose={() => setRequestApprovalModalOpen(false)}
+          rules={[rule]}
+          onSubmitted={() => {
+            setRequestApprovalModalOpen(false);
+            addToast({ type: 'success', title: 'Approval requested successfully' });
           }}
         />
       )}

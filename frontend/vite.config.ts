@@ -20,6 +20,7 @@ export default defineConfig({
       '/v1/api-keys': { target: 'http://localhost:8081', changeOrigin: true },
       '/v1/sso': { target: 'http://localhost:8081', changeOrigin: true },
       '/v1/rules': { target: 'http://localhost:8082', changeOrigin: true },
+      '/v1/approval-requests': { target: 'http://localhost:8082', changeOrigin: true },
       '/v1/folders': { target: 'http://localhost:8082', changeOrigin: true },
       '/v1/tags': { target: 'http://localhost:8082', changeOrigin: true },
       '/v1/solve': { target: 'http://localhost:8083', changeOrigin: true },

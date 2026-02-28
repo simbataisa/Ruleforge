@@ -4,7 +4,8 @@ import java.time.Instant;
 import java.util.UUID;
 
 public record AssigneeStatusDto(
-        UUID assigneeId,
+        UUID memberId,
+        String name,
         String status,
         Instant respondedAt
 ) {}

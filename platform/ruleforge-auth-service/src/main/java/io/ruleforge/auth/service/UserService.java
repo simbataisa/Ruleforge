@@ -2,8 +2,10 @@ package io.ruleforge.auth.service;
 
 import io.ruleforge.auth.dto.UserDto;
 import io.ruleforge.auth.entity.UserEntity;
+import io.ruleforge.auth.repository.MemberRepository;
 import io.ruleforge.auth.repository.UserRepository;
 import io.ruleforge.common.exception.EntityNotFoundException;
+import io.ruleforge.common.tenant.TenantContext;
 
 import org.springframework.security.authentication.BadCredentialsException;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -16,10 +18,13 @@ import java.util.UUID;
 public class UserService {
 
     private final UserRepository userRepository;
+    private final MemberRepository memberRepository;
     private final PasswordEncoder passwordEncoder;
 
-    public UserService(UserRepository userRepository, PasswordEncoder passwordEncoder) {
+    public UserService(UserRepository userRepository, MemberRepository memberRepository,
+                       PasswordEncoder passwordEncoder) {
         this.userRepository = userRepository;
+        this.memberRepository = memberRepository;
         this.passwordEncoder = passwordEncoder;
     }
 
@@ -27,7 +32,8 @@ public class UserService {
     public UserDto getCurrentUser(UUID userId) {
         UserEntity user = userRepository.findById(userId)
                 .orElseThrow(() -> new EntityNotFoundException("User", userId.toString()));
-        return toDto(user);
+        String role = resolveRole(userId);
+        return toDto(user, role);
     }
 
     @Transactional
@@ -40,7 +46,8 @@ public class UserService {
         }
 
         user = userRepository.save(user);
-        return toDto(user);
+        String role = resolveRole(userId);
+        return toDto(user, role);
     }
 
     @Transactional
@@ -56,7 +63,22 @@ public class UserService {
         userRepository.save(user);
     }
 
-    private UserDto toDto(UserEntity user) {
-        return new UserDto(user.getId(), user.getEmail(), user.getFullName());
+    private String resolveRole(UUID userId) {
+        // Role is in TenantContext (populated by JWT filter) — fall back to DB lookup
+        TenantContext.TenantInfo tenant = TenantContext.get();
+        if (tenant != null && tenant.role() != null) {
+            return tenant.role();
+        }
+        // Fallback: look up member record using orgId from context
+        if (tenant != null && tenant.orgId() != null) {
+            return memberRepository.findByOrgIdAndUserId(tenant.orgId(), userId)
+                    .map(m -> m.getRole())
+                    .orElse(null);
+        }
+        return null;
+    }
+
+    private UserDto toDto(UserEntity user, String role) {
+        return new UserDto(user.getId(), user.getEmail(), user.getFullName(), role);
     }
 }

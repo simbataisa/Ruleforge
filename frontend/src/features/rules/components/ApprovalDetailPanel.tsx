@@ -1,72 +1,25 @@
 import { useState } from 'react';
-import { Check, X, User, Calendar, Layers } from 'lucide-react';
+import { Check, X, User, Calendar, Layers, ExternalLink, Maximize2 } from 'lucide-react';
+import { DiffEditor } from '@monaco-editor/react';
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { Spinner } from '@/shared/components/Spinner';
+import { cn } from '@/shared/utils/cn';
 import { useRuleVersions, useApproveVersion, useRejectVersion } from '@/api/rules.api';
 import { useToastStore } from '@/stores/toast.store';
 import { ApprovalCommentThread } from './ApprovalCommentThread';
+import { ViewToggle } from './ViewToggle';
+import { JsonModelEditor } from './JsonModelEditor';
+import { RuleDefinitionViewer } from './RuleDefinitionViewer';
+import { MonacoDiffModal } from './MonacoDiffModal';
 import type { Rule } from '@/api/types/rule.types';
 
 interface ApprovalDetailPanelProps {
   rule: Rule;
+  onOpenInEditor?: (ruleId: string) => void;
 }
 
-function JsonDiffView({
-  current,
-  previous,
-}: {
-  current: string;
-  previous: string;
-}) {
-  const currentLines = current.split('\n');
-  const previousLines = previous.split('\n');
-  const previousSet = new Set(previousLines);
-  const currentSet = new Set(currentLines);
-
-  return (
-    <div className="grid grid-cols-2 gap-2 text-xs font-mono">
-      <div>
-        <p className="mb-1 text-xs font-semibold text-gray-500 font-sans">
-          Previous
-        </p>
-        <pre className="max-h-64 overflow-auto rounded-md border border-gray-200 bg-gray-50 p-3">
-          {previousLines.map((line, i) => {
-            const removed = !currentSet.has(line);
-            return (
-              <div
-                key={i}
-                className={removed ? 'bg-red-100 text-red-800' : 'text-gray-600'}
-              >
-                {line}
-              </div>
-            );
-          })}
-        </pre>
-      </div>
-      <div>
-        <p className="mb-1 text-xs font-semibold text-gray-500 font-sans">
-          Current
-        </p>
-        <pre className="max-h-64 overflow-auto rounded-md border border-gray-200 bg-gray-50 p-3">
-          {currentLines.map((line, i) => {
-            const added = !previousSet.has(line);
-            return (
-              <div
-                key={i}
-                className={added ? 'bg-green-100 text-green-800' : 'text-gray-600'}
-              >
-                {line}
-              </div>
-            );
-          })}
-        </pre>
-      </div>
-    </div>
-  );
-}
-
-export function ApprovalDetailPanel({ rule }: ApprovalDetailPanelProps) {
+export function ApprovalDetailPanel({ rule, onOpenInEditor }: ApprovalDetailPanelProps) {
   const addToast = useToastStore((s) => s.addToast);
   const approveVersion = useApproveVersion();
   const rejectVersion = useRejectVersion();
@@ -74,6 +27,9 @@ export function ApprovalDetailPanel({ rule }: ApprovalDetailPanelProps) {
 
   const [showRejectInput, setShowRejectInput] = useState(false);
   const [rejectReason, setRejectReason] = useState('');
+  const [defViewMode, setDefViewMode] = useState<'designer' | 'model'>('model');
+  const [modelSubMode, setModelSubMode] = useState<'diff' | 'full'>('diff');
+  const [diffModalOpen, setDiffModalOpen] = useState(false);
 
   const currentVersion = versions?.find(
     (v) => v.version === rule.latestVersion,
@@ -141,6 +97,9 @@ export function ApprovalDetailPanel({ rule }: ApprovalDetailPanelProps) {
       )
     : '{}';
 
+  let parsedCurrentDef: Record<string, unknown> = {};
+  try { parsedCurrentDef = JSON.parse(currentDefStr); } catch { /* keep empty */ }
+
   return (
     <div className="flex h-full flex-col">
       {/* Header */}
@@ -149,6 +108,17 @@ export function ApprovalDetailPanel({ rule }: ApprovalDetailPanelProps) {
           <h2 className="text-lg font-semibold text-gray-900">{rule.name}</h2>
           <Badge color="blue">v{rule.latestVersion}</Badge>
           <Badge color="gray">{rule.type}</Badge>
+          {onOpenInEditor && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="ml-auto"
+              onClick={() => onOpenInEditor(rule.id)}
+            >
+              Open in Editor
+              <ExternalLink className="h-3.5 w-3.5 ml-1" />
+            </Button>
+          )}
         </div>
       </div>
 
@@ -188,24 +158,98 @@ export function ApprovalDetailPanel({ rule }: ApprovalDetailPanelProps) {
           </div>
         )}
 
-        {/* Diff section */}
+        {/* Definition Changes section */}
         <div>
-          <h3 className="text-sm font-semibold text-gray-900 mb-3">
-            Definition Changes
-          </h3>
-          {previousVersion ? (
-            <JsonDiffView current={currentDefStr} previous={previousDefStr} />
-          ) : (
-            <div>
-              <p className="mb-2 text-xs text-gray-500">
-                First version -- no previous version to compare.
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="text-sm font-semibold text-gray-900">Definition Changes</h3>
+            <div className="flex items-center gap-2">
+              {defViewMode === 'model' && previousVersion && (
+                <div className="flex rounded-md border border-gray-200 overflow-hidden text-xs">
+                  {(['full', 'diff'] as const).map((m) => (
+                    <button
+                      key={m}
+                      onClick={() => setModelSubMode(m)}
+                      className={cn(
+                        'px-2 py-1 font-medium transition-colors',
+                        modelSubMode === m
+                          ? 'bg-indigo-100 text-indigo-700'
+                          : 'bg-white text-gray-500 hover:bg-gray-50'
+                      )}
+                    >
+                      {m === 'full' ? 'Full' : 'Diff'}
+                    </button>
+                  ))}
+                </div>
+              )}
+              {defViewMode === 'model' && modelSubMode === 'diff' && previousVersion && (
+                <button
+                  onClick={() => setDiffModalOpen(true)}
+                  title="Fullscreen diff"
+                  className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors"
+                >
+                  <Maximize2 className="h-3.5 w-3.5" />
+                </button>
+              )}
+              <ViewToggle
+                mode={defViewMode}
+                onChange={(mode) => {
+                  setDefViewMode(mode);
+                  if (mode === 'model') setModelSubMode(previousVersion ? 'diff' : 'full');
+                }}
+              />
+            </div>
+          </div>
+
+          {defViewMode === 'model' && modelSubMode === 'diff' && previousVersion ? (
+            <DiffEditor
+              height="320px"
+              language="json"
+              theme="vs"
+              original={previousDefStr}
+              modified={currentDefStr}
+              options={{
+                renderSideBySide: true,
+                readOnly: true,
+                minimap: { enabled: false },
+                scrollBeyondLastLine: false,
+                automaticLayout: true,
+                fontSize: 13,
+                wordWrap: 'on',
+              }}
+            />
+          ) : defViewMode === 'model' && modelSubMode === 'diff' && !previousVersion ? (
+            <>
+              <JsonModelEditor readOnly value={currentDefStr} height="320px" />
+              <p className="mt-2 text-xs text-gray-500">
+                First version — no previous version to compare.
               </p>
-              <pre className="max-h-64 overflow-auto rounded-md border border-gray-200 bg-gray-50 p-3 text-xs font-mono text-gray-600">
-                {currentDefStr}
-              </pre>
+            </>
+          ) : defViewMode === 'model' ? (
+            <JsonModelEditor readOnly value={currentDefStr} height="320px" />
+          ) : (
+            <div
+              className="rounded-lg border border-gray-200 overflow-hidden"
+              style={{ height: '320px' }}
+            >
+              <RuleDefinitionViewer
+                ruleType={rule.type}
+                definition={parsedCurrentDef}
+                height="320px"
+              />
             </div>
           )}
         </div>
+
+        {diffModalOpen && previousVersion && (
+          <MonacoDiffModal
+            isOpen={diffModalOpen}
+            onClose={() => setDiffModalOpen(false)}
+            original={previousDefStr}
+            modified={currentDefStr}
+            originalLabel={`v${previousVersion.version} (Previous)`}
+            modifiedLabel={`v${currentVersion!.version} (Pending)`}
+          />
+        )}
 
         {/* Comment thread */}
         <ApprovalCommentThread ruleId={rule.id} version={rule.latestVersion} />

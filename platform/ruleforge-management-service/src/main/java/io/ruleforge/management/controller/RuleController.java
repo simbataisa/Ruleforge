@@ -16,8 +16,13 @@ import io.ruleforge.management.dto.UpdateRuleRequest;
 import io.ruleforge.management.dto.UpdateSampleInputRequest;
 import io.ruleforge.management.dto.ValidationResultDto;
 import io.ruleforge.management.dto.AbTestDto;
+import io.ruleforge.management.dto.EligibleApproverDto;
+import io.ruleforge.management.entity.MemberEntity;
 import io.ruleforge.management.entity.SpaceEntity;
+import io.ruleforge.management.entity.UserEntity;
+import io.ruleforge.management.repository.MemberRepository;
 import io.ruleforge.management.repository.SpaceRepository;
+import io.ruleforge.management.repository.UserRepository;
 import io.ruleforge.management.service.AbTestService;
 import io.ruleforge.management.service.RuleService;
 import io.ruleforge.management.service.RuleValidationService;
@@ -40,7 +45,10 @@ import org.springframework.web.bind.annotation.RestController;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/v1")
@@ -51,15 +59,20 @@ public class RuleController {
     private final AbTestService abTestService;
     private final SpaceRepository spaceRepository;
     private final SampleInputService sampleInputService;
+    private final MemberRepository memberRepository;
+    private final UserRepository userRepository;
 
     public RuleController(RuleService ruleService, RuleValidationService ruleValidationService,
                           AbTestService abTestService, SpaceRepository spaceRepository,
-                          SampleInputService sampleInputService) {
+                          SampleInputService sampleInputService, MemberRepository memberRepository,
+                          UserRepository userRepository) {
         this.ruleService = ruleService;
         this.ruleValidationService = ruleValidationService;
         this.abTestService = abTestService;
         this.spaceRepository = spaceRepository;
         this.sampleInputService = sampleInputService;
+        this.memberRepository = memberRepository;
+        this.userRepository = userRepository;
     }
 
     @PostMapping("/spaces/{spaceId}/rules")
@@ -244,5 +257,33 @@ public class RuleController {
                                                 @PathVariable UUID sampleId) {
         sampleInputService.deleteSampleInput(ruleId, sampleId);
         return ApiResponse.ok(null, "Sample input deleted successfully");
+    }
+
+    @GetMapping("/rules/{ruleId}/eligible-approvers")
+    public ApiResponse<List<EligibleApproverDto>> getEligibleApprovers(@PathVariable UUID ruleId) {
+        // Verify rule exists (triggers tenant ownership check)
+        ruleService.getRule(ruleId);
+
+        UUID orgId = TenantContext.get().orgId();
+        List<MemberEntity> members = memberRepository.findByOrgIdAndRoleIn(
+                orgId, List.of("OWNER", "ADMIN", "EDITOR"));
+
+        // Batch-load user details
+        List<UUID> userIds = members.stream().map(MemberEntity::getUserId).toList();
+        Map<UUID, UserEntity> userMap = userRepository.findAllById(userIds).stream()
+                .collect(Collectors.toMap(UserEntity::getId, Function.identity()));
+
+        List<EligibleApproverDto> approvers = members.stream()
+                .map(m -> {
+                    UserEntity user = userMap.get(m.getUserId());
+                    String name = user != null
+                            ? (user.getFullName() != null ? user.getFullName() : user.getEmail())
+                            : null;
+                    String email = user != null ? user.getEmail() : null;
+                    return new EligibleApproverDto(m.getId(), m.getUserId(), name, email, m.getRole());
+                })
+                .toList();
+
+        return ApiResponse.ok(approvers);
     }
 }

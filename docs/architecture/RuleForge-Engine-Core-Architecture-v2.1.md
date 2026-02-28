@@ -1,4 +1,5 @@
 # RuleForge — Rule Engine Core Architecture
+
 ## Custom-Built Robust Rule Execution Engine
 
 **Version:** 2.1
@@ -40,18 +41,18 @@
 
 JEasyRules is excellent for simple embedded rule evaluation but fundamentally lacks the architecture needed for an enterprise BRMS:
 
-| Requirement | JEasyRules | What We Need |
-|---|---|---|
-| **Rule priority** | Simple integer ordering | Multi-dimensional priority: salience + weight + specificity + recency |
-| **Hierarchical rules** | Flat rule list | Parent-child inheritance, rule groups, activation groups, rulesets |
-| **Weighted branches** | Not supported | Probabilistic scoring, weighted decision paths, confidence levels |
-| **Conflict resolution** | First match only | 7+ strategies: priority, specificity, recency, weighted, voting, cascade, custom |
-| **Forward chaining** | No | Rete-inspired pattern matching with agenda management |
-| **Rule composition** | CompositeRule (basic) | DAG orchestration, parallel execution, sub-flows, loops |
-| **Working memory** | Simple Facts map | Typed fact model with change tracking, truth maintenance |
-| **Performance** | Linear O(n) evaluation | Indexed conditions, compiled expressions, Rete-like discrimination network |
-| **Expression language** | MVEL/SpEL (external) | Custom RFL with type safety, null safety, domain functions |
-| **Extensibility** | Limited | Full SPI for custom operators, functions, resolvers, listeners |
+| Requirement             | JEasyRules              | What We Need                                                                     |
+| ----------------------- | ----------------------- | -------------------------------------------------------------------------------- |
+| **Rule priority**       | Simple integer ordering | Multi-dimensional priority: salience + weight + specificity + recency            |
+| **Hierarchical rules**  | Flat rule list          | Parent-child inheritance, rule groups, activation groups, rulesets               |
+| **Weighted branches**   | Not supported           | Probabilistic scoring, weighted decision paths, confidence levels                |
+| **Conflict resolution** | First match only        | 7+ strategies: priority, specificity, recency, weighted, voting, cascade, custom |
+| **Forward chaining**    | No                      | Rete-inspired pattern matching with agenda management                            |
+| **Rule composition**    | CompositeRule (basic)   | DAG orchestration, parallel execution, sub-flows, loops                          |
+| **Working memory**      | Simple Facts map        | Typed fact model with change tracking, truth maintenance                         |
+| **Performance**         | Linear O(n) evaluation  | Indexed conditions, compiled expressions, Rete-like discrimination network       |
+| **Expression language** | MVEL/SpEL (external)    | Custom RFL with type safety, null safety, domain functions                       |
+| **Extensibility**       | Limited                 | Full SPI for custom operators, functions, resolvers, listeners                   |
 
 ### 1.2 Design Philosophy
 
@@ -71,6 +72,15 @@ Our engine follows these principles:
 ### 2.1 High-Level Engine Components
 
 ```mermaid
+---
+config:
+  layout: elk
+  elk:
+    # Merges parallel edges into one
+    mergeEdges: true
+    # Configures how nodes are placed, affecting connector paths
+    nodePlacementStrategy: LINEAR_SEGMENTS
+---
 graph TB
     subgraph "RuleForge Engine"
         direction TB
@@ -149,6 +159,15 @@ stateDiagram-v2
 Every rule in the system conforms to a unified metamodel, regardless of whether it's a table, tree, flow, or script:
 
 ```mermaid
+---
+config:
+  layout: elk
+  elk:
+    # Merges parallel edges into one
+    mergeEdges: true
+    # Configures how nodes are placed, affecting connector paths
+    nodePlacementStrategy: LINEAR_SEGMENTS
+---
 classDiagram
     class RuleUnit {
         +UUID id
@@ -219,6 +238,15 @@ classDiagram
 ### 3.2 Rule Type Taxonomy
 
 ```mermaid
+---
+config:
+  layout: elk
+  elk:
+    # Merges parallel edges into one
+    mergeEdges: true
+    # Configures how nodes are placed, affecting connector paths
+    nodePlacementStrategy: LINEAR_SEGMENTS
+---
 graph TB
     ROOT["RuleUnit<br/><i>(Abstract base)</i>"]
 
@@ -259,13 +287,13 @@ Unlike JEasyRules' single integer priority, RuleForge uses a **multi-dimensional
 Priority Vector = (salience, specificity, weight, recency, order)
 ```
 
-| Dimension | Range | Description | Example |
-|---|---|---|---|
-| **Salience** | -10000 to 10000 | Explicit rule importance (higher = fires first) | `salience: 1000` for fraud override rules |
-| **Specificity** | Auto-calculated | Number of non-wildcard conditions (more specific = higher) | 5 conditions > 3 conditions |
-| **Weight** | 0.0 to 1.0 | Confidence/relevance weight for scoring rules | `weight: 0.85` |
-| **Recency** | Timestamp | When the fact that activated the rule was last modified | More recent facts = higher priority |
-| **Order** | 0 to N | Declaration order within a rule group (tiebreaker) | Row 1 before Row 2 |
+| Dimension       | Range           | Description                                                | Example                                   |
+| --------------- | --------------- | ---------------------------------------------------------- | ----------------------------------------- |
+| **Salience**    | -10000 to 10000 | Explicit rule importance (higher = fires first)            | `salience: 1000` for fraud override rules |
+| **Specificity** | Auto-calculated | Number of non-wildcard conditions (more specific = higher) | 5 conditions > 3 conditions               |
+| **Weight**      | 0.0 to 1.0      | Confidence/relevance weight for scoring rules              | `weight: 0.85`                            |
+| **Recency**     | Timestamp       | When the fact that activated the rule was last modified    | More recent facts = higher priority       |
+| **Order**       | 0 to N          | Declaration order within a rule group (tiebreaker)         | Row 1 before Row 2                        |
 
 ### 4.2 Priority Resolution Algorithm
 
@@ -313,7 +341,9 @@ public class PriorityVector implements Comparable<PriorityVector> {
         "activationGroup": "fraud-check",
         "noLoop": true
       },
-      "conditions": [{ "path": "transaction.fraudScore", "op": "GTE", "value": 95 }],
+      "conditions": [
+        { "path": "transaction.fraudScore", "op": "GTE", "value": 95 }
+      ],
       "actions": [{ "set": "decision.action", "value": "BLOCK" }]
     },
     {
@@ -322,7 +352,9 @@ public class PriorityVector implements Comparable<PriorityVector> {
         "salience": 100,
         "agendaGroup": "credit-evaluation"
       },
-      "conditions": [{ "path": "customer.creditScore", "op": "GTE", "value": 650 }],
+      "conditions": [
+        { "path": "customer.creditScore", "op": "GTE", "value": 650 }
+      ],
       "actions": [{ "set": "decision.eligible", "value": true }]
     },
     {
@@ -364,13 +396,13 @@ graph TB
     style NOTE2 fill:#d1ecf1,color:#000,stroke:#0dcaf0
 ```
 
-| Concept | Behavior | Use Case |
-|---|---|---|
-| **Activation Group** | Only the highest-priority matching rule fires; rest are cancelled | Mutually exclusive outcomes (approve/reject/review) |
-| **Agenda Group** | All matching rules fire in priority order; can be focused/defocused | Step-by-step evaluation phases |
-| **Ruleflow Group** | Rules only active when their group is activated by a flow node | Stage-gated execution in workflows |
-| **No-Loop** | Prevents a rule from re-firing when it modifies its own triggering facts | Avoid infinite loops in forward chaining |
-| **Lock-on-Active** | Once an agenda group fires, no new activations are added to it | Prevent cascading re-evaluation |
+| Concept              | Behavior                                                                 | Use Case                                            |
+| -------------------- | ------------------------------------------------------------------------ | --------------------------------------------------- |
+| **Activation Group** | Only the highest-priority matching rule fires; rest are cancelled        | Mutually exclusive outcomes (approve/reject/review) |
+| **Agenda Group**     | All matching rules fire in priority order; can be focused/defocused      | Step-by-step evaluation phases                      |
+| **Ruleflow Group**   | Rules only active when their group is activated by a flow node           | Stage-gated execution in workflows                  |
+| **No-Loop**          | Prevents a rule from re-firing when it modifies its own triggering facts | Avoid infinite loops in forward chaining            |
+| **Lock-on-Active**   | Once an agenda group fires, no new activations are added to it           | Prevent cascading re-evaluation                     |
 
 ---
 
@@ -466,8 +498,16 @@ public class HierarchicalRuleResolver {
         "definition": {
           "type": "decision-table",
           "rows": [
-            { "id": "global-1", "conditions": { "age": { "op": "GTE", "value": 18 } }, "actions": { "eligible": true } },
-            { "id": "global-2", "conditions": { "age": { "op": "LT", "value": 18 } }, "actions": { "eligible": false, "reason": "UNDERAGE" } }
+            {
+              "id": "global-1",
+              "conditions": { "age": { "op": "GTE", "value": 18 } },
+              "actions": { "eligible": true }
+            },
+            {
+              "id": "global-2",
+              "conditions": { "age": { "op": "LT", "value": 18 } },
+              "actions": { "eligible": false, "reason": "UNDERAGE" }
+            }
           ]
         }
       },
@@ -478,8 +518,16 @@ public class HierarchicalRuleResolver {
         "definition": {
           "type": "decision-table",
           "rows": [
-            { "id": "mortgage-1", "conditions": { "income": { "op": "LT", "value": 30000 } }, "actions": { "eligible": false, "reason": "INCOME_TOO_LOW" } },
-            { "id": "mortgage-2", "conditions": { "loanToValue": { "op": "GT", "value": 0.95 } }, "actions": { "eligible": false, "reason": "LTV_EXCEEDED" } }
+            {
+              "id": "mortgage-1",
+              "conditions": { "income": { "op": "LT", "value": 30000 } },
+              "actions": { "eligible": false, "reason": "INCOME_TOO_LOW" }
+            },
+            {
+              "id": "mortgage-2",
+              "conditions": { "loanToValue": { "op": "GT", "value": 0.95 } },
+              "actions": { "eligible": false, "reason": "LTV_EXCEEDED" }
+            }
           ]
         }
       },
@@ -490,7 +538,11 @@ public class HierarchicalRuleResolver {
         "definition": {
           "type": "decision-table",
           "rows": [
-            { "id": "mortgage-1", "conditions": { "income": { "op": "LT", "value": 20000 } }, "actions": { "eligible": false, "reason": "INCOME_TOO_LOW" } }
+            {
+              "id": "mortgage-1",
+              "conditions": { "income": { "op": "LT", "value": 20000 } },
+              "actions": { "eligible": false, "reason": "INCOME_TOO_LOW" }
+            }
           ]
         }
       }
@@ -536,6 +588,15 @@ sequenceDiagram
 A first-class **ScorecardRule** supports weighted scoring — essential for credit scoring, risk assessment, and eligibility evaluation:
 
 ```mermaid
+---
+config:
+  layout: elk
+  elk:
+    # Merges parallel edges into one
+    mergeEdges: true
+    # Configures how nodes are placed, affecting connector paths
+    nodePlacementStrategy: LINEAR_SEGMENTS
+---
 graph TB
     subgraph "Scorecard: Customer Risk Assessment"
         INPUT["Input Facts:<br/>age, income, creditScore,<br/>employmentYears, debtRatio"]
@@ -602,28 +663,74 @@ graph TB
       "weight": 0.35,
       "input": "customer.creditScore",
       "bins": [
-        { "condition": { "op": "GTE", "value": 750 }, "score": 100, "label": "Excellent" },
-        { "condition": { "op": "BETWEEN", "value": [700, 749] }, "score": 75, "label": "Good" },
-        { "condition": { "op": "BETWEEN", "value": [650, 699] }, "score": 50, "label": "Fair" },
-        { "condition": { "op": "LT", "value": 650 }, "score": 10, "label": "Poor" }
+        {
+          "condition": { "op": "GTE", "value": 750 },
+          "score": 100,
+          "label": "Excellent"
+        },
+        {
+          "condition": { "op": "BETWEEN", "value": [700, 749] },
+          "score": 75,
+          "label": "Good"
+        },
+        {
+          "condition": { "op": "BETWEEN", "value": [650, 699] },
+          "score": 50,
+          "label": "Fair"
+        },
+        {
+          "condition": { "op": "LT", "value": 650 },
+          "score": 10,
+          "label": "Poor"
+        }
       ]
     },
     {
       "id": "financial-stability",
       "name": "Financial Stability",
-      "weight": 0.30,
+      "weight": 0.3,
       "multiInput": true,
       "bins": [
-        { "condition": { "path": "customer.income", "op": "GTE", "value": 100000 }, "score": 100 },
-        { "condition": { "path": "customer.income", "op": "BETWEEN", "value": [50000, 99999] }, "score": 70 },
-        { "condition": { "path": "customer.debtRatio", "op": "LT", "value": 0.3 }, "score": 80, "additive": true },
-        { "condition": { "path": "customer.debtRatio", "op": "GTE", "value": 0.5 }, "score": -20, "additive": true }
+        {
+          "condition": {
+            "path": "customer.income",
+            "op": "GTE",
+            "value": 100000
+          },
+          "score": 100
+        },
+        {
+          "condition": {
+            "path": "customer.income",
+            "op": "BETWEEN",
+            "value": [50000, 99999]
+          },
+          "score": 70
+        },
+        {
+          "condition": {
+            "path": "customer.debtRatio",
+            "op": "LT",
+            "value": 0.3
+          },
+          "score": 80,
+          "additive": true
+        },
+        {
+          "condition": {
+            "path": "customer.debtRatio",
+            "op": "GTE",
+            "value": 0.5
+          },
+          "score": -20,
+          "additive": true
+        }
       ]
     },
     {
       "id": "employment",
       "name": "Employment Stability",
-      "weight": 0.20,
+      "weight": 0.2,
       "input": "customer.employmentYears",
       "bins": [
         { "condition": { "op": "GT", "value": 5 }, "score": 90 },
@@ -633,9 +740,19 @@ graph TB
     }
   ],
   "thresholds": [
-    { "minScore": 800, "output": { "riskCategory": "LOW", "action": "AUTO_APPROVE" } },
-    { "minScore": 500, "maxScore": 799, "output": { "riskCategory": "MEDIUM", "action": "MANUAL_REVIEW" } },
-    { "maxScore": 499, "output": { "riskCategory": "HIGH", "action": "AUTO_REJECT" } }
+    {
+      "minScore": 800,
+      "output": { "riskCategory": "LOW", "action": "AUTO_APPROVE" }
+    },
+    {
+      "minScore": 500,
+      "maxScore": 799,
+      "output": { "riskCategory": "MEDIUM", "action": "MANUAL_REVIEW" }
+    },
+    {
+      "maxScore": 499,
+      "output": { "riskCategory": "HIGH", "action": "AUTO_REJECT" }
+    }
   ]
 }
 ```
@@ -645,6 +762,15 @@ graph TB
 Standard decision trees use hard branching (IF-THEN-ELSE). Weighted trees add **confidence scores** and **probabilistic branching**:
 
 ```mermaid
+---
+config:
+  layout: elk
+  elk:
+    # Merges parallel edges into one
+    mergeEdges: true
+    # Configures how nodes are placed, affecting connector paths
+    nodePlacementStrategy: LINEAR_SEGMENTS
+---
 graph TB
     ROOT["Root: Loan Application<br/>Input: customer, loan"]
 
@@ -668,6 +794,7 @@ graph TB
 ```
 
 **Composite confidence** = product of branch confidences along the path:
+
 - APPROVE: 0.95 × 0.88 = 0.836
 - REVIEW via fair credit: 0.70 × 0.75 = 0.525
 
@@ -684,9 +811,9 @@ Multiple rules can be combined as an ensemble, similar to ML ensemble methods:
   "strategy": "WEIGHTED_VOTE",
   "quorum": 0.6,
   "members": [
-    { "ruleRef": "velocity-check", "weight": 0.30 },
+    { "ruleRef": "velocity-check", "weight": 0.3 },
     { "ruleRef": "geo-anomaly-check", "weight": 0.25 },
-    { "ruleRef": "device-fingerprint-check", "weight": 0.20 },
+    { "ruleRef": "device-fingerprint-check", "weight": 0.2 },
     { "ruleRef": "behavioral-pattern-check", "weight": 0.25 }
   ],
   "aggregation": {
@@ -707,14 +834,14 @@ Multiple rules can be combined as an ensemble, similar to ML ensemble methods:
 }
 ```
 
-| Ensemble Strategy | Description |
-|---|---|
-| `MAJORITY_VOTE` | Each rule casts a binary vote; majority wins |
-| `WEIGHTED_VOTE` | Votes weighted by rule weight; quorum threshold |
-| `AVERAGE_SCORE` | Average numeric scores across members |
-| `WEIGHTED_AVERAGE` | Weighted average of numeric scores |
-| `MAX_CONFIDENCE` | Take the result from the highest-confidence member |
-| `STACK` | Feed member outputs into a meta-rule |
+| Ensemble Strategy  | Description                                        |
+| ------------------ | -------------------------------------------------- |
+| `MAJORITY_VOTE`    | Each rule casts a binary vote; majority wins       |
+| `WEIGHTED_VOTE`    | Votes weighted by rule weight; quorum threshold    |
+| `AVERAGE_SCORE`    | Average numeric scores across members              |
+| `WEIGHTED_AVERAGE` | Weighted average of numeric scores                 |
+| `MAX_CONFIDENCE`   | Take the result from the highest-confidence member |
+| `STACK`            | Feed member outputs into a meta-rule               |
 
 ---
 
@@ -722,15 +849,15 @@ Multiple rules can be combined as an ensemble, similar to ML ensemble methods:
 
 ### 7.1 Execution Modes
 
-| Mode | Description | Use Case |
-|---|---|---|
-| `FIRST_MATCH` | Stop at first matching rule (by priority) | Eligibility, routing |
-| `ALL_MATCH` | Fire all matching rules, collect results | Validation, multi-output |
-| `BEST_MATCH` | Score all matches, return highest-scored | Recommendation, pricing |
-| `SEQUENTIAL` | Fire all rules in priority order, each can see previous results | Pipeline processing |
-| `PARALLEL` | Fire all matching rules concurrently, aggregate results | Performance-critical multi-check |
-| `FORWARD_CHAIN` | Rete-style: fire → modify facts → re-evaluate → fire until stable | Inference, derivation |
-| `CASCADING` | Fire through hierarchy levels until a result is produced | Hierarchical overrides |
+| Mode            | Description                                                       | Use Case                         |
+| --------------- | ----------------------------------------------------------------- | -------------------------------- |
+| `FIRST_MATCH`   | Stop at first matching rule (by priority)                         | Eligibility, routing             |
+| `ALL_MATCH`     | Fire all matching rules, collect results                          | Validation, multi-output         |
+| `BEST_MATCH`    | Score all matches, return highest-scored                          | Recommendation, pricing          |
+| `SEQUENTIAL`    | Fire all rules in priority order, each can see previous results   | Pipeline processing              |
+| `PARALLEL`      | Fire all matching rules concurrently, aggregate results           | Performance-critical multi-check |
+| `FORWARD_CHAIN` | Rete-style: fire → modify facts → re-evaluate → fire until stable | Inference, derivation            |
+| `CASCADING`     | Fire through hierarchy levels until a result is produced          | Hierarchical overrides           |
 
 ### 7.2 Conflict Resolution Strategies
 
@@ -884,15 +1011,15 @@ graph TB
 
 ### 8.2 Index Types by Operator
 
-| Operator | Index Structure | Lookup Complexity |
-|---|---|---|
-| `EQ`, `NEQ` | HashMap | O(1) |
-| `IN`, `NOT_IN` | HashMap (multi-value) | O(k) where k = set size |
-| `GT`, `GTE`, `LT`, `LTE` | Sorted Array + Binary Search | O(log n) |
-| `BETWEEN` | Interval Tree | O(log n + k) |
-| `CONTAINS`, `STARTS_WITH` | Trie | O(m) where m = string length |
-| `REGEX` | Pre-compiled Pattern (no index, linear scan) | O(n) |
-| `IS_NULL`, `IS_NOT_NULL` | Bitmap | O(1) |
+| Operator                  | Index Structure                              | Lookup Complexity            |
+| ------------------------- | -------------------------------------------- | ---------------------------- |
+| `EQ`, `NEQ`               | HashMap                                      | O(1)                         |
+| `IN`, `NOT_IN`            | HashMap (multi-value)                        | O(k) where k = set size      |
+| `GT`, `GTE`, `LT`, `LTE`  | Sorted Array + Binary Search                 | O(log n)                     |
+| `BETWEEN`                 | Interval Tree                                | O(log n + k)                 |
+| `CONTAINS`, `STARTS_WITH` | Trie                                         | O(m) where m = string length |
+| `REGEX`                   | Pre-compiled Pattern (no index, linear scan) | O(n)                         |
+| `IS_NULL`, `IS_NOT_NULL`  | Bitmap                                       | O(1)                         |
 
 ### 8.3 Execution Strategies
 
@@ -949,15 +1076,15 @@ graph TB
 
 ### 9.2 Advanced Tree Features
 
-| Feature | Description |
-|---|---|
+| Feature                     | Description                                                                      |
+| --------------------------- | -------------------------------------------------------------------------------- |
 | **Multi-branch conditions** | A condition node can have N branches (not just true/false) — e.g., ranges, enums |
-| **Default branch** | Mandatory fallback for unmatched conditions |
-| **Branch weights** | Each branch carries a confidence weight for probabilistic decisions |
-| **Sub-rule delegation** | A tree node can invoke any other rule (table, scorecard, another tree) |
-| **Score accumulation** | Nodes accumulate a running score through the tree path |
-| **Early termination** | `HALT` action immediately returns result without traversing remaining branches |
-| **Parallel branches** | Fork-join: evaluate multiple branches in parallel, merge results |
+| **Default branch**          | Mandatory fallback for unmatched conditions                                      |
+| **Branch weights**          | Each branch carries a confidence weight for probabilistic decisions              |
+| **Sub-rule delegation**     | A tree node can invoke any other rule (table, scorecard, another tree)           |
+| **Score accumulation**      | Nodes accumulate a running score through the tree path                           |
+| **Early termination**       | `HALT` action immediately returns result without traversing remaining branches   |
+| **Parallel branches**       | Fork-join: evaluate multiple branches in parallel, merge results                 |
 
 ### 9.3 Compiled Tree — Binary Decision Diagram (BDD)
 
@@ -1072,7 +1199,11 @@ public class FlowOrchestrator {
         "ruleRef": "credit-scoring-v3",
         "errorHandling": {
           "strategy": "RETRY_THEN_FALLBACK",
-          "retry": { "maxAttempts": 3, "backoff": "EXPONENTIAL", "initialDelay": "100ms" },
+          "retry": {
+            "maxAttempts": 3,
+            "backoff": "EXPONENTIAL",
+            "initialDelay": "100ms"
+          },
           "fallback": {
             "type": "RULE",
             "ruleRef": "credit-scoring-simplified",
@@ -1181,7 +1312,7 @@ const monthly = _math.round(input.loanAmount / input.termMonths, 2);
 const age = _date.yearsBetween(input.customer.dob, _date.today());
 
 // Array functions
-const highRiskItems = _arr.filter(input.transactions, t => t.amount > 10000);
+const highRiskItems = _arr.filter(input.transactions, (t) => t.amount > 10000);
 
 // Console (logged to audit trail)
 console.log("Processing customer:", input.customer.id);
@@ -1191,6 +1322,7 @@ return output;
 ```
 
 > **Important conventions:**
+>
 > - The GraalVM polyglot language ID is `"js"` (not `"javascript"`)
 > - Scripts **must** define a function named `evaluate` (not `execute`)
 > - The engine calls `context.getBindings("js").getMember("evaluate")` to invoke the script
@@ -1202,13 +1334,13 @@ return output;
 
 ### 12.1 CEP Pattern Types
 
-| Pattern | Description | Example |
-|---|---|---|
-| **Sequence** | Events in specific order | Login → Failed Auth → Failed Auth (brute force) |
-| **Aggregation** | Aggregate over time window | SUM(transactions.amount) in 1 hour > $10,000 |
-| **Absence** | Expected event didn't occur | Payment initiated, no confirmation in 30 minutes |
-| **Frequency** | Count exceeding threshold | > 5 failed logins in 10 minutes |
-| **Correlation** | Events sharing attributes | Same card_id across 3+ merchants in 5 minutes |
+| Pattern         | Description                 | Example                                          |
+| --------------- | --------------------------- | ------------------------------------------------ |
+| **Sequence**    | Events in specific order    | Login → Failed Auth → Failed Auth (brute force)  |
+| **Aggregation** | Aggregate over time window  | SUM(transactions.amount) in 1 hour > $10,000     |
+| **Absence**     | Expected event didn't occur | Payment initiated, no confirmation in 30 minutes |
+| **Frequency**   | Count exceeding threshold   | > 5 failed logins in 10 minutes                  |
+| **Correlation** | Events sharing attributes   | Same card_id across 3+ merchants in 5 minutes    |
 
 ### 12.2 CEP Architecture
 
@@ -1356,15 +1488,15 @@ graph LR
 
 ### 14.2 Compilation Optimizations
 
-| Optimization | Description | Impact |
-|---|---|---|
-| **Constant Folding** | Pre-compute expressions with only constants: `365 * 24 * 60` → `525600` | Eliminates runtime math |
-| **Dead Branch Elimination** | Remove branches that can never match (contradictory conditions) | Reduces tree depth |
-| **Common Subexpression** | `IF age > 18 AND age < 65` shares the `age` lookup | Fewer memory reads |
-| **Condition Reordering** | Evaluate cheapest conditions first (O(1) before O(n)) | Faster short-circuit |
-| **Hash Compilation** | Compile IN operators to HashSet lookups | O(1) vs O(k) |
-| **Regex Pre-compilation** | Compile REGEX patterns once at compile time | Avoid recompilation |
-| **Expression Specialization** | Generate specialized bytecode for common patterns | JIT-friendly |
+| Optimization                  | Description                                                             | Impact                  |
+| ----------------------------- | ----------------------------------------------------------------------- | ----------------------- |
+| **Constant Folding**          | Pre-compute expressions with only constants: `365 * 24 * 60` → `525600` | Eliminates runtime math |
+| **Dead Branch Elimination**   | Remove branches that can never match (contradictory conditions)         | Reduces tree depth      |
+| **Common Subexpression**      | `IF age > 18 AND age < 65` shares the `age` lookup                      | Fewer memory reads      |
+| **Condition Reordering**      | Evaluate cheapest conditions first (O(1) before O(n))                   | Faster short-circuit    |
+| **Hash Compilation**          | Compile IN operators to HashSet lookups                                 | O(1) vs O(k)            |
+| **Regex Pre-compilation**     | Compile REGEX patterns once at compile time                             | Avoid recompilation     |
+| **Expression Specialization** | Generate specialized bytecode for common patterns                       | JIT-friendly            |
 
 ---
 
@@ -1492,18 +1624,18 @@ RuleForgeEngine engine = RuleForgeEngine.builder()
 
 ### 17.1 Benchmark Targets
 
-| Scenario | Target | Notes |
-|---|---|---|
-| Simple table (10 rows, 5 conditions) | < 0.1ms | Indexed lookup |
-| Medium table (1000 rows, 10 conditions) | < 1ms | Indexed + intersection |
-| Complex table (10K rows, 20 conditions) | < 5ms | Parallel scan for REGEX |
-| Decision tree (50 nodes) | < 0.5ms | BDD traversal |
-| Scorecard (10 categories) | < 0.3ms | Parallel category evaluation |
-| Rule flow (10 nodes, 3 parallel) | < 10ms | Async orchestration |
-| Scripting rule (moderate complexity) | < 5ms | Pre-warmed GraalVM |
-| Ensemble (5 members, weighted vote) | < 15ms | Parallel member execution |
-| Forward chaining (20 rules, 5 iterations) | < 20ms | Agenda with caching |
-| Bulk solve (1000 inputs × simple table) | < 500ms | Thread pool |
+| Scenario                                  | Target  | Notes                        |
+| ----------------------------------------- | ------- | ---------------------------- |
+| Simple table (10 rows, 5 conditions)      | < 0.1ms | Indexed lookup               |
+| Medium table (1000 rows, 10 conditions)   | < 1ms   | Indexed + intersection       |
+| Complex table (10K rows, 20 conditions)   | < 5ms   | Parallel scan for REGEX      |
+| Decision tree (50 nodes)                  | < 0.5ms | BDD traversal                |
+| Scorecard (10 categories)                 | < 0.3ms | Parallel category evaluation |
+| Rule flow (10 nodes, 3 parallel)          | < 10ms  | Async orchestration          |
+| Scripting rule (moderate complexity)      | < 5ms   | Pre-warmed GraalVM           |
+| Ensemble (5 members, weighted vote)       | < 15ms  | Parallel member execution    |
+| Forward chaining (20 rules, 5 iterations) | < 20ms  | Agenda with caching          |
+| Bulk solve (1000 inputs × simple table)   | < 500ms | Thread pool                  |
 
 ### 17.2 Memory Architecture
 
@@ -1571,20 +1703,20 @@ public class EngineThreadConfig {
 
 ### 18.1 Architecture Comparison
 
-| Feature | Drools (Rete) | IBM ODM | Easy Rules | RuleForge (Ours) |
-|---|---|---|---|---|
-| **Algorithm** | Rete/Phreak | Rete | Linear scan | Hybrid: Indexed + Rete-inspired |
-| **Rule priority** | Salience (integer) | Priority + agendas | Integer priority | Multi-dimensional vector |
-| **Hierarchical rules** | Rule templates, guided rules | BAL, decision tables | CompositeRule | Full hierarchy + inheritance |
-| **Weighted scoring** | Manual (Drools Scorecards) | Scorecard package | Not supported | First-class ScorecardRule + Ensemble |
-| **Conflict resolution** | Priority, recency, specificity | Priority, rule order | First match | 7+ strategies, composable chain |
-| **Forward chaining** | Full Rete network | Yes | No | Rete-inspired with agenda + cycle detection |
-| **Expression language** | DRL (Java-like) | BAL | MVEL/SpEL | RFL (custom) + FEEL (DMN) |
-| **Script support** | Java, DRL | Java | Java | JavaScript (GraalVM sandboxed) |
-| **Embeddable** | Yes (heavy: ~30MB) | No | Yes (light: ~100KB) | Yes (moderate: ~5MB) |
-| **REST API** | KIE Server | Decision Server | Not built-in | First-class, auto-generated SDKs |
-| **Performance** | Good (Rete overhead for small sets) | Good | Simple (linear) | Excellent (indexed + compiled) |
-| **Learning curve** | Steep (DRL, complex API) | Very steep | Very easy | Moderate (rich but documented) |
+| Feature                 | Drools (Rete)                       | IBM ODM              | Easy Rules          | RuleForge (Ours)                            |
+| ----------------------- | ----------------------------------- | -------------------- | ------------------- | ------------------------------------------- |
+| **Algorithm**           | Rete/Phreak                         | Rete                 | Linear scan         | Hybrid: Indexed + Rete-inspired             |
+| **Rule priority**       | Salience (integer)                  | Priority + agendas   | Integer priority    | Multi-dimensional vector                    |
+| **Hierarchical rules**  | Rule templates, guided rules        | BAL, decision tables | CompositeRule       | Full hierarchy + inheritance                |
+| **Weighted scoring**    | Manual (Drools Scorecards)          | Scorecard package    | Not supported       | First-class ScorecardRule + Ensemble        |
+| **Conflict resolution** | Priority, recency, specificity      | Priority, rule order | First match         | 7+ strategies, composable chain             |
+| **Forward chaining**    | Full Rete network                   | Yes                  | No                  | Rete-inspired with agenda + cycle detection |
+| **Expression language** | DRL (Java-like)                     | BAL                  | MVEL/SpEL           | RFL (custom) + FEEL (DMN)                   |
+| **Script support**      | Java, DRL                           | Java                 | Java                | JavaScript (GraalVM sandboxed)              |
+| **Embeddable**          | Yes (heavy: ~30MB)                  | No                   | Yes (light: ~100KB) | Yes (moderate: ~5MB)                        |
+| **REST API**            | KIE Server                          | Decision Server      | Not built-in        | First-class, auto-generated SDKs            |
+| **Performance**         | Good (Rete overhead for small sets) | Good                 | Simple (linear)     | Excellent (indexed + compiled)              |
+| **Learning curve**      | Steep (DRL, complex API)            | Very steep           | Very easy           | Moderate (rich but documented)              |
 
 ### 18.2 When to Use What
 
@@ -1797,7 +1929,7 @@ ruleforge:
       l2:
         enabled: true
         ttl: 300s
-        serialization: PROTOBUF  # PROTOBUF | JSON | KRYO
+        serialization: PROTOBUF # PROTOBUF | JSON | KRYO
 
     # Scripting (GraalVM)
     scripting:
@@ -1810,8 +1942,8 @@ ruleforge:
     # Compilation
     compilation:
       async: true
-      optimization-level: FULL  # NONE | BASIC | FULL
-      index-threshold: 10  # Min rows before building index
+      optimization-level: FULL # NONE | BASIC | FULL
+      index-threshold: 10 # Min rows before building index
 
     # Conflict resolution (default chain)
     conflict-resolution:
@@ -1824,7 +1956,7 @@ ruleforge:
       histogram-buckets: [0.001, 0.005, 0.01, 0.05, 0.1, 0.5, 1.0]
     tracing:
       enabled: true
-      sample-rate: 0.1  # 10% of requests
+      sample-rate: 0.1 # 10% of requests
 
     # Extensions
     extensions:
@@ -1833,17 +1965,17 @@ ruleforge:
 
 ### Appendix C: Decision Matrix — Build vs. Buy
 
-| Criteria | Weight | Build Custom | Use Drools | Use JEasyRules + Extend |
-|---|---|---|---|---|
-| Performance at scale | 0.25 | ★★★★★ | ★★★★ | ★★ |
-| Hierarchical rules | 0.20 | ★★★★★ | ★★★ | ★ |
-| Weighted scoring | 0.15 | ★★★★★ | ★★★ | ★ |
-| Embeddable size | 0.10 | ★★★★ | ★★ | ★★★★★ |
-| Learning curve (team) | 0.10 | ★★★ | ★★ | ★★★★★ |
-| Customizability | 0.10 | ★★★★★ | ★★★ | ★★★ |
-| Time to market | 0.05 | ★★ | ★★★★ | ★★★★ |
-| Community/support | 0.05 | ★★ | ★★★★★ | ★★★ |
-| **Weighted Score** | | **4.35** | **3.25** | **2.35** |
+| Criteria              | Weight | Build Custom | Use Drools | Use JEasyRules + Extend |
+| --------------------- | ------ | ------------ | ---------- | ----------------------- |
+| Performance at scale  | 0.25   | ★★★★★        | ★★★★       | ★★                      |
+| Hierarchical rules    | 0.20   | ★★★★★        | ★★★        | ★                       |
+| Weighted scoring      | 0.15   | ★★★★★        | ★★★        | ★                       |
+| Embeddable size       | 0.10   | ★★★★         | ★★         | ★★★★★                   |
+| Learning curve (team) | 0.10   | ★★★          | ★★         | ★★★★★                   |
+| Customizability       | 0.10   | ★★★★★        | ★★★        | ★★★                     |
+| Time to market        | 0.05   | ★★           | ★★★★       | ★★★★                    |
+| Community/support     | 0.05   | ★★           | ★★★★★      | ★★★                     |
+| **Weighted Score**    |        | **4.35**     | **3.25**   | **2.35**                |
 
 **Recommendation:** Build a custom engine. The 45% improvement in weighted score justifies the investment, especially given the competitive requirement for hierarchical rules and weighted scoring that neither Drools nor JEasyRules handle well natively.
 

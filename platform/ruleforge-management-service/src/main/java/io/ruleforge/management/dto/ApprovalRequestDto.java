@@ -11,6 +11,7 @@ public record ApprovalRequestDto(
         String ruleType,
         int version,
         UUID requestedBy,
+        String requestedByName,
         Instant requestedAt,
         String note,
         String status,

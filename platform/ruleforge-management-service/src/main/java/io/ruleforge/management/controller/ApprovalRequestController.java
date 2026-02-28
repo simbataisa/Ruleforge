@@ -55,6 +55,7 @@ public class ApprovalRequestController {
             @RequestParam(required = false) UUID ruleId,
             @RequestParam(required = false) UUID requestedBy,
             @RequestParam(required = false, defaultValue = "false") boolean assignedToMe,
+            @RequestParam(required = false, defaultValue = "false") boolean requestedByMe,
             @RequestParam(required = false) Instant from,
             @RequestParam(required = false) Instant to,
             @PageableDefault(size = 20) Pageable pageable) {
@@ -62,6 +63,11 @@ public class ApprovalRequestController {
         TenantContext.TenantInfo tenant = TenantContext.get();
         UUID orgId = tenant.orgId();
         UUID currentUserId = tenant.userId();
+
+        // When requestedByMe is true, override requestedBy with the current user
+        if (requestedByMe) {
+            requestedBy = currentUserId;
+        }
 
         List<UUID> spaceIds = spaceRepository.findByOrgId(orgId).stream()
                 .map(SpaceEntity::getId)
