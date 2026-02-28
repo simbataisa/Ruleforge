@@ -12,12 +12,10 @@ import io.ruleforge.management.dto.UpdateRuleRequest;
 import io.ruleforge.management.entity.RuleEntity;
 import io.ruleforge.management.entity.RuleTagEntity;
 import io.ruleforge.management.entity.RuleVersionEntity;
-import io.ruleforge.management.entity.TagEntity;
 import io.ruleforge.management.repository.RuleRepository;
 import io.ruleforge.management.repository.RuleTagRepository;
 import io.ruleforge.management.repository.RuleVersionRepository;
 import io.ruleforge.management.repository.SpaceRepository;
-import io.ruleforge.management.repository.TagRepository;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -27,6 +25,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -40,20 +39,17 @@ public class RuleService {
     private final RuleRepository ruleRepository;
     private final RuleVersionRepository ruleVersionRepository;
     private final RuleTagRepository ruleTagRepository;
-    private final TagRepository tagRepository;
     private final EventPublisher eventPublisher;
     private final SpaceRepository spaceRepository;
 
     public RuleService(RuleRepository ruleRepository,
                        RuleVersionRepository ruleVersionRepository,
                        RuleTagRepository ruleTagRepository,
-                       TagRepository tagRepository,
                        EventPublisher eventPublisher,
                        SpaceRepository spaceRepository) {
         this.ruleRepository = ruleRepository;
         this.ruleVersionRepository = ruleVersionRepository;
         this.ruleTagRepository = ruleTagRepository;
-        this.tagRepository = tagRepository;
         this.eventPublisher = eventPublisher;
         this.spaceRepository = spaceRepository;
     }
@@ -141,6 +137,16 @@ public class RuleService {
     @Transactional(readOnly = true)
     public PageResponse<RuleDto> listRulesForOrg(UUID orgId, UUID folderId, String status,
                                                   String type, String search, Pageable pageable) {
+        return listRulesForOrgAdvanced(orgId, folderId, status, type, search,
+                null, null, null, null, null, pageable);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<RuleDto> listRulesForOrgAdvanced(UUID orgId, UUID folderId, String status,
+                                                          String type, String search,
+                                                          List<String> tags, UUID createdBy,
+                                                          Instant updatedAfter, Instant updatedBefore,
+                                                          String hasVersion, Pageable pageable) {
         List<UUID> spaceIds = spaceRepository.findByOrgId(orgId).stream()
                 .map(io.ruleforge.management.entity.SpaceEntity::getId)
                 .toList();
@@ -149,9 +155,20 @@ public class RuleService {
             return new PageResponse<>(List.of(), 0, pageable.getPageSize(), 0, 0);
         }
 
+        boolean hasAdvancedFilters = (tags != null && !tags.isEmpty())
+                || createdBy != null
+                || updatedAfter != null
+                || updatedBefore != null
+                || hasVersion != null;
+
         Page<RuleEntity> page;
-        if (search != null && !search.isBlank()) {
-            page = ruleRepository.findByFiltersAndSearch(spaceIds, folderId, status, type, search, pageable);
+        if (hasAdvancedFilters || (search != null && !search.isBlank())) {
+            String[] tagsArray = (tags != null && !tags.isEmpty()) ? tags.toArray(new String[0]) : new String[0];
+            boolean tagsEmpty = tagsArray.length == 0;
+            page = ruleRepository.findByAdvancedFilters(
+                    spaceIds, folderId, status, type, search,
+                    createdBy, updatedAfter, updatedBefore,
+                    tagsArray, tagsEmpty, hasVersion, pageable);
         } else {
             page = ruleRepository.findByFilters(spaceIds, folderId, status, type, pageable);
         }
@@ -187,11 +204,27 @@ public class RuleService {
             rule.setFolderId(request.folderId());
         }
 
+        // Handle tags update
+        if (request.tags() != null) {
+            ruleTagRepository.deleteByRuleId(ruleId);
+            for (String tag : request.tags()) {
+                String normalizedTag = tag.trim().toLowerCase();
+                if (!normalizedTag.isEmpty() && normalizedTag.length() <= 100) {
+                    RuleTagEntity ruleTag = new RuleTagEntity();
+                    ruleTag.setRuleId(ruleId);
+                    ruleTag.setTag(normalizedTag);
+                    ruleTagRepository.save(ruleTag);
+                }
+            }
+        }
+
         rule = ruleRepository.save(rule);
         log.info("Rule updated: id={}", ruleId);
 
         publishEvent("rule.updated", rule, tenant);
 
+        // Refresh to get updated tags from trigger
+        rule = ruleRepository.findById(ruleId).orElse(rule);
         return toDto(rule);
     }
 
@@ -295,13 +328,13 @@ public class RuleService {
         versionCopy.setCreatedBy(tenant.userId());
         ruleVersionRepository.save(versionCopy);
 
-        // Copy tags
+        // Copy tags (string-based)
         List<RuleTagEntity> originalTags = ruleTagRepository.findByRuleId(ruleId);
         final UUID copyId = copy.getId();
         for (RuleTagEntity originalTag : originalTags) {
             RuleTagEntity tagCopy = new RuleTagEntity();
             tagCopy.setRuleId(copyId);
-            tagCopy.setTagId(originalTag.getTagId());
+            tagCopy.setTag(originalTag.getTag());
             ruleTagRepository.save(tagCopy);
         }
 
@@ -317,12 +350,10 @@ public class RuleService {
     }
 
     private RuleDto toDto(RuleEntity rule) {
-        List<String> tagNames = ruleTagRepository.findByRuleId(rule.getId()).stream()
-                .map(RuleTagEntity::getTagId)
-                .map(tagRepository::findById)
-                .filter(java.util.Optional::isPresent)
-                .map(opt -> opt.get().getName())
-                .toList();
+        // Use denormalized tags array from RuleEntity (synced by DB trigger)
+        List<String> tagList = rule.getTags() != null
+                ? Arrays.asList(rule.getTags())
+                : List.of();
 
         return new RuleDto(
                 rule.getId(),
@@ -336,7 +367,7 @@ public class RuleService {
                 rule.getFolderId(),
                 rule.getCreatedAt(),
                 rule.getUpdatedAt(),
-                tagNames
+                tagList
         );
     }
 

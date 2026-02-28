@@ -6,6 +6,7 @@ import type {
   SampleInput,
   TestRequest,
   TestResponse,
+  TagCount,
 } from './types/rule.types';
 import type { ApiResponse, PageResponse, PageParams } from './types/common.types';
 
@@ -14,6 +15,12 @@ interface RuleListParams extends PageParams {
   type?: string;
   status?: string;
   search?: string;
+  tags?: string[];
+  types?: string[];
+  statuses?: string[];
+  createdBy?: string;
+  updatedAfter?: string;
+  updatedBefore?: string;
 }
 
 export function useRules(params?: RuleListParams) {
@@ -459,5 +466,178 @@ export function useTestRule() {
       );
       return res.data.data;
     },
+  });
+}
+
+// --- Tags ---
+
+export function useTags(query?: string) {
+  return useQuery({
+    queryKey: ['tags', query],
+    queryFn: async () => {
+      const res = await apiClient.get<ApiResponse<TagCount[]>>('/tags', {
+        params: query ? { q: query } : {},
+      });
+      return res.data.data;
+    },
+  });
+}
+
+// --- Batch Operations ---
+
+export function useBatchRequestApproval() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: {
+      ruleIds: string[];
+      assigneeIds?: string[];
+      note?: string;
+    }) => {
+      const res = await apiClient.post<
+        ApiResponse<{
+          succeeded: { ruleId: string; version: number }[];
+          failed: { ruleId: string; reason: string }[];
+        }>
+      >('/rules/batch/request-approval', data);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rules'] });
+    },
+  });
+}
+
+export function useBatchExport() {
+  return useMutation({
+    mutationFn: async (data: { ruleIds: string[]; format?: string }) => {
+      const res = await apiClient.post('/rules/batch/export', data, {
+        responseType: 'blob',
+      });
+      return res.data;
+    },
+  });
+}
+
+// --- Approval Requests ---
+
+export interface ApprovalAssigneeDto {
+  memberId: string;
+  name: string;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED';
+  respondedAt: string | null;
+}
+
+export interface ApprovalRequestDto {
+  id: string;
+  ruleId: string;
+  ruleName: string;
+  ruleType: string;
+  version: number;
+  requestedBy: string;
+  requestedByName: string;
+  requestedAt: string;
+  note: string | null;
+  status: 'PENDING' | 'APPROVED' | 'REJECTED' | 'CANCELLED';
+  resolvedBy: string | null;
+  resolvedAt: string | null;
+  deadline: string | null;
+  assignees: ApprovalAssigneeDto[];
+}
+
+interface ApprovalRequestListParams extends PageParams {
+  assignedToMe?: boolean;
+  requestedByMe?: boolean;
+  status?: string;
+  ruleId?: string;
+  from?: string;
+  to?: string;
+}
+
+export function useApprovalRequests(params?: ApprovalRequestListParams) {
+  return useQuery({
+    queryKey: ['approval-requests', params],
+    queryFn: async () => {
+      const res = await apiClient.get<ApiResponse<PageResponse<ApprovalRequestDto>>>(
+        '/approval-requests',
+        { params },
+      );
+      return res.data.data;
+    },
+  });
+}
+
+export function useApprovalRequest(requestId: string) {
+  return useQuery({
+    queryKey: ['approval-requests', requestId],
+    queryFn: async () => {
+      const res = await apiClient.get<ApiResponse<ApprovalRequestDto>>(
+        `/approval-requests/${requestId}`,
+      );
+      return res.data.data;
+    },
+    enabled: !!requestId,
+  });
+}
+
+export function useCancelApprovalRequest() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (requestId: string) => {
+      const res = await apiClient.post<ApiResponse<ApprovalRequestDto>>(
+        `/approval-requests/${requestId}/cancel`,
+      );
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['approval-requests'] });
+      queryClient.invalidateQueries({ queryKey: ['rules'] });
+    },
+  });
+}
+
+// --- Eligible Approvers ---
+
+export interface EligibleApproverDto {
+  memberId: string;
+  name: string;
+  email: string;
+  role: string;
+  isDefaultApprover: boolean;
+}
+
+export function useEligibleApprovers(ruleId: string) {
+  return useQuery({
+    queryKey: ['rules', ruleId, 'eligible-approvers'],
+    queryFn: async () => {
+      const res = await apiClient.get<ApiResponse<EligibleApproverDto[]>>(
+        `/rules/${ruleId}/eligible-approvers`,
+      );
+      return res.data.data;
+    },
+    enabled: !!ruleId,
+  });
+}
+
+// --- Space Approval Settings ---
+
+export interface SpaceApprovalSettingsDto {
+  spaceId: string;
+  defaultApprovers: string[];
+  slaHours: number;
+  requireAllApprovers: boolean;
+}
+
+export function useSpaceApprovalSettings(spaceId: string) {
+  return useQuery({
+    queryKey: ['spaces', spaceId, 'approval-settings'],
+    queryFn: async () => {
+      const res = await apiClient.get<ApiResponse<SpaceApprovalSettingsDto>>(
+        `/spaces/${spaceId}/approval-settings`,
+      );
+      return res.data.data;
+    },
+    enabled: !!spaceId,
   });
 }

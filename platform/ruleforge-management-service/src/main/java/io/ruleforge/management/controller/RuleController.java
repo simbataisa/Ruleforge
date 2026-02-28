@@ -6,6 +6,7 @@ import io.ruleforge.common.dto.PageResponse;
 import io.ruleforge.common.tenant.TenantContext;
 import io.ruleforge.management.dto.CopyRuleRequest;
 import io.ruleforge.management.dto.CreateRuleRequest;
+import io.ruleforge.management.dto.FilterOptionsDto;
 import io.ruleforge.management.dto.CreateSampleInputRequest;
 import io.ruleforge.management.dto.RuleDto;
 import io.ruleforge.management.dto.SampleInputDto;
@@ -37,6 +38,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
@@ -98,6 +100,7 @@ public class RuleController {
 
     /**
      * List rules across all spaces for the current org (convenience endpoint for frontend).
+     * Supports enhanced search: multi-field text search, tag containment, date range, creator filter.
      */
     @GetMapping("/rules")
     public ApiResponse<PageResponse<RuleDto>> listRulesForOrg(
@@ -105,10 +108,36 @@ public class RuleController {
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String type,
             @RequestParam(required = false) String search,
+            @RequestParam(required = false) List<String> tags,
+            @RequestParam(required = false) UUID createdBy,
+            @RequestParam(required = false) Instant updatedAfter,
+            @RequestParam(required = false) Instant updatedBefore,
+            @RequestParam(required = false) String hasVersion,
             @PageableDefault(size = 20) Pageable pageable) {
         UUID orgId = TenantContext.get().orgId();
-        PageResponse<RuleDto> rules = ruleService.listRulesForOrg(orgId, folderId, status, type, search, pageable);
+        PageResponse<RuleDto> rules = ruleService.listRulesForOrgAdvanced(
+                orgId, folderId, status, type, search,
+                tags, createdBy, updatedAfter, updatedBefore, hasVersion, pageable);
         return ApiResponse.ok(rules);
+    }
+
+    /**
+     * Get filter options for the rules list (distinct statuses, types, spaces).
+     */
+    @GetMapping("/rules/filter-options")
+    public ApiResponse<FilterOptionsDto> getFilterOptions() {
+        UUID orgId = TenantContext.get().orgId();
+        List<SpaceEntity> spaces = spaceRepository.findByOrgId(orgId);
+        List<FilterOptionsDto.SpaceOption> spaceOptions = spaces.stream()
+                .map(s -> new FilterOptionsDto.SpaceOption(s.getId().toString(), s.getName()))
+                .toList();
+
+        FilterOptionsDto options = new FilterOptionsDto(
+                List.of("DRAFT", "PUBLISHED", "ARCHIVED", "PENDING_APPROVAL", "DEPRECATED"),
+                List.of("TABLE", "TREE", "SCRIPT", "FLOW", "SCORECARD", "DMN", "CEP", "ENSEMBLE"),
+                spaceOptions
+        );
+        return ApiResponse.ok(options);
     }
 
     /**

@@ -5,7 +5,7 @@ import { useToastStore } from '@/stores/toast.store';
 interface ExportRuleButtonProps {
   ruleId: string;
   ruleName: string;
-  variant?: 'icon' | 'button';
+  variant?: 'icon' | 'button' | 'menu';
 }
 
 export function ExportRuleButton({ ruleId, ruleName, variant = 'button' }: ExportRuleButtonProps) {
@@ -52,6 +52,19 @@ export function ExportRuleButton({ ruleId, ruleName, variant = 'button' }: Expor
         title="Export rule as JSON"
       >
         <Download className={`h-4 w-4 ${loading ? 'animate-pulse' : ''}`} />
+      </button>
+    );
+  }
+
+  if (variant === 'menu') {
+    return (
+      <button
+        onClick={handleExport}
+        disabled={loading}
+        className="flex w-full items-center gap-2 text-sm text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+      >
+        <Download className={`h-3.5 w-3.5 ${loading ? 'animate-pulse' : ''}`} />
+        {loading ? 'Exporting...' : 'Export'}
       </button>
     );
   }

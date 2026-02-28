@@ -5,8 +5,10 @@ import io.ruleforge.common.dto.ApiResponse;
 import io.ruleforge.common.tenant.TenantContext;
 import io.ruleforge.management.dto.CreateVersionRequest;
 import io.ruleforge.management.dto.RejectVersionRequest;
+import io.ruleforge.management.dto.RequestApprovalRequest;
 import io.ruleforge.management.dto.RuleVersionDto;
 import io.ruleforge.management.dto.UpdateVersionRequest;
+import io.ruleforge.management.service.ApprovalService;
 import io.ruleforge.management.service.VersionService;
 
 import jakarta.validation.Valid;
@@ -28,9 +30,11 @@ import java.util.UUID;
 public class VersionController {
 
     private final VersionService versionService;
+    private final ApprovalService approvalService;
 
-    public VersionController(VersionService versionService) {
+    public VersionController(VersionService versionService, ApprovalService approvalService) {
         this.versionService = versionService;
+        this.approvalService = approvalService;
     }
 
     @PostMapping
@@ -83,8 +87,9 @@ public class VersionController {
     @PostMapping("/{version}/request-approval")
     @AuditLog(action = "REQUEST_APPROVAL", resourceType = "RuleVersion")
     public ApiResponse<RuleVersionDto> requestApproval(@PathVariable UUID ruleId,
-                                                        @PathVariable int version) {
-        RuleVersionDto versionDto = versionService.requestApproval(ruleId, version);
+                                                        @PathVariable int version,
+                                                        @RequestBody(required = false) RequestApprovalRequest request) {
+        RuleVersionDto versionDto = approvalService.requestApproval(ruleId, version, request);
         return ApiResponse.ok(versionDto, "Approval requested successfully");
     }
 
@@ -93,7 +98,7 @@ public class VersionController {
     public ApiResponse<RuleVersionDto> approveVersion(@PathVariable UUID ruleId,
                                                        @PathVariable int version) {
         TenantContext.TenantInfo tenant = TenantContext.get();
-        RuleVersionDto versionDto = versionService.approve(ruleId, version, tenant.userId());
+        RuleVersionDto versionDto = approvalService.approve(ruleId, version, tenant.userId());
         return ApiResponse.ok(versionDto, "Version approved and published successfully");
     }
 
@@ -102,7 +107,15 @@ public class VersionController {
     public ApiResponse<RuleVersionDto> rejectVersion(@PathVariable UUID ruleId,
                                                       @PathVariable int version,
                                                       @RequestBody RejectVersionRequest request) {
-        RuleVersionDto versionDto = versionService.reject(ruleId, version, request.reason());
+        RuleVersionDto versionDto = approvalService.reject(ruleId, version, request.reason());
         return ApiResponse.ok(versionDto, "Version rejected");
+    }
+
+    @PostMapping("/{version}/cancel-approval")
+    @AuditLog(action = "CANCEL_APPROVAL", resourceType = "RuleVersion")
+    public ApiResponse<RuleVersionDto> cancelApproval(@PathVariable UUID ruleId,
+                                                       @PathVariable int version) {
+        RuleVersionDto versionDto = approvalService.cancelApproval(ruleId, version);
+        return ApiResponse.ok(versionDto, "Approval request cancelled");
     }
 }

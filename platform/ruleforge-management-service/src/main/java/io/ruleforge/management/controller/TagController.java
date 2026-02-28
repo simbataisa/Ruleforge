@@ -3,20 +3,18 @@ package io.ruleforge.management.controller;
 import io.ruleforge.common.audit.AuditLog;
 import io.ruleforge.common.dto.ApiResponse;
 import io.ruleforge.common.tenant.TenantContext;
-import io.ruleforge.management.dto.CreateTagRequest;
-import io.ruleforge.management.dto.TagDto;
+import io.ruleforge.management.dto.AddTagsRequest;
+import io.ruleforge.management.dto.TagAutocompleteDto;
 import io.ruleforge.management.service.TagService;
 
 import jakarta.validation.Valid;
-import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.List;
@@ -33,58 +31,51 @@ public class TagController {
     }
 
     /**
-     * List tags for the current org (convenience endpoint for frontend).
+     * Tag autocomplete — returns tags with rule counts, filtered by prefix.
+     * GET /v1/tags?prefix=fraud&limit=20
      */
     @GetMapping("/tags")
-    public ApiResponse<List<TagDto>> listTagsForCurrentOrg() {
+    public ApiResponse<List<TagAutocompleteDto>> autocomplete(
+            @RequestParam(required = false) String prefix,
+            @RequestParam(defaultValue = "20") int limit) {
         UUID orgId = TenantContext.get().orgId();
-        List<TagDto> tags = tagService.listTags(orgId);
+        List<TagAutocompleteDto> tags = tagService.autocomplete(orgId, prefix, Math.min(limit, 100));
         return ApiResponse.ok(tags);
     }
 
-    @PostMapping("/organizations/{orgId}/tags")
-    @ResponseStatus(HttpStatus.CREATED)
-    @AuditLog(action = "CREATE_TAG", resourceType = "Tag")
-    public ApiResponse<TagDto> createTag(@PathVariable UUID orgId,
-                                         @Valid @RequestBody CreateTagRequest request) {
-        TagDto tag = tagService.createTag(orgId, request);
-        return ApiResponse.ok(tag, "Tag created successfully");
+    /**
+     * Add tags to a rule (idempotent).
+     * POST /v1/rules/{ruleId}/tags  Body: { "tags": ["fraud", "payments"] }
+     */
+    @PostMapping("/rules/{ruleId}/tags")
+    @AuditLog(action = "ADD_TAGS_TO_RULE", resourceType = "RuleTag")
+    public ApiResponse<List<String>> addTagsToRule(
+            @PathVariable UUID ruleId,
+            @Valid @RequestBody AddTagsRequest request) {
+        List<String> tags = tagService.addTagsToRule(ruleId, request.tags());
+        return ApiResponse.ok(tags, "Tags added successfully");
     }
 
-    @GetMapping("/organizations/{orgId}/tags")
-    public ApiResponse<List<TagDto>> listTags(@PathVariable UUID orgId) {
-        List<TagDto> tags = tagService.listTags(orgId);
-        return ApiResponse.ok(tags);
-    }
-
-    @PutMapping("/tags/{tagId}")
-    @AuditLog(action = "UPDATE_TAG", resourceType = "Tag")
-    public ApiResponse<TagDto> updateTag(@PathVariable UUID tagId,
-                                         @Valid @RequestBody CreateTagRequest request) {
-        TagDto tag = tagService.updateTag(tagId, request);
-        return ApiResponse.ok(tag, "Tag updated successfully");
-    }
-
-    @DeleteMapping("/tags/{tagId}")
-    @AuditLog(action = "DELETE_TAG", resourceType = "Tag")
-    public ApiResponse<Void> deleteTag(@PathVariable UUID tagId) {
-        tagService.deleteTag(tagId);
-        return ApiResponse.ok(null, "Tag deleted successfully");
-    }
-
-    @PostMapping("/rules/{ruleId}/tags/{tagId}")
-    @AuditLog(action = "ADD_TAG_TO_RULE", resourceType = "RuleTag")
-    public ApiResponse<Void> addTagToRule(@PathVariable UUID ruleId,
-                                          @PathVariable UUID tagId) {
-        tagService.addTagToRule(ruleId, tagId);
-        return ApiResponse.ok(null, "Tag added to rule successfully");
-    }
-
-    @DeleteMapping("/rules/{ruleId}/tags/{tagId}")
+    /**
+     * Remove a tag from a rule.
+     * DELETE /v1/rules/{ruleId}/tags/{tag}
+     */
+    @DeleteMapping("/rules/{ruleId}/tags/{tag}")
     @AuditLog(action = "REMOVE_TAG_FROM_RULE", resourceType = "RuleTag")
-    public ApiResponse<Void> removeTagFromRule(@PathVariable UUID ruleId,
-                                               @PathVariable UUID tagId) {
-        tagService.removeTagFromRule(ruleId, tagId);
-        return ApiResponse.ok(null, "Tag removed from rule successfully");
+    public ApiResponse<Void> removeTagFromRule(
+            @PathVariable UUID ruleId,
+            @PathVariable String tag) {
+        tagService.removeTagFromRule(ruleId, tag);
+        return ApiResponse.ok(null, "Tag removed successfully");
+    }
+
+    /**
+     * Get all tags for a rule.
+     * GET /v1/rules/{ruleId}/tags
+     */
+    @GetMapping("/rules/{ruleId}/tags")
+    public ApiResponse<List<String>> getTagsForRule(@PathVariable UUID ruleId) {
+        List<String> tags = tagService.getTagsForRule(ruleId);
+        return ApiResponse.ok(tags);
     }
 }

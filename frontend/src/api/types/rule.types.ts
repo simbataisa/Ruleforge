@@ -23,8 +23,16 @@ export interface Rule {
   status: RuleStatus;
   latestVersion: number;
   locked: boolean;
+  lockedBy?: string;
+  tags?: string[];
+  createdBy?: string;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface TagCount {
+  tag: string;
+  count: number;
 }
 
 export interface RuleVersion {

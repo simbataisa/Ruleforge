@@ -1,191 +1,249 @@
-import { useState, useEffect, useCallback } from 'react';
-import { Check, X, ClipboardCheck } from 'lucide-react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
+import { Check, X, ClipboardCheck, Clock } from 'lucide-react';
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { Spinner } from '@/shared/components/Spinner';
-import { useRules, useApproveVersion, useRejectVersion } from '@/api/rules.api';
+import { EmptyState } from '@/shared/components/EmptyState';
+import {
+  useApprovalRequests,
+  useApproveVersion,
+  useRejectVersion,
+  useCancelApprovalRequest,
+} from '@/api/rules.api';
+import type { ApprovalRequestDto, ApprovalAssigneeDto } from '@/api/rules.api';
 import { useToastStore } from '@/stores/toast.store';
+import { useAuthStore } from '@/stores/auth.store';
 import { ApprovalDetailPanel } from '../components/ApprovalDetailPanel';
+import { formatRelativeTime } from '../utils/formatRelativeTime';
+import { cn } from '@/shared/utils/cn';
 import type { Rule } from '@/api/types/rule.types';
 
-function formatTimeAgo(dateStr: string): string {
-  const now = Date.now();
-  const then = new Date(dateStr).getTime();
-  const diffMs = now - then;
-  const seconds = Math.floor(diffMs / 1000);
-  if (seconds < 60) return 'just now';
-  const minutes = Math.floor(seconds / 60);
-  if (minutes < 60) return `${minutes}m ago`;
-  const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours}h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days}d ago`;
+type TabId = 'my-queue' | 'my-requests' | 'all-requests';
+
+function slaHoursRemaining(deadline: string | null): number | null {
+  if (!deadline) return null;
+  return (new Date(deadline).getTime() - Date.now()) / (1000 * 60 * 60);
 }
 
-const SLA_HOURS = 48; // 48h SLA window from submission
+function SlaBar({ deadline }: { deadline: string | null }) {
+  const remaining = slaHoursRemaining(deadline);
+  if (remaining == null) return <span className="text-xs text-gray-400">No SLA</span>;
 
-function slaHoursRemaining(createdAt: string): number {
-  const submitted = new Date(createdAt).getTime();
-  const deadline = submitted + SLA_HOURS * 60 * 60 * 1000;
-  return (deadline - Date.now()) / (1000 * 60 * 60);
+  const totalHours = 48;
+  const elapsed = totalHours - remaining;
+  const pct = Math.min(100, Math.max(0, (elapsed / totalHours) * 100));
+
+  let barColor = 'bg-green-500';
+  let textColor = 'text-green-600';
+  let label = `${Math.round(remaining)}h remaining`;
+
+  if (remaining <= 0) {
+    barColor = 'bg-red-500';
+    textColor = 'text-red-500';
+    label = `Overdue by ${Math.abs(Math.round(remaining))}h`;
+  } else if (remaining < totalHours * 0.25) {
+    barColor = 'bg-red-500';
+    textColor = 'text-red-500';
+  } else if (remaining < totalHours * 0.5) {
+    barColor = 'bg-amber-500';
+    textColor = 'text-amber-600';
+  }
+
+  return (
+    <div className="flex items-center gap-2">
+      <div className="w-20 h-1 rounded-full bg-gray-200 overflow-hidden">
+        <div className={cn('h-full rounded-full', barColor)} style={{ width: `${pct}%` }} />
+      </div>
+      <span className={cn('text-[11px] font-medium', textColor)}>{label}</span>
+    </div>
+  );
 }
 
-function SlaIndicator({ createdAt }: { createdAt: string }) {
-  const remaining = slaHoursRemaining(createdAt);
-  if (remaining <= 0) return <Badge color="red">Overdue</Badge>;
-  if (remaining < 2) return <Badge color="red">Due in {Math.ceil(remaining)}h</Badge>;
-  if (remaining < 24) return <Badge color="yellow">Due in {Math.round(remaining)}h</Badge>;
-  return <Badge color="green">Due in {Math.round(remaining)}h</Badge>;
+function AvatarStack({ assignees }: { assignees: ApprovalAssigneeDto[] }) {
+  const shown = assignees.slice(0, 3);
+  const overflow = assignees.length - 3;
+
+  return (
+    <div className="flex items-center -space-x-1.5">
+      {shown.map((a) => (
+        <div
+          key={a.memberId}
+          className={cn(
+            'flex h-6 w-6 items-center justify-center rounded-full border-2 border-white text-[9px] font-medium',
+            a.status === 'APPROVED'
+              ? 'bg-green-100 text-green-700'
+              : a.status === 'REJECTED'
+                ? 'bg-red-100 text-red-700'
+                : 'bg-indigo-100 text-indigo-700',
+          )}
+          title={`${a.name} - ${a.status}`}
+        >
+          {a.name
+            .split(' ')
+            .map((p) => p[0])
+            .slice(0, 2)
+            .join('')
+            .toUpperCase()}
+        </div>
+      ))}
+      {overflow > 0 && (
+        <div className="flex h-6 w-6 items-center justify-center rounded-full border-2 border-white bg-gray-100 text-[9px] font-medium text-gray-600">
+          +{overflow}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function ApprovalStatusBadge({ status }: { status: string }) {
+  switch (status) {
+    case 'PENDING':
+      return <Badge color="yellow">Pending</Badge>;
+    case 'APPROVED':
+      return <Badge color="green">Approved</Badge>;
+    case 'REJECTED':
+      return <Badge color="red">Rejected</Badge>;
+    case 'CANCELLED':
+      return <Badge color="gray">Cancelled</Badge>;
+    default:
+      return <Badge color="gray">{status}</Badge>;
+  }
+}
+
+function toRuleLike(req: ApprovalRequestDto): Rule {
+  return {
+    id: req.ruleId,
+    spaceId: '',
+    name: req.ruleName,
+    type: req.ruleType as Rule['type'],
+    status: 'DRAFT',
+    latestVersion: req.version,
+    locked: false,
+    createdAt: req.requestedAt,
+    updatedAt: req.requestedAt,
+  };
 }
 
 export function ApprovalQueuePage() {
   const addToast = useToastStore((s) => s.addToast);
+  const user = useAuthStore((s) => s.user);
+  const userRole = user?.role ?? '';
   const approveVersion = useApproveVersion();
   const rejectVersion = useRejectVersion();
+  const cancelRequest = useCancelApprovalRequest();
 
-  const { data: rulesData, isLoading } = useRules({
-    status: 'PENDING_APPROVAL',
-  } as never);
+  const canSeeMyQueue = ['OWNER', 'ADMIN', 'APPROVER'].includes(userRole);
+  const canSeeAllRequests = ['OWNER', 'ADMIN'].includes(userRole);
 
-  // Sort by urgency: most overdue (oldest) first
-  const rules: Rule[] = (rulesData?.content ?? []).slice().sort(
-    (a, b) => slaHoursRemaining(a.createdAt) - slaHoursRemaining(b.createdAt),
-  );
+  const defaultTab: TabId = canSeeMyQueue ? 'my-queue' : 'my-requests';
+  const [activeTab, setActiveTab] = useState<TabId>(defaultTab);
+  const [statusFilter, setStatusFilter] = useState<string>('');
+  const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
+  const [rejectingId, setRejectingId] = useState<string | null>(null);
+  const [rejectReason, setRejectReason] = useState('');
 
-  const [selectedId, setSelectedId] = useState<string | null>(null);
-  const [checkedIds, setCheckedIds] = useState<Set<string>>(new Set());
-  const [bulkRejectOpen, setBulkRejectOpen] = useState(false);
-  const [bulkRejectReason, setBulkRejectReason] = useState('');
-  const [keyboardRejectOpen, setKeyboardRejectOpen] = useState(false);
-  const [keyboardRejectReason, setKeyboardRejectReason] = useState('');
+  const queryParams = useMemo(() => {
+    const params: Record<string, unknown> = { size: 50 };
+    if (activeTab === 'my-queue') params.assignedToMe = true;
+    if (activeTab === 'my-requests') params.requestedByMe = true;
+    if (statusFilter) params.status = statusFilter;
+    else if (activeTab === 'my-queue') params.status = 'PENDING';
+    return params;
+  }, [activeTab, statusFilter]);
 
-  const selectedRule = rules.find((r) => r.id === selectedId) ?? null;
-  const selectedIndex = rules.findIndex((r) => r.id === selectedId);
+  const { data, isLoading, refetch } = useApprovalRequests(queryParams as never);
+  const requests: ApprovalRequestDto[] = data?.content ?? [];
 
-  // Auto-select first item
+  const selectedRequest = requests.find((r) => r.id === selectedRequestId) ?? null;
+
   useEffect(() => {
-    if (rules.length > 0 && !selectedId) {
-      setSelectedId(rules[0].id);
+    if (requests.length > 0 && !selectedRequestId) {
+      setSelectedRequestId(requests[0].id);
     }
-  }, [rules, selectedId]);
+  }, [requests, selectedRequestId]);
+
+  useEffect(() => {
+    setSelectedRequestId(null);
+    setStatusFilter('');
+  }, [activeTab]);
+
+  const pendingCount = requests.filter((r) => r.status === 'PENDING').length;
+  const overdueCount = requests.filter((r) => {
+    const rem = slaHoursRemaining(r.deadline);
+    return r.status === 'PENDING' && rem != null && rem <= 0;
+  }).length;
+  const approvedTodayCount = requests.filter((r) => {
+    if (r.status !== 'APPROVED' || !r.resolvedAt) return false;
+    const resolved = new Date(r.resolvedAt);
+    const today = new Date();
+    return resolved.toDateString() === today.toDateString();
+  }).length;
 
   const navigateItem = useCallback(
     (direction: 'next' | 'prev') => {
-      if (rules.length === 0) return;
+      if (requests.length === 0) return;
+      const idx = requests.findIndex((r) => r.id === selectedRequestId);
       if (direction === 'next') {
-        const nextIdx =
-          selectedIndex < rules.length - 1 ? selectedIndex + 1 : 0;
-        setSelectedId(rules[nextIdx].id);
+        const next = idx < requests.length - 1 ? idx + 1 : 0;
+        setSelectedRequestId(requests[next].id);
       } else {
-        const prevIdx =
-          selectedIndex > 0 ? selectedIndex - 1 : rules.length - 1;
-        setSelectedId(rules[prevIdx].id);
+        const prev = idx > 0 ? idx - 1 : requests.length - 1;
+        setSelectedRequestId(requests[prev].id);
       }
     },
-    [rules, selectedIndex],
+    [requests, selectedRequestId],
   );
 
-  const handleBulkApprove = () => {
-    checkedIds.forEach((ruleId) => {
-      const rule = rules.find((r) => r.id === ruleId);
-      if (!rule) return;
-      approveVersion.mutate(
-        { ruleId, version: rule.latestVersion },
-        {
-          onSuccess: () => {
-            addToast({ type: 'success', title: `Approved ${rule.name}` });
-          },
-        },
-      );
-    });
-    setCheckedIds(new Set());
-  };
-
-  const handleBulkReject = () => {
-    if (!bulkRejectReason.trim()) return;
-    checkedIds.forEach((ruleId) => {
-      const rule = rules.find((r) => r.id === ruleId);
-      if (!rule) return;
-      rejectVersion.mutate(
-        { ruleId, version: rule.latestVersion, reason: bulkRejectReason.trim() },
-        {
-          onSuccess: () => {
-            addToast({ type: 'success', title: `Rejected ${rule.name}` });
-          },
-        },
-      );
-    });
-    setCheckedIds(new Set());
-    setBulkRejectOpen(false);
-    setBulkRejectReason('');
-  };
-
-  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
-      if (
-        target.tagName === 'INPUT' ||
-        target.tagName === 'TEXTAREA' ||
-        target.tagName === 'SELECT' ||
-        target.isContentEditable
-      )
-        return;
-
-      switch (e.key.toLowerCase()) {
-        case 'j':
-        case 'n':
-          e.preventDefault();
-          navigateItem('next');
-          break;
-        case 'k':
-        case 'p':
-          e.preventDefault();
-          navigateItem('prev');
-          break;
-        case 'a':
-          if (selectedRule) {
-            e.preventDefault();
-            approveVersion.mutate(
-              { ruleId: selectedRule.id, version: selectedRule.latestVersion },
-              {
-                onSuccess: () =>
-                  addToast({ type: 'success', title: 'Version approved' }),
-                onError: () =>
-                  addToast({ type: 'error', title: 'Failed to approve' }),
-              },
-            );
-          }
-          break;
-        case 'r':
-          if (selectedRule) {
-            e.preventDefault();
-            setKeyboardRejectOpen(true);
-          }
-          break;
-      }
+      if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable) return;
+      if (e.key === 'j') { e.preventDefault(); navigateItem('next'); }
+      if (e.key === 'k') { e.preventDefault(); navigateItem('prev'); }
     };
-
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
-  }, [navigateItem, selectedRule, approveVersion, addToast, keyboardRejectOpen]);
+  }, [navigateItem]);
 
-  const toggleChecked = (id: string) => {
-    setCheckedIds((prev) => {
-      const next = new Set(prev);
-      if (next.has(id)) next.delete(id);
-      else next.add(id);
-      return next;
+  const handleApprove = (req: ApprovalRequestDto) => {
+    approveVersion.mutate(
+      { ruleId: req.ruleId, version: req.version },
+      {
+        onSuccess: () => { addToast({ type: 'success', title: `Approved ${req.ruleName}` }); refetch(); },
+        onError: () => addToast({ type: 'error', title: 'Failed to approve' }),
+      },
+    );
+  };
+
+  const handleReject = (req: ApprovalRequestDto, reason: string) => {
+    if (!reason.trim()) return;
+    rejectVersion.mutate(
+      { ruleId: req.ruleId, version: req.version, reason: reason.trim() },
+      {
+        onSuccess: () => {
+          addToast({ type: 'success', title: `Rejected ${req.ruleName}` });
+          setRejectingId(null);
+          setRejectReason('');
+          refetch();
+        },
+        onError: () => addToast({ type: 'error', title: 'Failed to reject' }),
+      },
+    );
+  };
+
+  const handleCancel = (req: ApprovalRequestDto) => {
+    if (!confirm(`Cancel approval request for "${req.ruleName}"?`)) return;
+    cancelRequest.mutate(req.id, {
+      onSuccess: () => { addToast({ type: 'success', title: `Cancelled request for ${req.ruleName}` }); refetch(); },
+      onError: () => addToast({ type: 'error', title: 'Failed to cancel request' }),
     });
   };
 
-  const toggleAll = () => {
-    if (checkedIds.size === rules.length) {
-      setCheckedIds(new Set());
-    } else {
-      setCheckedIds(new Set(rules.map((r) => r.id)));
-    }
-  };
+  const tabs: { id: TabId; label: string; visible: boolean; count?: number }[] = [
+    { id: 'my-queue', label: 'My Queue', visible: canSeeMyQueue, count: activeTab === 'my-queue' ? pendingCount : undefined },
+    { id: 'my-requests', label: 'My Requests', visible: true },
+    { id: 'all-requests', label: 'All Requests', visible: canSeeAllRequests },
+  ];
 
   if (isLoading) {
     return (
@@ -198,233 +256,326 @@ export function ApprovalQueuePage() {
   return (
     <div className="flex flex-col h-[calc(100vh-8rem)]">
       {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">Approval Queue</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            Review and approve rule versions pending publication.
-            <span className="ml-2 text-xs text-gray-400">
-              Shortcuts: J/K navigate, A approve, R reject
-            </span>
-          </p>
+      <div className="mb-4">
+        <h1 className="text-2xl font-bold text-gray-900">Approvals</h1>
+
+        {/* Tabs */}
+        <div className="flex items-center gap-1 mt-3 border-b border-gray-200">
+          {tabs
+            .filter((t) => t.visible)
+            .map((tab) => (
+              <button
+                key={tab.id}
+                onClick={() => setActiveTab(tab.id)}
+                className={cn(
+                  'relative px-4 py-2 text-sm font-medium transition-colors',
+                  activeTab === tab.id
+                    ? 'text-indigo-600 border-b-2 border-indigo-600'
+                    : 'text-gray-500 hover:text-gray-700',
+                )}
+              >
+                {tab.label}
+                {tab.count != null && tab.count > 0 && (
+                  <span className="ml-1.5 inline-flex items-center justify-center rounded-full bg-indigo-100 px-1.5 py-0.5 text-[10px] font-semibold text-indigo-600">
+                    {tab.count}
+                  </span>
+                )}
+              </button>
+            ))}
         </div>
-        {rules.length > 0 && (
-          <Badge color="yellow">{rules.length} pending</Badge>
-        )}
+
+        {/* Summary bar */}
+        <div className="flex items-center gap-4 mt-2 text-sm">
+          <span className="text-gray-700">
+            <span className="font-semibold">{pendingCount}</span> pending
+          </span>
+          {overdueCount > 0 && (
+            <>
+              <span className="text-gray-300">&middot;</span>
+              <span className="text-red-500">
+                <span className="font-semibold">{overdueCount}</span> overdue
+              </span>
+            </>
+          )}
+          {approvedTodayCount > 0 && (
+            <>
+              <span className="text-gray-300">&middot;</span>
+              <span className="text-green-600">
+                <span className="font-semibold">{approvedTodayCount}</span> approved today
+              </span>
+            </>
+          )}
+        </div>
       </div>
 
-      {rules.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center rounded-lg border border-gray-200 bg-white">
-          <div className="text-center">
-            <ClipboardCheck className="mx-auto h-12 w-12 text-gray-300" />
-            <p className="mt-3 text-gray-500">No rules pending approval.</p>
-            <p className="text-sm text-gray-400">All caught up!</p>
-          </div>
+      {/* Status filter */}
+      <div className="mb-3 flex items-center gap-2">
+        <select
+          value={statusFilter}
+          onChange={(e) => setStatusFilter(e.target.value)}
+          className="h-8 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:border-indigo-500 focus:outline-none"
+        >
+          <option value="">All Statuses</option>
+          <option value="PENDING">Pending</option>
+          <option value="APPROVED">Approved</option>
+          <option value="REJECTED">Rejected</option>
+          <option value="CANCELLED">Cancelled</option>
+        </select>
+        <span className="text-xs text-gray-400 ml-2">J/K to navigate</span>
+      </div>
+
+      {/* Content */}
+      {requests.length === 0 ? (
+        <EmptyState
+          title={
+            activeTab === 'my-queue'
+              ? 'All caught up'
+              : activeTab === 'my-requests'
+                ? 'No pending requests'
+                : 'No approval requests'
+          }
+          description={
+            activeTab === 'my-queue'
+              ? 'No approval requests assigned to you.'
+              : activeTab === 'my-requests'
+                ? 'When you submit rules for approval, they will appear here.'
+                : 'Requests will appear here when rules are submitted for review.'
+          }
+        />
+      ) : activeTab === 'all-requests' ? (
+        /* ALL REQUESTS -- Table view */
+        <div className="flex-1 overflow-auto rounded-lg border border-gray-200 bg-white">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="bg-gray-50 border-b border-gray-200">
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 min-w-[200px]">Rule</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[80px]">Version</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[160px]">Requested by</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[120px]">Requested at</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[140px]">Assignees</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[140px]">SLA</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[100px]">Status</th>
+                <th className="px-4 py-3 text-xs font-semibold uppercase tracking-wider text-gray-500 w-[80px]">Actions</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {requests.map((req) => (
+                <tr
+                  key={req.id}
+                  className={cn(
+                    'hover:bg-gray-50 cursor-pointer transition-colors',
+                    selectedRequestId === req.id && 'bg-indigo-50',
+                  )}
+                  onClick={() => setSelectedRequestId(req.id)}
+                >
+                  <td className="px-4 py-3">
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold text-gray-900">{req.ruleName}</span>
+                      <Badge className="bg-gray-100 text-gray-600 text-[10px]">{req.ruleType}</Badge>
+                    </div>
+                  </td>
+                  <td className="px-4 py-3 text-gray-600">v{req.version}</td>
+                  <td className="px-4 py-3 text-gray-700 text-[13px]">{req.requestedByName}</td>
+                  <td className="px-4 py-3 text-gray-500 text-[13px]">{formatRelativeTime(req.requestedAt)}</td>
+                  <td className="px-4 py-3"><AvatarStack assignees={req.assignees} /></td>
+                  <td className="px-4 py-3"><SlaBar deadline={req.deadline} /></td>
+                  <td className="px-4 py-3"><ApprovalStatusBadge status={req.status} /></td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setSelectedRequestId(req.id); }}
+                      className="text-xs text-indigo-600 hover:text-indigo-700 font-medium"
+                    >
+                      View
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </div>
       ) : (
+        /* MY QUEUE / MY REQUESTS -- Two-panel layout */
         <div className="flex flex-1 gap-0 overflow-hidden rounded-lg border border-gray-200 bg-white">
           {/* Left panel -- queue list */}
-          <div className="w-[360px] shrink-0 border-r border-gray-200 flex flex-col">
-            {/* Select all header */}
-            <div className="flex items-center gap-3 border-b border-gray-200 px-4 py-2 bg-gray-50">
-              <input
-                type="checkbox"
-                checked={checkedIds.size === rules.length && rules.length > 0}
-                onChange={toggleAll}
-                className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <span className="text-xs text-gray-500">
-                {checkedIds.size > 0
-                  ? `${checkedIds.size} selected`
-                  : 'Select all'}
-              </span>
-            </div>
-
-            {/* Scrollable list */}
+          <div className="w-[380px] shrink-0 border-r border-gray-200 flex flex-col">
             <div className="flex-1 overflow-y-auto">
-              {rules.map((rule) => (
-                <div
-                  key={rule.id}
-                  className={`flex items-start gap-3 cursor-pointer border-b border-gray-100 px-4 py-3 transition-colors ${
-                    selectedId === rule.id
-                      ? 'bg-indigo-50 border-l-2 border-l-indigo-600'
-                      : 'hover:bg-gray-50 border-l-2 border-l-transparent'
-                  }`}
-                  onClick={() => setSelectedId(rule.id)}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checkedIds.has(rule.id)}
-                    onChange={(e) => {
-                      e.stopPropagation();
-                      toggleChecked(rule.id);
-                    }}
-                    onClick={(e) => e.stopPropagation()}
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-2">
-                      <span className="truncate text-sm font-medium text-gray-900">
-                        {rule.name}
+              {requests.map((req) => {
+                const isSelected = selectedRequestId === req.id;
+                return (
+                  <div
+                    key={req.id}
+                    className={cn(
+                      'cursor-pointer border-b border-gray-100 px-4 py-3 transition-colors',
+                      isSelected
+                        ? 'bg-indigo-50 border-l-[3px] border-l-indigo-600'
+                        : 'hover:bg-gray-50 border-l-[3px] border-l-transparent',
+                    )}
+                    onClick={() => setSelectedRequestId(req.id)}
+                  >
+                    <div className="flex items-center gap-2 mb-1">
+                      <Badge className="bg-gray-100 text-gray-600 text-[10px]">{req.ruleType}</Badge>
+                      <span className="truncate text-sm font-semibold text-gray-900">{req.ruleName}</span>
+                    </div>
+                    <div className="flex items-center gap-2 text-xs text-gray-500 mb-1.5">
+                      <span>
+                        {activeTab === 'my-requests' ? 'Submitted' : `Requested by: ${req.requestedByName}`}
                       </span>
-                      <Badge color="blue">{rule.type}</Badge>
+                      <span>&middot;</span>
+                      <span>{formatRelativeTime(req.requestedAt)}</span>
                     </div>
-                    <div className="mt-1 flex items-center gap-2 text-xs text-gray-500">
-                      <span>{formatTimeAgo(rule.createdAt)}</span>
-                      <SlaIndicator createdAt={rule.createdAt} />
+                    {activeTab === 'my-queue' && (
+                      <div className="flex items-center gap-3 mb-1.5">
+                        <span className="text-xs text-gray-400">Assignees:</span>
+                        <AvatarStack assignees={req.assignees} />
+                      </div>
+                    )}
+                    <SlaBar deadline={req.deadline} />
+
+                    {/* Inline actions */}
+                    <div className="flex items-center gap-2 mt-2">
+                      <ApprovalStatusBadge status={req.status} />
+                      {activeTab === 'my-queue' && req.status === 'PENDING' && (
+                        <>
+                          <Button
+                            size="sm"
+                            className="ml-auto h-7 bg-green-600 hover:bg-green-700 text-white text-xs"
+                            onClick={(e) => { e.stopPropagation(); handleApprove(req); }}
+                            loading={approveVersion.isPending}
+                          >
+                            <Check className="h-3 w-3" /> Approve
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 border-red-300 text-red-600 hover:bg-red-50 text-xs"
+                            onClick={(e) => { e.stopPropagation(); setRejectingId(req.id); }}
+                          >
+                            <X className="h-3 w-3" /> Reject
+                          </Button>
+                        </>
+                      )}
+                      {activeTab === 'my-requests' && req.status === 'PENDING' && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="ml-auto h-7 text-xs"
+                          onClick={(e) => { e.stopPropagation(); handleCancel(req); }}
+                          loading={cancelRequest.isPending}
+                        >
+                          Cancel
+                        </Button>
+                      )}
                     </div>
+
+                    {/* Reject reason inline */}
+                    {rejectingId === req.id && (
+                      <div className="mt-2 flex items-center gap-2" onClick={(e) => e.stopPropagation()}>
+                        <input
+                          value={rejectReason}
+                          onChange={(e) => setRejectReason(e.target.value)}
+                          placeholder="Rejection reason..."
+                          className="flex-1 rounded border border-red-300 px-2 py-1 text-xs focus:border-red-500 focus:ring-1 focus:ring-red-500"
+                          autoFocus
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter' && rejectReason.trim()) handleReject(req, rejectReason);
+                            if (e.key === 'Escape') { setRejectingId(null); setRejectReason(''); }
+                          }}
+                        />
+                        <Button
+                          size="sm"
+                          variant="danger"
+                          className="h-6 text-xs"
+                          disabled={!rejectReason.trim()}
+                          onClick={() => handleReject(req, rejectReason)}
+                        >
+                          Reject
+                        </Button>
+                        <button
+                          className="text-xs text-gray-400 hover:text-gray-600"
+                          onClick={() => { setRejectingId(null); setRejectReason(''); }}
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    )}
                   </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
 
           {/* Right panel -- detail */}
           <div className="flex-1 min-w-0 flex flex-col">
-            {/* Inline keyboard-triggered reject bar */}
-            {keyboardRejectOpen && selectedRule && (
-              <div className="flex items-center gap-2 border-b border-red-200 bg-red-50 px-4 py-2">
-                <span className="text-sm text-red-700">Reject {selectedRule.name}:</span>
-                <input
-                  type="text"
-                  value={keyboardRejectReason}
-                  onChange={(e) => setKeyboardRejectReason(e.target.value)}
-                  placeholder="Rejection reason (required)..."
-                  className="flex-1 rounded-md border border-red-300 px-3 py-1.5 text-sm focus:border-red-500 focus:ring-1 focus:ring-red-500"
-                  autoFocus
-                  onKeyDown={(e) => {
-                    if (e.key === 'Escape') {
-                      setKeyboardRejectOpen(false);
-                      setKeyboardRejectReason('');
-                    }
-                    if (e.key === 'Enter' && keyboardRejectReason.trim()) {
-                      rejectVersion.mutate(
-                        {
-                          ruleId: selectedRule.id,
-                          version: selectedRule.latestVersion,
-                          reason: keyboardRejectReason.trim(),
-                        },
-                        {
-                          onSuccess: () => {
-                            addToast({ type: 'success', title: 'Version rejected' });
-                            setKeyboardRejectOpen(false);
-                            setKeyboardRejectReason('');
-                          },
-                          onError: () => {
-                            addToast({ type: 'error', title: 'Failed to reject' });
-                          },
-                        },
-                      );
-                    }
-                  }}
-                />
-                <Button
-                  size="sm"
-                  variant="danger"
-                  disabled={!keyboardRejectReason.trim()}
-                  onClick={() => {
-                    if (!keyboardRejectReason.trim()) return;
-                    rejectVersion.mutate(
-                      {
-                        ruleId: selectedRule.id,
-                        version: selectedRule.latestVersion,
-                        reason: keyboardRejectReason.trim(),
-                      },
-                      {
-                        onSuccess: () => {
-                          addToast({ type: 'success', title: 'Version rejected' });
-                          setKeyboardRejectOpen(false);
-                          setKeyboardRejectReason('');
-                        },
-                        onError: () => {
-                          addToast({ type: 'error', title: 'Failed to reject' });
-                        },
-                      },
-                    );
-                  }}
-                >
-                  Reject
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => {
-                    setKeyboardRejectOpen(false);
-                    setKeyboardRejectReason('');
-                  }}
-                >
-                  Cancel
-                </Button>
+            {selectedRequest ? (
+              <>
+                {/* Assignee section */}
+                <div className="border-b border-gray-200 px-6 py-4">
+                  <h4 className="text-sm font-semibold text-gray-700 mb-3">Assignees</h4>
+                  <div className="space-y-2">
+                    {selectedRequest.assignees.map((a) => (
+                      <div key={a.memberId} className="flex items-center gap-3">
+                        <div
+                          className={cn(
+                            'flex h-8 w-8 items-center justify-center rounded-full text-xs font-medium',
+                            a.status === 'APPROVED'
+                              ? 'bg-green-100 text-green-700'
+                              : a.status === 'REJECTED'
+                                ? 'bg-red-100 text-red-700'
+                                : 'bg-indigo-100 text-indigo-700',
+                          )}
+                        >
+                          {a.name.split(' ').map((p) => p[0]).slice(0, 2).join('').toUpperCase()}
+                        </div>
+                        <span className="text-sm font-medium text-gray-900">{a.name}</span>
+                        <div className="ml-auto flex items-center gap-1.5">
+                          {a.status === 'PENDING' && (
+                            <>
+                              <Clock className="h-3.5 w-3.5 text-amber-500" />
+                              <span className="text-xs text-amber-600">Pending</span>
+                            </>
+                          )}
+                          {a.status === 'APPROVED' && (
+                            <>
+                              <Check className="h-3.5 w-3.5 text-green-500" />
+                              <span className="text-xs text-green-600">Approved</span>
+                              {a.respondedAt && (
+                                <span className="text-xs text-gray-400 ml-1">{formatRelativeTime(a.respondedAt)}</span>
+                              )}
+                            </>
+                          )}
+                          {a.status === 'REJECTED' && (
+                            <>
+                              <X className="h-3.5 w-3.5 text-red-500" />
+                              <span className="text-xs text-red-600">Rejected</span>
+                              {a.respondedAt && (
+                                <span className="text-xs text-gray-400 ml-1">{formatRelativeTime(a.respondedAt)}</span>
+                              )}
+                            </>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                  {selectedRequest.note && (
+                    <div className="mt-3 rounded-md bg-gray-50 border border-gray-200 p-2.5">
+                      <p className="text-[11px] font-semibold text-gray-500 mb-0.5">Note from requester</p>
+                      <p className="text-sm text-gray-700">{selectedRequest.note}</p>
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-h-0">
+                  <ApprovalDetailPanel rule={toRuleLike(selectedRequest)} />
+                </div>
+              </>
+            ) : (
+              <div className="flex h-full items-center justify-center">
+                <div className="text-center">
+                  <ClipboardCheck className="mx-auto h-10 w-10 text-gray-300" />
+                  <p className="mt-2 text-sm text-gray-500">Select a request to view details</p>
+                </div>
               </div>
             )}
-            <div className="flex-1 min-h-0">
-              {selectedRule ? (
-                <ApprovalDetailPanel rule={selectedRule} />
-              ) : (
-                <div className="flex h-full items-center justify-center">
-                  <div className="text-center">
-                    <ClipboardCheck className="mx-auto h-10 w-10 text-gray-300" />
-                    <p className="mt-2 text-sm text-gray-500">
-                      Select an approval request
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
           </div>
-        </div>
-      )}
-
-      {/* Bulk action floating bar */}
-      {checkedIds.size > 0 && (
-        <div className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 flex items-center gap-3 rounded-lg border border-gray-200 bg-white px-5 py-3 shadow-lg">
-          <span className="text-sm font-medium text-gray-700">
-            {checkedIds.size} selected
-          </span>
-          <Button size="sm" onClick={handleBulkApprove} className="bg-green-600 hover:bg-green-700 text-white">
-            <Check className="h-4 w-4" />
-            Approve {checkedIds.size} selected
-          </Button>
-          {bulkRejectOpen ? (
-            <div className="flex items-center gap-2">
-              <input
-                type="text"
-                value={bulkRejectReason}
-                onChange={(e) => setBulkRejectReason(e.target.value)}
-                placeholder="Rejection reason..."
-                className="rounded-md border border-gray-300 px-3 py-1.5 text-sm"
-                autoFocus
-              />
-              <Button
-                size="sm"
-                variant="danger"
-                onClick={handleBulkReject}
-                disabled={!bulkRejectReason.trim()}
-              >
-                Confirm
-              </Button>
-              <Button
-                size="sm"
-                variant="outline"
-                onClick={() => {
-                  setBulkRejectOpen(false);
-                  setBulkRejectReason('');
-                }}
-              >
-                Cancel
-              </Button>
-            </div>
-          ) : (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setBulkRejectOpen(true)}
-              className="border-red-300 text-red-600 hover:bg-red-50"
-            >
-              <X className="h-4 w-4" />
-              Reject {checkedIds.size} selected
-            </Button>
-          )}
         </div>
       )}
     </div>
