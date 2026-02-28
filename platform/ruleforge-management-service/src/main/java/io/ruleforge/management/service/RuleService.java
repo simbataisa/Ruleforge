@@ -20,7 +20,9 @@ import io.ruleforge.management.repository.SpaceRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -179,11 +181,12 @@ public class RuleService {
         if (hasAdvancedFilters || (search != null && !search.isBlank())) {
             String[] tagsArray = (tags != null && !tags.isEmpty()) ? tags.toArray(new String[0]) : new String[0];
             boolean tagsEmpty = tagsArray.length == 0;
+            // Native SQL queries need snake_case column names; translate the Pageable sort fields
             page = ruleRepository.findByAdvancedFilters(
                     spaceIds, folderId, search,
                     typesArray, typesEmpty, statusesArray, statusesEmpty,
                     createdBy, updatedAfter, updatedBefore,
-                    tagsArray, tagsEmpty, hasVersion, pageable);
+                    tagsArray, tagsEmpty, hasVersion, translateSortForNativeQuery(pageable));
         } else {
             page = ruleRepository.findByFilters(spaceIds, folderId,
                     Arrays.asList(typesArray), typesEmpty,
@@ -359,6 +362,24 @@ public class RuleService {
         publishEvent("rule.created", copy, tenant);
 
         return toDto(copy);
+    }
+
+    /**
+     * Native SQL queries require snake_case column names, but Spring Pageable carries
+     * camelCase field names from the frontend (e.g. "updatedAt"). Translate them so
+     * PostgreSQL can resolve the ORDER BY clause correctly.
+     */
+    private Pageable translateSortForNativeQuery(Pageable pageable) {
+        if (!pageable.getSort().isSorted()) return pageable;
+        List<Sort.Order> translated = pageable.getSort().stream()
+                .map(o -> {
+                    String col = o.getProperty()
+                            .replaceAll("([A-Z])", "_$1")
+                            .toLowerCase();
+                    return o.isAscending() ? Sort.Order.asc(col) : Sort.Order.desc(col);
+                })
+                .toList();
+        return PageRequest.of(pageable.getPageNumber(), pageable.getPageSize(), Sort.by(translated));
     }
 
     private RuleEntity findRuleOrThrow(UUID ruleId) {
