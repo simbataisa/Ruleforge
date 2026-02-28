@@ -111,7 +111,7 @@ public class NotificationController {
     private void pushAuditEvents(UUID orgId, CopyOnWriteArrayList<UserEmitter> orgEmitters, Instant pollSince) {
         try {
             List<AuditEventEntity> newEvents = auditEventRepository
-                    .findByOrgIdAndTimestampAfterOrderByTimestampDesc(orgId, pollSince);
+                    .findByOrgIdAndCreatedAtAfterOrderByCreatedAtDesc(orgId, pollSince);
 
             for (AuditEventEntity event : newEvents) {
                 String json = objectMapper.writeValueAsString(Map.of(
@@ -119,7 +119,7 @@ public class NotificationController {
                         "eventType", event.getEventType(),
                         "resourceType", event.getResourceType() != null ? event.getResourceType() : "",
                         "resourceId", event.getResourceId() != null ? event.getResourceId() : "",
-                        "timestamp", event.getTimestamp().toString()
+                        "timestamp", event.getCreatedAt().toString()
                 ));
 
                 List<UserEmitter> deadEmitters = new ArrayList<>();

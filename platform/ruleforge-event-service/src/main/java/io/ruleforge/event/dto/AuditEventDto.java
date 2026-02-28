@@ -7,10 +7,15 @@ import java.util.UUID;
 public record AuditEventDto(
         UUID id,
         UUID orgId,
+        UUID spaceId,
         String eventType,
         UUID actorId,
+        String actorName,
+        String actorType,
         String resourceType,
         String resourceId,
+        String resourceName,
         Map<String, Object> changes,
-        Instant timestamp
+        Map<String, Object> metadata,
+        Instant createdAt
 ) {}

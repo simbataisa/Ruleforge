@@ -3,7 +3,7 @@ package io.ruleforge.event.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ruleforge.common.event.DomainEvent;
 import io.ruleforge.event.entity.AuditEventEntity;
-import io.ruleforge.event.repository.AuditEventRepository;
+import io.ruleforge.event.store.AuditEventStore;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -17,20 +17,19 @@ import java.util.Map;
 import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class AuditEventServiceTest {
 
-    @Mock private AuditEventRepository auditEventRepository;
+    @Mock private AuditEventStore auditEventStore;
 
     private AuditEventService auditEventService;
     private final ObjectMapper objectMapper = new ObjectMapper();
 
     @BeforeEach
     void setUp() {
-        auditEventService = new AuditEventService(auditEventRepository, objectMapper);
+        auditEventService = new AuditEventService(auditEventStore, objectMapper);
     }
 
     @Test
@@ -50,12 +49,10 @@ class AuditEventServiceTest {
                 Map.of("name", "Test Rule", "type", "DECISION_TABLE")
         );
 
-        when(auditEventRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
         auditEventService.recordEvent(event);
 
         ArgumentCaptor<AuditEventEntity> captor = ArgumentCaptor.forClass(AuditEventEntity.class);
-        verify(auditEventRepository).save(captor.capture());
+        verify(auditEventStore).save(captor.capture());
 
         AuditEventEntity saved = captor.getValue();
         assertEquals(orgId, saved.getOrgId());
@@ -80,12 +77,10 @@ class AuditEventServiceTest {
                 null
         );
 
-        when(auditEventRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
         auditEventService.recordEvent(event);
 
         ArgumentCaptor<AuditEventEntity> captor = ArgumentCaptor.forClass(AuditEventEntity.class);
-        verify(auditEventRepository).save(captor.capture());
+        verify(auditEventStore).save(captor.capture());
 
         AuditEventEntity saved = captor.getValue();
         assertNull(saved.getChanges());
@@ -105,16 +100,42 @@ class AuditEventServiceTest {
                 payload
         );
 
-        when(auditEventRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
-
         auditEventService.recordEvent(event);
 
         ArgumentCaptor<AuditEventEntity> captor = ArgumentCaptor.forClass(AuditEventEntity.class);
-        verify(auditEventRepository).save(captor.capture());
+        verify(auditEventStore).save(captor.capture());
 
         String changes = captor.getValue().getChanges();
         assertNotNull(changes);
         assertTrue(changes.contains("my-rule"));
         assertTrue(changes.contains("3"));
+    }
+
+    @Test
+    void recordEvent_extractsActorNameAndResourceNameFromPayload() {
+        Map<String, Object> payload = Map.of(
+                "actorName", "Alice Admin",
+                "name", "Loan Eligibility",
+                "actorType", "API_KEY",
+                "spaceId", "d0000000-0000-0000-0000-000000000001"
+        );
+
+        DomainEvent event = DomainEvent.create(
+                "rule.created", "Rule",
+                UUID.randomUUID().toString(),
+                UUID.randomUUID(), UUID.randomUUID(),
+                payload
+        );
+
+        auditEventService.recordEvent(event);
+
+        ArgumentCaptor<AuditEventEntity> captor = ArgumentCaptor.forClass(AuditEventEntity.class);
+        verify(auditEventStore).save(captor.capture());
+
+        AuditEventEntity saved = captor.getValue();
+        assertEquals("Alice Admin", saved.getActorName());
+        assertEquals("Loan Eligibility", saved.getResourceName());
+        assertEquals("API_KEY", saved.getActorType());
+        assertEquals(UUID.fromString("d0000000-0000-0000-0000-000000000001"), saved.getSpaceId());
     }
 }

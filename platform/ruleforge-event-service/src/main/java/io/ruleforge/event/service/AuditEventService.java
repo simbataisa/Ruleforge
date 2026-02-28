@@ -6,12 +6,14 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ruleforge.common.dto.PageResponse;
 import io.ruleforge.common.event.DomainEvent;
 import io.ruleforge.event.dto.AuditEventDto;
+import io.ruleforge.event.dto.AuditQueryFilter;
 import io.ruleforge.event.entity.AuditEventEntity;
-import io.ruleforge.event.repository.AuditEventRepository;
+import io.ruleforge.event.store.AuditEventStore;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,11 +27,11 @@ public class AuditEventService {
 
     private static final Logger log = LoggerFactory.getLogger(AuditEventService.class);
 
-    private final AuditEventRepository auditEventRepository;
+    private final AuditEventStore auditEventStore;
     private final ObjectMapper objectMapper;
 
-    public AuditEventService(AuditEventRepository auditEventRepository, ObjectMapper objectMapper) {
-        this.auditEventRepository = auditEventRepository;
+    public AuditEventService(AuditEventStore auditEventStore, ObjectMapper objectMapper) {
+        this.auditEventStore = auditEventStore;
         this.objectMapper = objectMapper;
     }
 
@@ -41,38 +43,62 @@ public class AuditEventService {
         entity.setActorId(event.actorId());
         entity.setResourceType(event.aggregateType());
         entity.setResourceId(event.aggregateId());
-        entity.setTimestamp(event.timestamp());
+        entity.setCreatedAt(event.timestamp());
+        entity.setActorType("USER");
 
-        try {
-            if (event.payload() != null) {
-                entity.setChanges(objectMapper.writeValueAsString(event.payload()));
+        Map<String, Object> payload = event.payload();
+        if (payload != null) {
+            Object actorName = payload.get("actorName");
+            if (actorName != null) entity.setActorName(actorName.toString());
+
+            Object resourceName = payload.get("name");
+            if (resourceName != null) entity.setResourceName(resourceName.toString());
+
+            Object actorType = payload.get("actorType");
+            if (actorType != null) entity.setActorType(actorType.toString());
+
+            Object spaceId = payload.get("spaceId");
+            if (spaceId != null) {
+                try {
+                    entity.setSpaceId(UUID.fromString(spaceId.toString()));
+                } catch (IllegalArgumentException ignored) {}
             }
-        } catch (JsonProcessingException e) {
-            log.warn("Failed to serialize event payload for event {}: {}", event.eventId(), e.getMessage());
-            entity.setChanges("{}");
+
+            try {
+                entity.setChanges(objectMapper.writeValueAsString(payload));
+            } catch (JsonProcessingException e) {
+                log.warn("Failed to serialize event payload for event {}: {}", event.eventId(), e.getMessage());
+                entity.setChanges("{}");
+            }
         }
 
-        auditEventRepository.save(entity);
+        auditEventStore.save(entity);
         log.debug("Recorded audit event: type={}, aggregateId={}", event.eventType(), event.aggregateId());
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<AuditEventDto> getEvents(UUID orgId, String eventType, Pageable pageable) {
-        Page<AuditEventEntity> page;
-        if (eventType != null && !eventType.isBlank()) {
-            page = auditEventRepository.findByOrgIdAndEventTypeOrderByTimestampDesc(orgId, eventType, pageable);
-        } else {
-            page = auditEventRepository.findByOrgIdOrderByTimestampDesc(orgId, pageable);
-        }
+    public PageResponse<AuditEventDto> getEvents(AuditQueryFilter filter, Pageable pageable) {
+        Page<AuditEventEntity> page = auditEventStore.findByFilter(filter, pageable);
         return toPageResponse(page);
+    }
+
+    @Transactional(readOnly = true)
+    public PageResponse<AuditEventDto> getEvents(UUID orgId, String eventType, Pageable pageable) {
+        AuditQueryFilter filter = new AuditQueryFilter(
+                orgId, eventType, null, null, null, null, null, null
+        );
+        Page<AuditEventEntity> result = auditEventStore.findByFilter(filter, pageable);
+        return toPageResponse(result);
     }
 
     @Transactional(readOnly = true)
     public PageResponse<AuditEventDto> getResourceEvents(UUID orgId, String resourceType,
                                                           String resourceId, Pageable pageable) {
-        Page<AuditEventEntity> page = auditEventRepository
-                .findByOrgIdAndResourceTypeAndResourceIdOrderByTimestampDesc(orgId, resourceType, resourceId, pageable);
-        return toPageResponse(page);
+        AuditQueryFilter filter = new AuditQueryFilter(
+                orgId, null, resourceType, resourceId, null, null, null, null
+        );
+        Page<AuditEventEntity> result = auditEventStore.findByFilter(filter, pageable);
+        return toPageResponse(result);
     }
 
     private PageResponse<AuditEventDto> toPageResponse(Page<AuditEventEntity> page) {
@@ -94,15 +120,28 @@ public class AuditEventService {
                 log.warn("Failed to deserialize changes for audit event {}: {}", entity.getId(), e.getMessage());
             }
         }
+        Map<String, Object> metadata = Collections.emptyMap();
+        if (entity.getMetadata() != null && !entity.getMetadata().isBlank()) {
+            try {
+                metadata = objectMapper.readValue(entity.getMetadata(), new TypeReference<>() {});
+            } catch (JsonProcessingException e) {
+                log.warn("Failed to deserialize metadata for audit event {}: {}", entity.getId(), e.getMessage());
+            }
+        }
         return new AuditEventDto(
                 entity.getId(),
                 entity.getOrgId(),
+                entity.getSpaceId(),
                 entity.getEventType(),
                 entity.getActorId(),
+                entity.getActorName(),
+                entity.getActorType(),
                 entity.getResourceType(),
                 entity.getResourceId(),
+                entity.getResourceName(),
                 changes,
-                entity.getTimestamp()
+                metadata,
+                entity.getCreatedAt()
         );
     }
 }
