@@ -120,6 +120,8 @@ public class RuleController {
             @RequestParam(required = false) UUID folderId,
             @RequestParam(required = false) String status,
             @RequestParam(required = false) String type,
+            @RequestParam(required = false) List<String> types,
+            @RequestParam(required = false) List<String> statuses,
             @RequestParam(required = false) String search,
             @RequestParam(required = false) List<String> tags,
             @RequestParam(required = false) UUID createdBy,
@@ -129,7 +131,7 @@ public class RuleController {
             @PageableDefault(size = 20) Pageable pageable) {
         UUID orgId = TenantContext.get().orgId();
         PageResponse<RuleDto> rules = ruleService.listRulesForOrgAdvanced(
-                orgId, folderId, status, type, search,
+                orgId, folderId, status, type, types, statuses, search,
                 tags, createdBy, updatedAfter, updatedBefore, hasVersion, pageable);
         return ApiResponse.ok(rules);
     }

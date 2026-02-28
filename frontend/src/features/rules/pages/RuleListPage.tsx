@@ -102,14 +102,11 @@ export function RuleListPage() {
     const params: Record<string, unknown> = {
       page,
       size: pageSize,
-      sort: sortBy,
-      direction: sortDir,
+      sort: `${sortBy},${sortDir}`,
     };
     if (debouncedSearch) params.search = debouncedSearch;
-    if (selectedTypes.length === 1) params.type = selectedTypes[0];
-    if (selectedTypes.length > 1) params.types = selectedTypes;
-    if (selectedStatuses.length === 1) params.status = selectedStatuses[0];
-    if (selectedStatuses.length > 1) params.statuses = selectedStatuses;
+    if (selectedTypes.length > 0) params.types = selectedTypes;
+    if (selectedStatuses.length > 0) params.statuses = selectedStatuses;
     if (selectedTags.length > 0) params.tags = selectedTags;
     if (selectedFolderId) params.folderId = selectedFolderId;
     if (datePreset != null) params.updatedAfter = getDateFromPreset(datePreset);

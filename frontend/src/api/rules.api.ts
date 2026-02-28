@@ -29,7 +29,7 @@ export function useRules(params?: RuleListParams) {
     queryFn: async () => {
       const res = await apiClient.get<ApiResponse<PageResponse<Rule>>>(
         '/rules',
-        { params },
+        { params, paramsSerializer: { indexes: null } },
       );
       return res.data.data;
     },

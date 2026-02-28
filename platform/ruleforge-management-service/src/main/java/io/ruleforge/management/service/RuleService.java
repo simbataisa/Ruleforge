@@ -137,13 +137,14 @@ public class RuleService {
     @Transactional(readOnly = true)
     public PageResponse<RuleDto> listRulesForOrg(UUID orgId, UUID folderId, String status,
                                                   String type, String search, Pageable pageable) {
-        return listRulesForOrgAdvanced(orgId, folderId, status, type, search,
+        return listRulesForOrgAdvanced(orgId, folderId, status, type, null, null, search,
                 null, null, null, null, null, pageable);
     }
 
     @Transactional(readOnly = true)
     public PageResponse<RuleDto> listRulesForOrgAdvanced(UUID orgId, UUID folderId, String status,
-                                                          String type, String search,
+                                                          String type, List<String> types,
+                                                          List<String> statuses, String search,
                                                           List<String> tags, UUID createdBy,
                                                           Instant updatedAfter, Instant updatedBefore,
                                                           String hasVersion, Pageable pageable) {
@@ -155,22 +156,38 @@ public class RuleService {
             return new PageResponse<>(List.of(), 0, pageable.getPageSize(), 0, 0);
         }
 
-        boolean hasAdvancedFilters = (tags != null && !tags.isEmpty())
+        // Resolve final filter lists (merge singular + plural params)
+        List<String> resolvedTypes = (types != null && !types.isEmpty()) ? types
+                : (type != null && !type.isBlank()) ? List.of(type) : null;
+        List<String> resolvedStatuses = (statuses != null && !statuses.isEmpty()) ? statuses
+                : (status != null && !status.isBlank()) ? List.of(status) : null;
+
+        boolean hasAdvancedFilters = (resolvedTypes != null && !resolvedTypes.isEmpty())
+                || (resolvedStatuses != null && !resolvedStatuses.isEmpty())
+                || (tags != null && !tags.isEmpty())
                 || createdBy != null
                 || updatedAfter != null
                 || updatedBefore != null
                 || hasVersion != null;
+
+        String[] typesArray = (resolvedTypes != null) ? resolvedTypes.toArray(new String[0]) : new String[0];
+        boolean typesEmpty = typesArray.length == 0;
+        String[] statusesArray = (resolvedStatuses != null) ? resolvedStatuses.toArray(new String[0]) : new String[0];
+        boolean statusesEmpty = statusesArray.length == 0;
 
         Page<RuleEntity> page;
         if (hasAdvancedFilters || (search != null && !search.isBlank())) {
             String[] tagsArray = (tags != null && !tags.isEmpty()) ? tags.toArray(new String[0]) : new String[0];
             boolean tagsEmpty = tagsArray.length == 0;
             page = ruleRepository.findByAdvancedFilters(
-                    spaceIds, folderId, status, type, search,
+                    spaceIds, folderId, search,
+                    typesArray, typesEmpty, statusesArray, statusesEmpty,
                     createdBy, updatedAfter, updatedBefore,
                     tagsArray, tagsEmpty, hasVersion, pageable);
         } else {
-            page = ruleRepository.findByFilters(spaceIds, folderId, status, type, pageable);
+            page = ruleRepository.findByFilters(spaceIds, folderId,
+                    Arrays.asList(typesArray), typesEmpty,
+                    Arrays.asList(statusesArray), statusesEmpty, pageable);
         }
 
         List<RuleDto> content = page.getContent().stream()

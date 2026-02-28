@@ -39,14 +39,16 @@ public interface RuleRepository extends JpaRepository<RuleEntity, UUID> {
         SELECT r FROM RuleEntity r
         WHERE r.spaceId IN :spaceIds
           AND (:folderId IS NULL OR r.folderId = :folderId)
-          AND (:status IS NULL OR r.status = :status)
-          AND (:type IS NULL OR r.type = :type)
+          AND (:typesEmpty = true OR r.type IN :types)
+          AND (:statusesEmpty = true OR r.status IN :statuses)
         """)
     Page<RuleEntity> findByFilters(
         @Param("spaceIds") Collection<UUID> spaceIds,
         @Param("folderId") UUID folderId,
-        @Param("status") String status,
-        @Param("type") String type,
+        @Param("types") Collection<String> types,
+        @Param("typesEmpty") boolean typesEmpty,
+        @Param("statuses") Collection<String> statuses,
+        @Param("statusesEmpty") boolean statusesEmpty,
         Pageable pageable
     );
 
@@ -54,15 +56,17 @@ public interface RuleRepository extends JpaRepository<RuleEntity, UUID> {
         SELECT r FROM RuleEntity r
         WHERE r.spaceId IN :spaceIds
           AND (:folderId IS NULL OR r.folderId = :folderId)
-          AND (:status IS NULL OR r.status = :status)
-          AND (:type IS NULL OR r.type = :type)
+          AND (:typesEmpty = true OR r.type IN :types)
+          AND (:statusesEmpty = true OR r.status IN :statuses)
           AND lower(r.name) LIKE lower(concat('%', :search, '%'))
         """)
     Page<RuleEntity> findByFiltersAndSearch(
         @Param("spaceIds") Collection<UUID> spaceIds,
         @Param("folderId") UUID folderId,
-        @Param("status") String status,
-        @Param("type") String type,
+        @Param("types") Collection<String> types,
+        @Param("typesEmpty") boolean typesEmpty,
+        @Param("statuses") Collection<String> statuses,
+        @Param("statusesEmpty") boolean statusesEmpty,
         @Param("search") String search,
         Pageable pageable
     );
@@ -75,8 +79,8 @@ public interface RuleRepository extends JpaRepository<RuleEntity, UUID> {
         SELECT r.* FROM rules r
         WHERE r.space_id IN (:spaceIds)
           AND (:folderId IS NULL OR r.folder_id = CAST(:folderId AS uuid))
-          AND (:status IS NULL OR r.status = :status)
-          AND (:type IS NULL OR r.type = :type)
+          AND (:typesEmpty = true OR r.type = ANY(CAST(:types AS text[])))
+          AND (:statusesEmpty = true OR r.status = ANY(CAST(:statuses AS text[])))
           AND (:search IS NULL OR (
                lower(r.name) LIKE lower(concat('%', :search, '%'))
                OR lower(COALESCE(r.description, '')) LIKE lower(concat('%', :search, '%'))
@@ -95,8 +99,8 @@ public interface RuleRepository extends JpaRepository<RuleEntity, UUID> {
         SELECT count(*) FROM rules r
         WHERE r.space_id IN (:spaceIds)
           AND (:folderId IS NULL OR r.folder_id = CAST(:folderId AS uuid))
-          AND (:status IS NULL OR r.status = :status)
-          AND (:type IS NULL OR r.type = :type)
+          AND (:typesEmpty = true OR r.type = ANY(CAST(:types AS text[])))
+          AND (:statusesEmpty = true OR r.status = ANY(CAST(:statuses AS text[])))
           AND (:search IS NULL OR (
                lower(r.name) LIKE lower(concat('%', :search, '%'))
                OR lower(COALESCE(r.description, '')) LIKE lower(concat('%', :search, '%'))
@@ -115,9 +119,11 @@ public interface RuleRepository extends JpaRepository<RuleEntity, UUID> {
     Page<RuleEntity> findByAdvancedFilters(
         @Param("spaceIds") Collection<UUID> spaceIds,
         @Param("folderId") UUID folderId,
-        @Param("status") String status,
-        @Param("type") String type,
         @Param("search") String search,
+        @Param("types") String[] types,
+        @Param("typesEmpty") boolean typesEmpty,
+        @Param("statuses") String[] statuses,
+        @Param("statusesEmpty") boolean statusesEmpty,
         @Param("createdBy") UUID createdBy,
         @Param("updatedAfter") Instant updatedAfter,
         @Param("updatedBefore") Instant updatedBefore,
