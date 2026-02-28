@@ -13,13 +13,12 @@ import { useRules, useCreateRule, useCopyRule, useTags, useDeleteRule } from '@/
 import { useFolders, useCreateFolder } from '@/api/folders.api';
 import { useToastStore } from '@/stores/toast.store';
 import { useAuthStore } from '@/stores/auth.store';
-import { FolderTree } from '@/features/rules/components/FolderTree';
+import { RulesExplorer } from '@/features/rules/components/RulesExplorer';
 import { CreateRuleModal } from '@/features/rules/components/CreateRuleModal';
 import { CreateFolderModal } from '@/features/rules/components/CreateFolderModal';
 import { ImportRuleModal } from '@/features/rules/components/ImportRuleModal';
 import { ExportRuleButton } from '@/features/rules/components/ExportRuleButton';
 import { RequestApprovalModal } from '@/features/rules/components/RequestApprovalModal';
-import { FilterPanel } from '@/features/rules/components/FilterPanel';
 import { FilterChips } from '@/features/rules/components/FilterChips';
 import { TagBadge } from '@/features/rules/components/TagBadge';
 import { RuleTypeIcon } from '@/features/rules/components/RuleTypeIcon';
@@ -69,11 +68,6 @@ export function RuleListPage() {
   // Selection
   const [selectedRuleIds, setSelectedRuleIds] = useState<Set<string>>(new Set());
 
-  // Sidebar collapse
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(() => {
-    return localStorage.getItem('ruleforge:sidebar-collapsed') === 'true';
-  });
-
   // Modals
   const [showCreateRule, setShowCreateRule] = useState(false);
   const [showCreateFolder, setShowCreateFolder] = useState(false);
@@ -86,11 +80,6 @@ export function RuleListPage() {
   useEffect(() => {
     localStorage.setItem('ruleforge:rules-view-mode', viewMode);
   }, [viewMode]);
-
-  // Persist sidebar collapse
-  useEffect(() => {
-    localStorage.setItem('ruleforge:sidebar-collapsed', String(sidebarCollapsed));
-  }, [sidebarCollapsed]);
 
   // Debounce search
   useEffect(() => {
@@ -371,10 +360,10 @@ export function RuleListPage() {
       <div className="flex flex-col h-full">
         <PageHeader title="Rules" />
         <div className="flex flex-1 overflow-hidden">
-          <div className="w-[280px] flex-shrink-0 border-r border-gray-200 bg-gray-50 p-4">
-            <div className="space-y-3">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="h-4 animate-pulse rounded bg-gray-200" style={{ width: `${60 + i * 10}%` }} />
+          <div className="w-[260px] flex-shrink-0 border-r border-gray-200 bg-[#f8f8f8] p-3">
+            <div className="space-y-2">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="h-[22px] animate-pulse rounded bg-gray-200" style={{ width: `${50 + i * 8}%` }} />
               ))}
             </div>
           </div>
@@ -421,49 +410,28 @@ export function RuleListPage() {
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}
-        <div
-          className={cn(
-            'flex-shrink-0 border-r border-gray-200 bg-gray-50 overflow-y-auto transition-all duration-200',
-            sidebarCollapsed ? 'w-0 overflow-hidden' : 'w-[280px]',
-          )}
-        >
-          <FolderTree
-            folders={folders}
-            selectedFolderId={selectedFolderId}
-            onSelect={setSelectedFolderId}
-            onCreateFolder={(parentId?: string) => {
-              setCreateFolderParentId(parentId);
-              setShowCreateFolder(true);
-            }}
-          />
-          <FilterPanel
-            selectedStatuses={selectedStatuses}
-            onStatusChange={setSelectedStatuses}
-            selectedTypes={selectedTypes}
-            onTypeChange={setSelectedTypes}
-            selectedTags={selectedTags}
-            onTagChange={setSelectedTags}
-            tags={tags}
-            datePreset={datePreset}
-            onDatePresetChange={setDatePreset}
-          />
-        </div>
-
-        {/* Sidebar toggle */}
-        <button
-          onClick={() => setSidebarCollapsed(!sidebarCollapsed)}
-          className="flex-shrink-0 flex items-center justify-center w-5 hover:bg-gray-100 text-gray-400 hover:text-gray-600 transition-colors"
-          title={sidebarCollapsed ? 'Show sidebar' : 'Hide sidebar'}
-        >
-          {sidebarCollapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </button>
+        <RulesExplorer
+          folders={folders}
+          selectedFolderId={selectedFolderId}
+          onFolderSelect={setSelectedFolderId}
+          onCreateFolder={(parentId) => {
+            setCreateFolderParentId(parentId);
+            setShowCreateFolder(true);
+          }}
+          selectedTypes={selectedTypes}
+          onTypeChange={setSelectedTypes}
+          selectedStatuses={selectedStatuses}
+          onStatusChange={setSelectedStatuses}
+          selectedTags={selectedTags}
+          onTagChange={setSelectedTags}
+          tags={tags}
+          datePreset={datePreset}
+          onDatePresetChange={setDatePreset}
+          activeFilterCount={filterChips.length}
+        />
 
         {/* Main Content */}
-        <div className="flex-1 overflow-auto flex flex-col">
+        <div className="flex-1 min-w-0 overflow-auto flex flex-col">
           <div className="p-6 pb-0">
             {/* Search Bar + View Toggle */}
             <div className="flex items-center gap-3 mb-3">
