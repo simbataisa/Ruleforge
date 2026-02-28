@@ -1,4 +1,4 @@
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from './client';
 import type {
   Rule,
@@ -33,6 +33,10 @@ export function useRules(params?: RuleListParams) {
       );
       return res.data.data;
     },
+    // Keep previous page data while new query (search/filter/page change) loads.
+    // This prevents isLoading from flipping true → the early-return skeleton no longer
+    // unmounts the search input, so focus is preserved while results refresh.
+    placeholderData: keepPreviousData,
   });
 }
 
