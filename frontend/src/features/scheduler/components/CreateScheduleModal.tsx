@@ -4,39 +4,105 @@ import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
 import { useToastStore } from '@/stores/toast.store';
 import { useCreateSchedule } from '@/api/schedules.api';
+import { useRules } from '@/api/rules.api';
+import { JsonModelEditor } from '@/features/rules/components/JsonModelEditor';
+import { cn } from '@/shared/utils/cn';
 
 interface CreateScheduleModalProps {
   isOpen: boolean;
   onClose: () => void;
 }
 
+const CRON_PRESETS = [
+  { label: 'Every 5 min', cron: '*/5 * * * *' },
+  { label: 'Hourly', cron: '0 * * * *' },
+  { label: 'Daily', cron: '0 0 * * *' },
+  { label: 'Weekly', cron: '0 9 * * 1' },
+  { label: 'Monthly', cron: '0 0 1 * *' },
+] as const;
+
+function cronToHuman(cron: string): string {
+  const map: Record<string, string> = {
+    '*/5 * * * *': 'Every 5 minutes',
+    '*/10 * * * *': 'Every 10 minutes',
+    '*/15 * * * *': 'Every 15 minutes',
+    '*/30 * * * *': 'Every 30 minutes',
+    '0 * * * *': 'Every hour',
+    '0 */2 * * *': 'Every 2 hours',
+    '0 */6 * * *': 'Every 6 hours',
+    '0 0 * * *': 'Daily at midnight',
+    '0 9 * * *': 'Daily at 9:00 AM',
+    '0 9 * * 1': 'Weekly on Monday at 9 AM',
+    '0 0 1 * *': 'Monthly on the 1st',
+  };
+  return map[cron] ?? '';
+}
+
 export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProps) {
   const addToast = useToastStore((s) => s.addToast);
   const createSchedule = useCreateSchedule();
+  const { data: rulesData } = useRules({ size: 100 });
 
   const [name, setName] = useState('');
+  const [description, setDescription] = useState('');
   const [ruleId, setRuleId] = useState('');
+  const [ruleName, setRuleName] = useState('');
+  const [ruleType, setRuleType] = useState('');
   const [cronExpression, setCronExpression] = useState('');
   const [timezone, setTimezone] = useState('UTC');
+  const [inputPayload, setInputPayload] = useState('{\n  \n}');
+
+  const rules = rulesData?.content ?? [];
 
   const handleClose = () => {
     setName('');
+    setDescription('');
     setRuleId('');
+    setRuleName('');
+    setRuleType('');
     setCronExpression('');
     setTimezone('UTC');
+    setInputPayload('{\n  \n}');
     onClose();
+  };
+
+  const handleRuleChange = (selectedId: string) => {
+    setRuleId(selectedId);
+    const rule = rules.find((r) => r.id === selectedId);
+    if (rule) {
+      setRuleName(rule.name);
+      setRuleType(rule.type);
+    } else {
+      setRuleName('');
+      setRuleType('');
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !ruleId.trim() || !cronExpression.trim()) return;
+    if (!name.trim() || !ruleId || !cronExpression.trim()) return;
+
+    let parsedPayload: Record<string, unknown> | undefined;
+    try {
+      const trimmed = inputPayload.trim();
+      if (trimmed && trimmed !== '{}' && trimmed !== '{\n  \n}') {
+        parsedPayload = JSON.parse(trimmed);
+      }
+    } catch {
+      addToast({ type: 'error', title: 'Invalid JSON in input template' });
+      return;
+    }
 
     try {
       await createSchedule.mutateAsync({
         name: name.trim(),
-        ruleId: ruleId.trim(),
+        description: description.trim() || undefined,
+        ruleId,
+        ruleName: ruleName || undefined,
+        ruleType: ruleType || undefined,
         cronExpression: cronExpression.trim(),
         timezone,
+        inputPayload: parsedPayload,
       });
       addToast({ type: 'success', title: 'Schedule created successfully' });
       handleClose();
@@ -44,6 +110,8 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
       addToast({ type: 'error', title: 'Failed to create schedule' });
     }
   };
+
+  const humanCron = cronToHuman(cronExpression);
 
   return (
     <Modal open={isOpen} onClose={handleClose} title="Create Schedule">
@@ -63,32 +131,69 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
         </div>
 
         <div>
-          <label htmlFor="sched-rule" className="block text-sm font-medium text-gray-700 mb-1">
-            Rule ID
+          <label htmlFor="sched-desc" className="block text-sm font-medium text-gray-700 mb-1">
+            Description
           </label>
-          <Input
-            id="sched-rule"
-            value={ruleId}
-            onChange={(e) => setRuleId(e.target.value)}
-            placeholder="Enter the rule ID to execute"
-            required
+          <textarea
+            id="sched-desc"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            placeholder="Optional description..."
+            rows={2}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
           />
         </div>
 
         <div>
-          <label htmlFor="sched-cron" className="block text-sm font-medium text-gray-700 mb-1">
-            Cron Expression
+          <label htmlFor="sched-rule" className="block text-sm font-medium text-gray-700 mb-1">
+            Rule
           </label>
+          <select
+            id="sched-rule"
+            value={ruleId}
+            onChange={(e) => handleRuleChange(e.target.value)}
+            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            required
+          >
+            <option value="">Select a rule...</option>
+            {rules.map((r) => (
+              <option key={r.id} value={r.id}>
+                {r.name} ({r.type})
+              </option>
+            ))}
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-2">
+            Frequency
+          </label>
+          <div className="flex flex-wrap gap-2 mb-2">
+            {CRON_PRESETS.map((preset) => (
+              <button
+                key={preset.cron}
+                type="button"
+                onClick={() => setCronExpression(preset.cron)}
+                className={cn(
+                  'rounded-full px-3 py-1 text-xs font-medium border transition-colors',
+                  cronExpression === preset.cron
+                    ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
+                    : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50',
+                )}
+              >
+                {preset.label}
+              </button>
+            ))}
+          </div>
           <Input
-            id="sched-cron"
             value={cronExpression}
             onChange={(e) => setCronExpression(e.target.value)}
-            placeholder="e.g. 0 0 * * *"
+            placeholder="Custom cron: minute hour day month weekday"
             required
           />
-          <p className="text-xs text-gray-400 mt-1">
-            Standard cron format: minute hour day month weekday
-          </p>
+          {humanCron && (
+            <p className="text-xs text-indigo-600 mt-1">{humanCron}</p>
+          )}
         </div>
 
         <div>
@@ -103,6 +208,19 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
           />
         </div>
 
+        <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1">
+            Input Template (JSON)
+          </label>
+          <div className="rounded border border-gray-200 overflow-hidden">
+            <JsonModelEditor
+              value={inputPayload}
+              onChange={setInputPayload}
+              height="200px"
+            />
+          </div>
+        </div>
+
         <div className="flex justify-end gap-3 pt-2">
           <Button type="button" variant="outline" onClick={handleClose}>
             Cancel
@@ -110,7 +228,7 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
           <Button
             type="submit"
             loading={createSchedule.isPending}
-            disabled={!name.trim() || !ruleId.trim() || !cronExpression.trim()}
+            disabled={!name.trim() || !ruleId || !cronExpression.trim()}
           >
             Create Schedule
           </Button>

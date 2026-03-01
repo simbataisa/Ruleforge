@@ -41,6 +41,9 @@ const RuleStatsPage = lazy(() =>
 const SchedulerPage = lazy(() =>
   import('@/features/scheduler/pages/SchedulerPage').then((m) => ({ default: m.SchedulerPage })),
 );
+const ScheduleDetailPage = lazy(() =>
+  import('@/features/scheduler/pages/ScheduleDetailPage').then((m) => ({ default: m.ScheduleDetailPage })),
+);
 const ConnectorsPage = lazy(() =>
   import('@/features/connectors/pages/ConnectorsPage').then((m) => ({ default: m.ConnectorsPage })),
 );
@@ -93,6 +96,7 @@ export const router = createBrowserRouter([
       { path: '/analytics', element: <Lazy><AnalyticsDashboardPage /></Lazy> },
       { path: '/analytics/rules/:ruleId', element: <Lazy><RuleStatsPage /></Lazy> },
       { path: '/schedules', element: <Lazy><SchedulerPage /></Lazy> },
+      { path: '/schedules/:id', element: <Lazy><ScheduleDetailPage /></Lazy> },
       { path: '/connectors', element: <Lazy><ConnectorsPage /></Lazy> },
       { path: '/ab-tests', element: <Lazy><AbTestListPage /></Lazy> },
       { path: '/ab-tests/:id', element: <Lazy><AbTestDetailPage /></Lazy> },

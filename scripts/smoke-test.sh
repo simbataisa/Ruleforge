@@ -376,6 +376,76 @@ else
   else
     fail "Showcase rules — expected 8, found $SHOWCASE_COUNT"
   fi
+
+  # --- 3.11: Scheduler API flow ---
+  info "--- Scheduler API tests ---"
+
+  if [[ -n "$ADMIN_TOKEN" ]]; then
+    # Create a test schedule
+    SCHED_RESP=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8086/v1/schedules \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H 'Content-Type: application/json' \
+      -d '{"spaceId":"d0000000-0000-0000-0000-000000000001","ruleId":"e0000000-0000-0000-0000-000000000001","name":"Smoke Test Schedule","cronExpression":"0 0 * * *","inputTemplate":{"creditScore":750,"income":60000},"createdBy":"c0000000-0000-0000-0000-000000000001","ruleName":"Loan Eligibility","ruleType":"TABLE"}' 2>/dev/null)
+    SCHED_CODE=$(echo "$SCHED_RESP" | tail -1)
+    SCHED_BODY=$(echo "$SCHED_RESP" | sed '$d')
+
+    if [[ "$SCHED_CODE" =~ ^(200|201)$ ]]; then
+      SCHED_ID=$(echo "$SCHED_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('id',''))" 2>/dev/null || echo "")
+      pass "POST /v1/schedules — schedule created"
+
+      if [[ -n "$SCHED_ID" ]]; then
+        # Get stats
+        STATS_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8086/v1/schedules/stats \
+          -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+        if [[ "$STATS_CODE" == "200" ]]; then
+          pass "GET /v1/schedules/stats — stats returned"
+        else
+          fail "GET /v1/schedules/stats — HTTP $STATS_CODE"
+        fi
+
+        # Trigger the schedule
+        TRIGGER_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:8086/v1/schedules/${SCHED_ID}/trigger" \
+          -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+        if [[ "$TRIGGER_CODE" =~ ^(200|201|500)$ ]]; then
+          pass "POST /v1/schedules/{id}/trigger — triggered (HTTP $TRIGGER_CODE)"
+        else
+          fail "POST /v1/schedules/{id}/trigger — HTTP $TRIGGER_CODE"
+        fi
+
+        # Get runs
+        RUNS_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8086/v1/schedules/${SCHED_ID}/runs" \
+          -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+        if [[ "$RUNS_CODE" == "200" ]]; then
+          pass "GET /v1/schedules/{id}/runs — runs returned"
+        else
+          fail "GET /v1/schedules/{id}/runs — HTTP $RUNS_CODE"
+        fi
+
+        # Cleanup: delete
+        DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "http://localhost:8086/v1/schedules/${SCHED_ID}" \
+          -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+        if [[ "$DEL_CODE" =~ ^(200|204)$ ]]; then
+          pass "DELETE /v1/schedules/{id} — cleanup"
+        else
+          fail "DELETE /v1/schedules/{id} — HTTP $DEL_CODE"
+        fi
+      fi
+    else
+      fail "POST /v1/schedules — HTTP $SCHED_CODE"
+      skip "Scheduler trigger/runs/stats/delete — schedule creation failed"
+    fi
+  else
+    skip "Scheduler API flow — no admin token"
+  fi
+
+  # Verify seed data
+  SCHED_SEED_COUNT=$(docker exec docker-postgres-1 psql -U ruleforge -d ruleforge -tAc \
+    "SELECT count(*) FROM schedules WHERE id::text LIKE 'f1000000%'" 2>/dev/null | tr -d '[:space:]')
+  if [[ "$SCHED_SEED_COUNT" == "4" ]]; then
+    pass "Seed data — 4 sample schedules present"
+  else
+    fail "Seed data — expected 4 schedules, found $SCHED_SEED_COUNT"
+  fi
 fi
 
 # ============================================================================

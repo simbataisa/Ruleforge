@@ -11,6 +11,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -34,6 +35,11 @@ public class ScheduleController {
             return ResponseEntity.ok(scheduleService.findAll());
         }
         return ResponseEntity.ok(scheduleService.findBySpaceId(spaceId));
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<?> getStats() {
+        return ResponseEntity.ok(Map.of("success", true, "data", scheduleService.getStats()));
     }
 
     @GetMapping("/{id}")

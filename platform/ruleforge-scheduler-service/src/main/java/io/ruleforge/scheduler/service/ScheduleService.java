@@ -41,6 +41,8 @@ public class ScheduleService {
         entity.setCronExpression(request.cronExpression());
         entity.setInputTemplate(request.inputTemplate() != null ? request.inputTemplate() : java.util.Map.of());
         entity.setDescription(request.description());
+        entity.setRuleName(request.ruleName());
+        entity.setRuleType(request.ruleType());
         entity.setCreatedBy(request.createdBy());
         ScheduleEntity saved = scheduleRepository.save(entity);
 
@@ -159,9 +161,21 @@ public class ScheduleService {
         }
     }
 
+    @Transactional(readOnly = true)
+    public ScheduleStatsDto getStats() {
+        long total = scheduleRepository.count();
+        long active = scheduleRepository.countByEnabledTrue();
+        long paused = total - active;
+        Instant since = Instant.now().minus(24, java.time.temporal.ChronoUnit.HOURS);
+        long successLast24h = scheduleRunRepository.countByStatusAndStartedAtAfter(RunStatus.SUCCESS, since);
+        long failedLast24h = scheduleRunRepository.countByStatusAndStartedAtAfter(RunStatus.FAILED, since);
+        return new ScheduleStatsDto(total, active, paused, successLast24h, failedLast24h);
+    }
+
     private ScheduleDto toDto(ScheduleEntity e) {
         return new ScheduleDto(e.getId(), e.getSpaceId(), e.getRuleId(), e.getName(),
                 e.getCronExpression(), e.getInputTemplate(), e.isEnabled(), e.getDescription(),
+                e.getRuleName(), e.getRuleType(),
                 e.getCreatedBy(), e.getCreatedAt(), e.getUpdatedAt());
     }
 

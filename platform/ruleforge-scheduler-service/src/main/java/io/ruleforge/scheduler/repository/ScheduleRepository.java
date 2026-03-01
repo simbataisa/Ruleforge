@@ -14,4 +14,6 @@ public interface ScheduleRepository extends JpaRepository<ScheduleEntity, UUID> 
     List<ScheduleEntity> findBySpaceIdAndEnabledTrue(UUID spaceId);
 
     Optional<ScheduleEntity> findByIdAndSpaceId(UUID id, UUID spaceId);
+
+    long countByEnabledTrue();
 }

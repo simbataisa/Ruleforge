@@ -13,6 +13,8 @@ public record ScheduleDto(
     Map<String, Object> inputTemplate,
     boolean enabled,
     String description,
+    String ruleName,
+    String ruleType,
     UUID createdBy,
     Instant createdAt,
     Instant updatedAt

@@ -5,8 +5,10 @@ import type { ApiResponse, PageResponse, PageParams } from './types/common.types
 export interface Schedule {
   id: string;
   name: string;
+  description?: string;
   ruleId: string;
   ruleName?: string;
+  ruleType?: string;
   cronExpression: string;
   timezone: string;
   status: 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'FAILED';
@@ -15,6 +17,14 @@ export interface Schedule {
   inputPayload?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
+}
+
+export interface ScheduleStats {
+  total: number;
+  active: number;
+  paused: number;
+  successLast24h: number;
+  failedLast24h: number;
 }
 
 export interface ScheduleRun {
@@ -29,10 +39,24 @@ export interface ScheduleRun {
 
 export interface CreateScheduleRequest {
   name: string;
+  description?: string;
   ruleId: string;
+  ruleName?: string;
+  ruleType?: string;
   cronExpression: string;
   timezone?: string;
   inputPayload?: Record<string, unknown>;
+}
+
+export function useScheduleStats() {
+  return useQuery({
+    queryKey: ['schedules', 'stats'],
+    queryFn: async () => {
+      const res = await apiClient.get<ApiResponse<ScheduleStats>>('/schedules/stats');
+      return res.data.data;
+    },
+    refetchInterval: 30_000,
+  });
 }
 
 export function useSchedules(params?: PageParams) {
@@ -69,6 +93,22 @@ export function useScheduleRuns(scheduleId: string) {
       return res.data.data;
     },
     enabled: !!scheduleId,
+    refetchInterval: 30_000,
+  });
+}
+
+export function useTriggerSchedule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiClient.post<ApiResponse<ScheduleRun>>(`/schedules/${id}/trigger`);
+      return res.data.data;
+    },
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['schedules', id, 'runs'] });
+      queryClient.invalidateQueries({ queryKey: ['schedules', 'stats'] });
+    },
   });
 }
 

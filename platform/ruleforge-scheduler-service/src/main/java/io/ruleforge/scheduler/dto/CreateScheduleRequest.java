@@ -13,5 +13,7 @@ public record CreateScheduleRequest(
     @NotBlank String cronExpression,
     Map<String, Object> inputTemplate,
     String description,
+    String ruleName,
+    String ruleType,
     @NotNull UUID createdBy
 ) {}

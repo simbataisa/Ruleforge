@@ -38,6 +38,12 @@ public class ScheduleEntity {
 
     private String description;
 
+    @Column(name = "rule_name")
+    private String ruleName;
+
+    @Column(name = "rule_type")
+    private String ruleType;
+
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
 
@@ -78,4 +84,8 @@ public class ScheduleEntity {
     public void setCreatedBy(UUID createdBy) { this.createdBy = createdBy; }
     public Instant getCreatedAt() { return createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
+    public String getRuleName() { return ruleName; }
+    public void setRuleName(String ruleName) { this.ruleName = ruleName; }
+    public String getRuleType() { return ruleType; }
+    public void setRuleType(String ruleType) { this.ruleType = ruleType; }
 }
