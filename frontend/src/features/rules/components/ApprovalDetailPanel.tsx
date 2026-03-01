@@ -1,11 +1,12 @@
 import { useState } from 'react';
-import { Check, X, User, Calendar, Layers, ExternalLink, Maximize2 } from 'lucide-react';
+import { Check, X, User, Calendar, Layers, ExternalLink, Maximize2, FileText, AlertCircle } from 'lucide-react';
 import { DiffEditor } from '@monaco-editor/react';
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { Spinner } from '@/shared/components/Spinner';
 import { cn } from '@/shared/utils/cn';
 import { useRuleVersions, useApproveVersion, useRejectVersion } from '@/api/rules.api';
+import type { ApprovalRequestDto } from '@/api/rules.api';
 import { useToastStore } from '@/stores/toast.store';
 import { ApprovalCommentThread } from './ApprovalCommentThread';
 import { ViewToggle } from './ViewToggle';
@@ -14,12 +15,25 @@ import { RuleDefinitionViewer } from './RuleDefinitionViewer';
 import { MonacoDiffModal } from './MonacoDiffModal';
 import type { Rule } from '@/api/types/rule.types';
 
+const RULE_TYPE_COLORS: Record<string, { bg: string; text: string }> = {
+  TABLE: { bg: 'bg-blue-100', text: 'text-blue-700' },
+  TREE: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
+  SCRIPT: { bg: 'bg-orange-100', text: 'text-orange-700' },
+  FLOW: { bg: 'bg-violet-100', text: 'text-violet-700' },
+  SCORECARD: { bg: 'bg-teal-100', text: 'text-teal-700' },
+  DMN: { bg: 'bg-indigo-100', text: 'text-indigo-700' },
+  ENSEMBLE: { bg: 'bg-rose-100', text: 'text-rose-700' },
+  CEP: { bg: 'bg-amber-100', text: 'text-amber-700' },
+  HIERARCHY: { bg: 'bg-cyan-100', text: 'text-cyan-700' },
+};
+
 interface ApprovalDetailPanelProps {
   rule: Rule;
+  approvalRequest?: ApprovalRequestDto;
   onOpenInEditor?: (ruleId: string) => void;
 }
 
-export function ApprovalDetailPanel({ rule, onOpenInEditor }: ApprovalDetailPanelProps) {
+export function ApprovalDetailPanel({ rule, approvalRequest, onOpenInEditor }: ApprovalDetailPanelProps) {
   const addToast = useToastStore((s) => s.addToast);
   const approveVersion = useApproveVersion();
   const rejectVersion = useRejectVersion();
@@ -107,7 +121,14 @@ export function ApprovalDetailPanel({ rule, onOpenInEditor }: ApprovalDetailPane
         <div className="flex items-center gap-3">
           <h2 className="text-lg font-semibold text-gray-900">{rule.name}</h2>
           <Badge color="blue">v{rule.latestVersion}</Badge>
-          <Badge color="gray">{rule.type}</Badge>
+          {(() => {
+            const colors = RULE_TYPE_COLORS[rule.type] ?? { bg: 'bg-gray-100', text: 'text-gray-600' };
+            return (
+              <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold', colors.bg, colors.text)}>
+                {rule.type}
+              </span>
+            );
+          })()}
           {onOpenInEditor && (
             <Button
               size="sm"
@@ -120,6 +141,12 @@ export function ApprovalDetailPanel({ rule, onOpenInEditor }: ApprovalDetailPane
             </Button>
           )}
         </div>
+        {approvalRequest?.requestedByName && (
+          <p className="mt-1.5 text-xs text-gray-500">
+            <User className="inline h-3 w-3 mr-1 -mt-0.5" />
+            Submitted by {approvalRequest.requestedByName}
+          </p>
+        )}
       </div>
 
       {/* Scrollable content */}
@@ -150,11 +177,14 @@ export function ApprovalDetailPanel({ rule, onOpenInEditor }: ApprovalDetailPane
           </div>
         </div>
 
-        {/* Change note */}
+        {/* Change note callout */}
         {currentVersion?.changeNote && (
-          <div className="rounded-md border border-gray-200 bg-gray-50 p-3">
-            <p className="text-xs font-semibold text-gray-500 mb-1">Change Note</p>
-            <p className="text-sm text-gray-700">{currentVersion.changeNote}</p>
+          <div className="rounded-md border border-amber-200 bg-amber-50 p-3">
+            <p className="text-xs font-semibold text-amber-700 mb-1 flex items-center gap-1">
+              <FileText className="h-3 w-3" />
+              What changed
+            </p>
+            <p className="text-sm text-amber-900">{currentVersion.changeNote}</p>
           </div>
         )}
 
@@ -218,12 +248,11 @@ export function ApprovalDetailPanel({ rule, onOpenInEditor }: ApprovalDetailPane
               }}
             />
           ) : defViewMode === 'model' && modelSubMode === 'diff' && !previousVersion ? (
-            <>
-              <JsonModelEditor readOnly value={currentDefStr} height="320px" />
-              <p className="mt-2 text-xs text-gray-500">
-                First version — no previous version to compare.
-              </p>
-            </>
+            <div className="flex flex-col items-center justify-center rounded-lg border border-dashed border-gray-300 bg-gray-50 py-12">
+              <AlertCircle className="h-8 w-8 text-gray-400 mb-3" />
+              <p className="text-sm font-medium text-gray-600">This is version 1</p>
+              <p className="text-xs text-gray-400 mt-1">No previous version to compare</p>
+            </div>
           ) : defViewMode === 'model' ? (
             <JsonModelEditor readOnly value={currentDefStr} height="320px" />
           ) : (

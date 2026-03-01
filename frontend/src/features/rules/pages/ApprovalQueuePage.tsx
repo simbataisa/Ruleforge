@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
-import { Check, X, ClipboardCheck, Clock, Search } from 'lucide-react';
+import { Check, X, ClipboardCheck, Clock, Search, ChevronDown } from 'lucide-react';
 import { Badge } from '@/shared/components/Badge';
 import { Button } from '@/shared/components/Button';
 import { Spinner } from '@/shared/components/Spinner';
@@ -20,6 +20,27 @@ import { cn } from '@/shared/utils/cn';
 import type { Rule } from '@/api/types/rule.types';
 
 type TabId = 'my-queue' | 'my-requests' | 'all-requests';
+
+const RULE_TYPE_COLORS: Record<string, { bg: string; text: string }> = {
+  TABLE: { bg: 'bg-blue-100', text: 'text-blue-700' },
+  TREE: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
+  SCRIPT: { bg: 'bg-orange-100', text: 'text-orange-700' },
+  FLOW: { bg: 'bg-violet-100', text: 'text-violet-700' },
+  SCORECARD: { bg: 'bg-teal-100', text: 'text-teal-700' },
+  DMN: { bg: 'bg-indigo-100', text: 'text-indigo-700' },
+  ENSEMBLE: { bg: 'bg-rose-100', text: 'text-rose-700' },
+  CEP: { bg: 'bg-amber-100', text: 'text-amber-700' },
+  HIERARCHY: { bg: 'bg-cyan-100', text: 'text-cyan-700' },
+};
+
+function RuleTypeBadge({ type }: { type: string }) {
+  const colors = RULE_TYPE_COLORS[type] ?? { bg: 'bg-gray-100', text: 'text-gray-600' };
+  return (
+    <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold', colors.bg, colors.text)}>
+      {type}
+    </span>
+  );
+}
 
 function slaHoursRemaining(deadline: string | null): number | null {
   if (!deadline) return null;
@@ -140,6 +161,7 @@ export function ApprovalQueuePage() {
   const [activeTab, setActiveTab] = useState<TabId>('my-requests');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [nameFilter, setNameFilter] = useState('');
+  const [typeFilter, setTypeFilter] = useState<string>('');
   const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
   const [rejectReason, setRejectReason] = useState('');
@@ -156,10 +178,16 @@ export function ApprovalQueuePage() {
   const { data, isLoading } = useApprovalRequests(queryParams as never);
   const allRequests: ApprovalRequestDto[] = data?.content ?? [];
   const requests = useMemo(() => {
-    if (!nameFilter.trim()) return allRequests;
-    const q = nameFilter.toLowerCase();
-    return allRequests.filter((r) => r.ruleName?.toLowerCase().includes(q));
-  }, [allRequests, nameFilter]);
+    let filtered = allRequests;
+    if (nameFilter.trim()) {
+      const q = nameFilter.toLowerCase();
+      filtered = filtered.filter((r) => r.ruleName?.toLowerCase().includes(q));
+    }
+    if (typeFilter) {
+      filtered = filtered.filter((r) => r.ruleType === typeFilter);
+    }
+    return filtered;
+  }, [allRequests, nameFilter, typeFilter]);
 
   const selectedRequest = requests.find((r) => r.id === selectedRequestId) ?? null;
 
@@ -173,6 +201,7 @@ export function ApprovalQueuePage() {
     setSelectedRequestId(null);
     setStatusFilter('');
     setNameFilter('');
+    setTypeFilter('');
   }, [activeTab]);
 
   useEffect(() => {
@@ -192,6 +221,7 @@ export function ApprovalQueuePage() {
     const today = new Date();
     return resolved.toDateString() === today.toDateString();
   }).length;
+  const distinctTypeCount = new Set(allRequests.map((r) => r.ruleType)).size;
 
   const navigateItem = useCallback(
     (direction: 'next' | 'prev') => {
@@ -212,12 +242,19 @@ export function ApprovalQueuePage() {
     const handler = (e: KeyboardEvent) => {
       const target = e.target as HTMLElement;
       if (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable) return;
-      if (e.key === 'j') { e.preventDefault(); navigateItem('next'); }
-      if (e.key === 'k') { e.preventDefault(); navigateItem('prev'); }
+      if (e.key === 'j' || e.key === 'ArrowDown') { e.preventDefault(); navigateItem('next'); }
+      if (e.key === 'k' || e.key === 'ArrowUp') { e.preventDefault(); navigateItem('prev'); }
     };
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [navigateItem]);
+
+  // Auto-select first item when filters change and current selection is no longer visible
+  useEffect(() => {
+    if (selectedRequestId && !requests.find((r) => r.id === selectedRequestId)) {
+      setSelectedRequestId(requests.length > 0 ? requests[0].id : null);
+    }
+  }, [requests, selectedRequestId]);
 
   const handleApprove = (req: ApprovalRequestDto) => {
     approveVersion.mutate(
@@ -318,6 +355,14 @@ export function ApprovalQueuePage() {
               </span>
             </>
           )}
+          {distinctTypeCount > 0 && (
+            <>
+              <span className="text-gray-300">&middot;</span>
+              <span className="text-gray-600">
+                <span className="font-semibold">{distinctTypeCount}</span> type{distinctTypeCount !== 1 ? 's' : ''}
+              </span>
+            </>
+          )}
         </div>
       </div>
 
@@ -350,7 +395,21 @@ export function ApprovalQueuePage() {
             </button>
           ))}
         </div>
-        <span className="text-xs text-gray-400 ml-auto">J/K to navigate</span>
+        {/* Type filter */}
+        <div className="relative">
+          <select
+            value={typeFilter}
+            onChange={(e) => setTypeFilter(e.target.value)}
+            className="h-8 appearance-none rounded-lg border border-gray-200 bg-white pl-3 pr-7 text-sm text-gray-700 focus:border-indigo-500 focus:outline-none"
+          >
+            <option value="">All types</option>
+            {Object.keys(RULE_TYPE_COLORS).map((t) => (
+              <option key={t} value={t}>{t}</option>
+            ))}
+          </select>
+          <ChevronDown className="absolute right-2 top-1/2 -translate-y-1/2 h-3.5 w-3.5 text-gray-400 pointer-events-none" />
+        </div>
+        <span className="text-xs text-gray-400 ml-auto">J/K or arrows to navigate</span>
       </div>
 
       {/* Content */}
@@ -402,8 +461,11 @@ export function ApprovalQueuePage() {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-2">
                           <span className="font-semibold text-gray-900">{req.ruleName}</span>
-                          <Badge className="bg-gray-100 text-gray-600 text-[10px]">{req.ruleType}</Badge>
+                          <RuleTypeBadge type={req.ruleType} />
                         </div>
+                        {req.note && (
+                          <p className="mt-0.5 max-w-full truncate text-xs text-gray-500">{req.note}</p>
+                        )}
                       </td>
                       <td className="px-4 py-3 text-gray-600">v{req.version}</td>
                       <td className="px-4 py-3 text-gray-700 text-[13px]">{req.requestedByName}</td>
@@ -438,7 +500,7 @@ export function ApprovalQueuePage() {
                 </button>
               </div>
               <div className="flex-1 min-h-0 overflow-hidden">
-                <ApprovalDetailPanel rule={toRuleLike(selectedRequest)} onOpenInEditor={(id) => navigate(`/rules/${id}/edit`)} />
+                <ApprovalDetailPanel rule={toRuleLike(selectedRequest)} approvalRequest={selectedRequest} onOpenInEditor={(id) => navigate(`/rules/${id}/edit`)} />
               </div>
             </div>
           )}
@@ -472,9 +534,12 @@ export function ApprovalQueuePage() {
                     onClick={() => setSelectedRequestId(req.id)}
                   >
                     <div className="flex items-center gap-2 mb-1">
-                      <Badge className="bg-gray-100 text-gray-600 text-[10px]">{req.ruleType}</Badge>
+                      <RuleTypeBadge type={req.ruleType} />
                       <span className="truncate text-sm font-semibold text-gray-900">{req.ruleName}</span>
                     </div>
+                    {req.note && (
+                      <p className="max-w-full truncate text-xs text-gray-500 mb-1">{req.note}</p>
+                    )}
                     <div className="flex items-center gap-2 text-xs text-gray-500 mb-1.5">
                       <span>
                         {activeTab === 'my-requests' ? 'Submitted' : `Requested by: ${req.requestedByName}`}
@@ -623,7 +688,7 @@ export function ApprovalQueuePage() {
                   )}
                 </div>
                 <div className="flex-1 min-h-0">
-                  <ApprovalDetailPanel rule={toRuleLike(selectedRequest)} onOpenInEditor={(id) => navigate(`/rules/${id}/edit`)} />
+                  <ApprovalDetailPanel rule={toRuleLike(selectedRequest)} approvalRequest={selectedRequest} onOpenInEditor={(id) => navigate(`/rules/${id}/edit`)} />
                 </div>
               </>
             ) : (
