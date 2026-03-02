@@ -20,8 +20,11 @@ public class ScheduleEntity {
     @Column(name = "space_id", nullable = false)
     private UUID spaceId;
 
-    @Column(name = "rule_id", nullable = false)
+    @Column(name = "rule_id")
     private UUID ruleId;
+
+    @Column(name = "workflow_id")
+    private UUID workflowId;
 
     @Column(nullable = false)
     private String name;
@@ -88,4 +91,6 @@ public class ScheduleEntity {
     public void setRuleName(String ruleName) { this.ruleName = ruleName; }
     public String getRuleType() { return ruleType; }
     public void setRuleType(String ruleType) { this.ruleType = ruleType; }
+    public UUID getWorkflowId() { return workflowId; }
+    public void setWorkflowId(UUID workflowId) { this.workflowId = workflowId; }
 }

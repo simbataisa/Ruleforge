@@ -17,5 +17,10 @@ public record ScheduleDto(
     String ruleType,
     UUID createdBy,
     Instant createdAt,
-    Instant updatedAt
+    Instant updatedAt,
+    String status,
+    Instant nextRunAt,
+    Instant lastRunAt,
+    UUID workflowId,
+    String workflowName
 ) {}

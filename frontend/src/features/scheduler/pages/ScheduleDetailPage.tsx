@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Pause, Trash2, Zap } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Trash2, Zap, Pencil } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Badge } from '@/shared/components/Badge';
 import { Spinner } from '@/shared/components/Spinner';
@@ -15,8 +15,10 @@ import {
   usePauseSchedule,
   useResumeSchedule,
   useDeleteSchedule,
+  type Schedule,
   type ScheduleRun,
 } from '@/api/schedules.api';
+import { EditScheduleModal } from '../components/EditScheduleModal';
 
 type BadgeColor = 'gray' | 'green' | 'blue' | 'yellow' | 'red';
 
@@ -56,7 +58,7 @@ function runStatusColor(status: string): BadgeColor {
       return 'red';
     case 'RUNNING':
       return 'blue';
-    case 'SKIPPED':
+    case 'CANCELLED':
       return 'gray';
     default:
       return 'gray';
@@ -85,6 +87,7 @@ export function ScheduleDetailPage() {
   const navigate = useNavigate();
   const addToast = useToastStore((s) => s.addToast);
   const [activeTab, setActiveTab] = useState<'history' | 'config'>('history');
+  const [showEdit, setShowEdit] = useState(false);
 
   const { data: schedule, isLoading } = useSchedule(id ?? '');
   const { data: runs } = useScheduleRuns(id ?? '');
@@ -168,11 +171,28 @@ export function ScheduleDetailPage() {
         )}
       </div>
 
+      {/* Linked workflow */}
+      {schedule.workflowId && (
+        <div className="mb-4">
+          <span className="text-sm text-gray-500">Linked Workflow: </span>
+          <button
+            onClick={() => navigate(`/workflows/${schedule.workflowId}`)}
+            className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
+          >
+            {schedule.workflowName ?? schedule.workflowId}
+          </button>
+        </div>
+      )}
+
       {/* Action buttons */}
       <div className="flex items-center gap-3 mb-6">
         <Button onClick={handleTrigger} loading={triggerSchedule.isPending}>
           <Zap className="h-4 w-4" />
           Trigger Now
+        </Button>
+        <Button variant="outline" onClick={() => setShowEdit(true)}>
+          <Pencil className="h-4 w-4" />
+          Edit
         </Button>
         {(schedule.status === 'ACTIVE' || schedule.status === 'PAUSED') && (
           <Button variant="outline" onClick={handleToggle}>
@@ -256,10 +276,10 @@ export function ScheduleDetailPage() {
           {/* Input Template */}
           <div>
             <h3 className="text-sm font-semibold text-gray-700 mb-2">Input Template</h3>
-            {schedule.inputPayload ? (
+            {schedule.inputTemplate ? (
               <div className="rounded border border-gray-200 overflow-hidden">
                 <JsonModelEditor
-                  value={JSON.stringify(schedule.inputPayload, null, 2)}
+                  value={JSON.stringify(schedule.inputTemplate, null, 2)}
                   readOnly
                   height="300px"
                 />
@@ -289,6 +309,14 @@ export function ScheduleDetailPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {showEdit && (
+        <EditScheduleModal
+          isOpen={showEdit}
+          onClose={() => setShowEdit(false)}
+          schedule={schedule as Schedule}
+        />
       )}
     </div>
   );

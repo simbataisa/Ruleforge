@@ -59,6 +59,16 @@ public class ScheduleController {
         return ResponseEntity.noContent().build();
     }
 
+    @PostMapping("/{id}/pause")
+    public ResponseEntity<ScheduleDto> pause(@PathVariable UUID id) {
+        return ResponseEntity.ok(scheduleService.pause(id));
+    }
+
+    @PostMapping("/{id}/resume")
+    public ResponseEntity<ScheduleDto> resume(@PathVariable UUID id) {
+        return ResponseEntity.ok(scheduleService.resume(id));
+    }
+
     @PostMapping("/{id}/trigger")
     public ResponseEntity<ScheduleRunDto> trigger(@PathVariable UUID id) {
         return ResponseEntity.ok(scheduleService.triggerManually(id));

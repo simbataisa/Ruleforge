@@ -11,8 +11,8 @@ public record ScheduleRunDto(
     RunStatus status,
     Instant startedAt,
     Instant completedAt,
-    String resultLocation,
-    String errorMessage,
+    String result,
+    String error,
     int recordsProcessed,
     Instant createdAt
 ) {}

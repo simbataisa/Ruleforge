@@ -8,12 +8,13 @@ import java.util.UUID;
 
 public record CreateScheduleRequest(
     @NotNull UUID spaceId,
-    @NotNull UUID ruleId,
+    UUID ruleId,
     @NotBlank String name,
     @NotBlank String cronExpression,
     Map<String, Object> inputTemplate,
     String description,
     String ruleName,
     String ruleType,
-    @NotNull UUID createdBy
+    @NotNull UUID createdBy,
+    UUID workflowId
 ) {}

@@ -9,12 +9,14 @@ export interface Schedule {
   ruleId: string;
   ruleName?: string;
   ruleType?: string;
+  workflowId?: string;
+  workflowName?: string;
   cronExpression: string;
   timezone: string;
   status: 'ACTIVE' | 'PAUSED' | 'COMPLETED' | 'FAILED';
   nextRunAt?: string;
   lastRunAt?: string;
-  inputPayload?: Record<string, unknown>;
+  inputTemplate?: Record<string, unknown>;
   createdAt: string;
   updatedAt: string;
 }
@@ -30,7 +32,7 @@ export interface ScheduleStats {
 export interface ScheduleRun {
   id: string;
   scheduleId: string;
-  status: 'SUCCESS' | 'FAILED' | 'RUNNING' | 'SKIPPED';
+  status: 'SUCCESS' | 'FAILED' | 'RUNNING' | 'CANCELLED';
   startedAt: string;
   completedAt?: string;
   result?: Record<string, unknown>;
@@ -43,9 +45,10 @@ export interface CreateScheduleRequest {
   ruleId: string;
   ruleName?: string;
   ruleType?: string;
+  workflowId?: string;
   cronExpression: string;
   timezone?: string;
-  inputPayload?: Record<string, unknown>;
+  inputTemplate?: Record<string, unknown>;
 }
 
 export function useScheduleStats() {
@@ -63,11 +66,10 @@ export function useSchedules(params?: PageParams) {
   return useQuery({
     queryKey: ['schedules', params],
     queryFn: async () => {
-      const res = await apiClient.get<ApiResponse<PageResponse<Schedule>>>(
-        '/schedules',
-        { params },
-      );
-      return res.data.data;
+      const res = await apiClient.get<Schedule[]>('/schedules', { params });
+      // Backend returns a plain array; wrap into PageResponse shape for consistency
+      const items = Array.isArray(res.data) ? res.data : (res.data as unknown as ApiResponse<Schedule[]>).data ?? [];
+      return { content: items, page: 0, size: items.length, totalElements: items.length, totalPages: 1 } as PageResponse<Schedule>;
     },
   });
 }
@@ -76,8 +78,8 @@ export function useSchedule(id: string) {
   return useQuery({
     queryKey: ['schedules', id],
     queryFn: async () => {
-      const res = await apiClient.get<ApiResponse<Schedule>>(`/schedules/${id}`);
-      return res.data.data;
+      const res = await apiClient.get<Schedule>(`/schedules/${id}`);
+      return res.data;
     },
     enabled: !!id,
   });
@@ -87,10 +89,12 @@ export function useScheduleRuns(scheduleId: string) {
   return useQuery({
     queryKey: ['schedules', scheduleId, 'runs'],
     queryFn: async () => {
-      const res = await apiClient.get<ApiResponse<ScheduleRun[]>>(
+      const res = await apiClient.get<ScheduleRun[] | { content: ScheduleRun[] }>(
         `/schedules/${scheduleId}/runs`,
       );
-      return res.data.data;
+      // Backend returns Spring Page object with content array
+      const data = res.data;
+      return Array.isArray(data) ? data : (data as { content: ScheduleRun[] }).content ?? [];
     },
     enabled: !!scheduleId,
     refetchInterval: 30_000,
@@ -102,8 +106,8 @@ export function useTriggerSchedule() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiClient.post<ApiResponse<ScheduleRun>>(`/schedules/${id}/trigger`);
-      return res.data.data;
+      const res = await apiClient.post<ScheduleRun>(`/schedules/${id}/trigger`);
+      return res.data;
     },
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ['schedules', id, 'runs'] });
@@ -117,8 +121,8 @@ export function useCreateSchedule() {
 
   return useMutation({
     mutationFn: async (data: CreateScheduleRequest) => {
-      const res = await apiClient.post<ApiResponse<Schedule>>('/schedules', data);
-      return res.data.data;
+      const res = await apiClient.post<Schedule>('/schedules', data);
+      return res.data;
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
@@ -131,8 +135,8 @@ export function useUpdateSchedule() {
 
   return useMutation({
     mutationFn: async ({ id, data }: { id: string; data: Partial<CreateScheduleRequest> }) => {
-      const res = await apiClient.put<ApiResponse<Schedule>>(`/schedules/${id}`, data);
-      return res.data.data;
+      const res = await apiClient.put<Schedule>(`/schedules/${id}`, data);
+      return res.data;
     },
     onSuccess: (_data, variables) => {
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
@@ -159,8 +163,8 @@ export function usePauseSchedule() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiClient.post<ApiResponse<Schedule>>(`/schedules/${id}/pause`);
-      return res.data.data;
+      const res = await apiClient.post<Schedule>(`/schedules/${id}/pause`);
+      return res.data;
     },
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ['schedules'] });
@@ -174,8 +178,8 @@ export function useResumeSchedule() {
 
   return useMutation({
     mutationFn: async (id: string) => {
-      const res = await apiClient.post<ApiResponse<Schedule>>(`/schedules/${id}/resume`);
-      return res.data.data;
+      const res = await apiClient.post<Schedule>(`/schedules/${id}/resume`);
+      return res.data;
     },
     onSuccess: (_data, id) => {
       queryClient.invalidateQueries({ queryKey: ['schedules'] });

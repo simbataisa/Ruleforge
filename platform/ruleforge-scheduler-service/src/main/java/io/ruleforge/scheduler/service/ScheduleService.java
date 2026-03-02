@@ -6,6 +6,7 @@ import io.ruleforge.scheduler.entity.ScheduleRunEntity;
 import io.ruleforge.scheduler.entity.RunStatus;
 import io.ruleforge.scheduler.repository.ScheduleRepository;
 import io.ruleforge.scheduler.repository.ScheduleRunRepository;
+import io.ruleforge.scheduler.workflow.repository.WorkflowRepository;
 import org.quartz.*;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -23,20 +24,28 @@ public class ScheduleService {
 
     private final ScheduleRepository scheduleRepository;
     private final ScheduleRunRepository scheduleRunRepository;
+    private final WorkflowRepository workflowRepository;
     private final Scheduler quartzScheduler;
 
     public ScheduleService(ScheduleRepository scheduleRepository,
                             ScheduleRunRepository scheduleRunRepository,
+                            WorkflowRepository workflowRepository,
                             Scheduler quartzScheduler) {
         this.scheduleRepository = scheduleRepository;
         this.scheduleRunRepository = scheduleRunRepository;
+        this.workflowRepository = workflowRepository;
         this.quartzScheduler = quartzScheduler;
     }
 
     public ScheduleDto create(CreateScheduleRequest request) {
+        if (request.ruleId() == null && request.workflowId() == null) {
+            throw new IllegalArgumentException("Schedule must have either ruleId or workflowId");
+        }
+
         ScheduleEntity entity = new ScheduleEntity();
         entity.setSpaceId(request.spaceId());
         entity.setRuleId(request.ruleId());
+        entity.setWorkflowId(request.workflowId());
         entity.setName(request.name());
         entity.setCronExpression(request.cronExpression());
         entity.setInputTemplate(request.inputTemplate() != null ? request.inputTemplate() : java.util.Map.of());
@@ -82,6 +91,7 @@ public class ScheduleService {
         if (request.cronExpression() != null) entity.setCronExpression(request.cronExpression());
         if (request.inputTemplate() != null) entity.setInputTemplate(request.inputTemplate());
         if (request.description() != null) entity.setDescription(request.description());
+        if (request.workflowId() != null) entity.setWorkflowId(request.workflowId());
 
         if (request.enabled() != null) {
             boolean wasEnabled = entity.isEnabled();
@@ -172,11 +182,51 @@ public class ScheduleService {
         return new ScheduleStatsDto(total, active, paused, successLast24h, failedLast24h);
     }
 
+    public ScheduleDto pause(UUID id) {
+        ScheduleEntity entity = scheduleRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Schedule not found: " + id));
+        entity.setEnabled(false);
+        unscheduleQuartzJob(id);
+        return toDto(scheduleRepository.save(entity));
+    }
+
+    public ScheduleDto resume(UUID id) {
+        ScheduleEntity entity = scheduleRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Schedule not found: " + id));
+        entity.setEnabled(true);
+        scheduleQuartzJob(entity);
+        return toDto(scheduleRepository.save(entity));
+    }
+
     private ScheduleDto toDto(ScheduleEntity e) {
+        String status = e.isEnabled() ? "ACTIVE" : "PAUSED";
+
+        Instant nextRunAt = null;
+        try {
+            var trigger = quartzScheduler.getTrigger(TriggerKey.triggerKey("trigger-" + e.getId()));
+            if (trigger != null && trigger.getNextFireTime() != null) {
+                nextRunAt = trigger.getNextFireTime().toInstant();
+            }
+        } catch (Exception ignored) {
+        }
+
+        Instant lastRunAt = scheduleRunRepository.findTopByScheduleIdOrderByStartedAtDesc(e.getId())
+                .map(ScheduleRunEntity::getStartedAt)
+                .orElse(null);
+
+        String workflowName = null;
+        if (e.getWorkflowId() != null) {
+            workflowName = workflowRepository.findById(e.getWorkflowId())
+                    .map(w -> w.getName())
+                    .orElse(null);
+        }
+
         return new ScheduleDto(e.getId(), e.getSpaceId(), e.getRuleId(), e.getName(),
                 e.getCronExpression(), e.getInputTemplate(), e.isEnabled(), e.getDescription(),
                 e.getRuleName(), e.getRuleType(),
-                e.getCreatedBy(), e.getCreatedAt(), e.getUpdatedAt());
+                e.getCreatedBy(), e.getCreatedAt(), e.getUpdatedAt(),
+                status, nextRunAt, lastRunAt,
+                e.getWorkflowId(), workflowName);
     }
 
     private ScheduleRunDto toRunDto(ScheduleRunEntity e) {

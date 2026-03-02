@@ -50,7 +50,7 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
   const [ruleType, setRuleType] = useState('');
   const [cronExpression, setCronExpression] = useState('');
   const [timezone, setTimezone] = useState('UTC');
-  const [inputPayload, setInputPayload] = useState('{\n  \n}');
+  const [inputTemplate, setInputTemplate] = useState('{\n  \n}');
 
   const rules = rulesData?.content ?? [];
 
@@ -62,7 +62,7 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
     setRuleType('');
     setCronExpression('');
     setTimezone('UTC');
-    setInputPayload('{\n  \n}');
+    setInputTemplate('{\n  \n}');
     onClose();
   };
 
@@ -84,7 +84,7 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
 
     let parsedPayload: Record<string, unknown> | undefined;
     try {
-      const trimmed = inputPayload.trim();
+      const trimmed = inputTemplate.trim();
       if (trimmed && trimmed !== '{}' && trimmed !== '{\n  \n}') {
         parsedPayload = JSON.parse(trimmed);
       }
@@ -102,7 +102,7 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
         ruleType: ruleType || undefined,
         cronExpression: cronExpression.trim(),
         timezone,
-        inputPayload: parsedPayload,
+        inputTemplate: parsedPayload,
       });
       addToast({ type: 'success', title: 'Schedule created successfully' });
       handleClose();
@@ -214,8 +214,8 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
           </label>
           <div className="rounded border border-gray-200 overflow-hidden">
             <JsonModelEditor
-              value={inputPayload}
-              onChange={setInputPayload}
+              value={inputTemplate}
+              onChange={setInputTemplate}
               height="200px"
             />
           </div>

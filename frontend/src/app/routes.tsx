@@ -59,6 +59,9 @@ const ProfilePage = lazy(() =>
 const ApprovalQueuePage = lazy(() =>
   import('@/features/rules/pages/ApprovalQueuePage').then((m) => ({ default: m.ApprovalQueuePage })),
 );
+const WorkflowBuilderPage = lazy(() =>
+  import('@/features/scheduler/pages/WorkflowBuilderPage').then((m) => ({ default: m.WorkflowBuilderPage })),
+);
 
 function LazyFallback() {
   return (
@@ -97,6 +100,7 @@ export const router = createBrowserRouter([
       { path: '/analytics/rules/:ruleId', element: <Lazy><RuleStatsPage /></Lazy> },
       { path: '/schedules', element: <Lazy><SchedulerPage /></Lazy> },
       { path: '/schedules/:id', element: <Lazy><ScheduleDetailPage /></Lazy> },
+      { path: '/workflows/:id', element: <Lazy><WorkflowBuilderPage /></Lazy> },
       { path: '/connectors', element: <Lazy><ConnectorsPage /></Lazy> },
       { path: '/ab-tests', element: <Lazy><AbTestListPage /></Lazy> },
       { path: '/ab-tests/:id', element: <Lazy><AbTestDetailPage /></Lazy> },

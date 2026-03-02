@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Activity, CheckCircle, AlertCircle, Clock, Plus, Pause, Play, Trash2 } from 'lucide-react';
+import { Calendar, Activity, CheckCircle, AlertCircle, Clock, Plus, Pause, Play, Trash2, GitBranch, Pencil } from 'lucide-react';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Button } from '@/shared/components/Button';
 import { Badge } from '@/shared/components/Badge';
@@ -18,7 +18,9 @@ import {
   useResumeSchedule,
   type Schedule,
 } from '@/api/schedules.api';
+import { useWorkflows, type Workflow } from '@/api/workflows.api';
 import { CreateScheduleModal } from '../components/CreateScheduleModal';
+import { EditScheduleModal } from '../components/EditScheduleModal';
 
 type BadgeColor = 'gray' | 'green' | 'blue' | 'yellow' | 'red';
 
@@ -58,6 +60,8 @@ function statusColor(status: string): BadgeColor {
       return 'yellow';
     case 'COMPLETED':
       return 'blue';
+    case 'DRAFT':
+      return 'gray';
     case 'FAILED':
       return 'red';
     default:
@@ -65,17 +69,23 @@ function statusColor(status: string): BadgeColor {
   }
 }
 
+type TabId = 'schedules' | 'workflows';
+
 export function SchedulerPage() {
   const addToast = useToastStore((s) => s.addToast);
   const navigate = useNavigate();
+  const [activeTab, setActiveTab] = useState<TabId>('schedules');
   const [showCreate, setShowCreate] = useState(false);
+  const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
   const { data, isLoading } = useSchedules();
   const { data: stats } = useScheduleStats();
   const deleteSchedule = useDeleteSchedule();
   const pauseSchedule = usePauseSchedule();
   const resumeSchedule = useResumeSchedule();
+  const { data: workflowsData, isLoading: workflowsLoading } = useWorkflows();
 
   const schedules = data?.content ?? [];
+  const workflows = workflowsData?.content ?? [];
 
   const handleDelete = async (id: string) => {
     try {
@@ -104,7 +114,7 @@ export function SchedulerPage() {
     }
   };
 
-  const columns: Column<Schedule>[] = [
+  const scheduleColumns: Column<Schedule>[] = [
     {
       key: 'name',
       header: 'Name',
@@ -173,6 +183,13 @@ export function SchedulerPage() {
       header: 'Actions',
       render: (s) => (
         <div className="flex items-center gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); setEditingSchedule(s); }}
+            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-indigo-600"
+            title="Edit"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
           {s.status === 'ACTIVE' ? (
             <button
               onClick={(e) => { e.stopPropagation(); handlePause(s.id); }}
@@ -202,6 +219,61 @@ export function SchedulerPage() {
     },
   ];
 
+  const workflowColumns: Column<Workflow>[] = [
+    {
+      key: 'name',
+      header: 'Name',
+      render: (w) => (
+        <div>
+          <p className="font-medium text-gray-900">{w.name}</p>
+          {w.description && (
+            <p className="text-xs text-gray-500 truncate max-w-[300px]">{w.description}</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'steps',
+      header: 'Steps',
+      render: (w) => (
+        <span className="text-sm text-gray-600">
+          {w.definition?.nodes?.length ?? 0} nodes
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (w) => (
+        <Badge color={statusColor(w.status)}>{w.status}</Badge>
+      ),
+    },
+    {
+      key: 'updatedAt',
+      header: 'Last Updated',
+      render: (w) => (
+        <span className="text-sm text-gray-600">
+          {w.updatedAt ? formatRelativeTime(w.updatedAt) : '-'}
+        </span>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (w) => (
+        <div className="flex items-center gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); navigate(`/workflows/${w.id}`); }}
+            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-indigo-600"
+            title="Edit"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
+  ];
+
   if (isLoading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -215,6 +287,11 @@ export function SchedulerPage() {
     { icon: Activity, label: 'Active', value: stats?.active ?? 0, color: 'text-green-600' },
     { icon: CheckCircle, label: 'Succeeded (24h)', value: stats?.successLast24h ?? 0, color: 'text-emerald-600' },
     { icon: AlertCircle, label: 'Failed (24h)', value: stats?.failedLast24h ?? 0, color: 'text-red-600' },
+  ];
+
+  const tabs: { id: TabId; label: string }[] = [
+    { id: 'schedules', label: `Schedules (${schedules.length})` },
+    { id: 'workflows', label: `Workflows (${workflows.length})` },
   ];
 
   return (
@@ -232,39 +309,108 @@ export function SchedulerPage() {
         ))}
       </div>
 
-      <PageHeader
-        title="Schedules"
-        description="Manage scheduled rule executions"
-        actions={
-          <Button onClick={() => setShowCreate(true)}>
-            <Plus className="h-4 w-4" />
-            Create Schedule
-          </Button>
-        }
-      />
+      {/* Tab navigation */}
+      <div className="border-b border-gray-200 mb-6">
+        <nav className="-mb-px flex gap-6">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={cn(
+                'py-2 px-1 border-b-2 text-sm font-medium transition-colors',
+                activeTab === tab.id
+                  ? 'border-indigo-500 text-indigo-600'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300',
+              )}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </nav>
+      </div>
 
-      {schedules.length === 0 ? (
-        <EmptyState
-          icon={<Clock className="h-12 w-12" />}
-          title="No schedules yet"
-          description="Create a schedule to run rules on a cron-based schedule."
-          actionLabel="Create Schedule"
-          onAction={() => setShowCreate(true)}
-        />
-      ) : (
-        <div className="rounded-lg border border-gray-200 bg-white">
-          <DataTable
-            columns={columns}
-            data={schedules}
-            onRowClick={(s) => navigate(`/schedules/${s.id}`)}
+      {activeTab === 'schedules' && (
+        <>
+          <PageHeader
+            title="Schedules"
+            description="Manage scheduled rule executions"
+            actions={
+              <Button onClick={() => setShowCreate(true)}>
+                <Plus className="h-4 w-4" />
+                Create Schedule
+              </Button>
+            }
           />
-        </div>
+
+          {schedules.length === 0 ? (
+            <EmptyState
+              icon={<Clock className="h-12 w-12" />}
+              title="No schedules yet"
+              description="Create a schedule to run rules on a cron-based schedule."
+              actionLabel="Create Schedule"
+              onAction={() => setShowCreate(true)}
+            />
+          ) : (
+            <div className="rounded-lg border border-gray-200 bg-white">
+              <DataTable
+                columns={scheduleColumns}
+                data={schedules}
+                onRowClick={(s) => navigate(`/schedules/${s.id}`)}
+              />
+            </div>
+          )}
+
+          <CreateScheduleModal
+            isOpen={showCreate}
+            onClose={() => setShowCreate(false)}
+          />
+
+          {editingSchedule && (
+            <EditScheduleModal
+              isOpen={!!editingSchedule}
+              onClose={() => setEditingSchedule(null)}
+              schedule={editingSchedule}
+            />
+          )}
+        </>
       )}
 
-      <CreateScheduleModal
-        isOpen={showCreate}
-        onClose={() => setShowCreate(false)}
-      />
+      {activeTab === 'workflows' && (
+        <>
+          <PageHeader
+            title="Workflows"
+            description="Visual rule execution pipelines"
+            actions={
+              <Button onClick={() => navigate('/workflows/new')}>
+                <Plus className="h-4 w-4" />
+                Create Workflow
+              </Button>
+            }
+          />
+
+          {workflowsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Spinner size="lg" />
+            </div>
+          ) : workflows.length === 0 ? (
+            <EmptyState
+              icon={<GitBranch className="h-12 w-12" />}
+              title="No workflows yet"
+              description="Create a workflow to chain multiple rules into a visual pipeline."
+              actionLabel="Create Workflow"
+              onAction={() => navigate('/workflows/new')}
+            />
+          ) : (
+            <div className="rounded-lg border border-gray-200 bg-white">
+              <DataTable
+                columns={workflowColumns}
+                data={workflows}
+                onRowClick={(w) => navigate(`/workflows/${w.id}`)}
+              />
+            </div>
+          )}
+        </>
+      )}
     </div>
   );
 }

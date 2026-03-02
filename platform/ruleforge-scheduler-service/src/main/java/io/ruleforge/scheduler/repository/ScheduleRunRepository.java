@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface ScheduleRunRepository extends JpaRepository<ScheduleRunEntity, UUID> {
@@ -17,4 +18,6 @@ public interface ScheduleRunRepository extends JpaRepository<ScheduleRunEntity, 
     Page<ScheduleRunEntity> findByScheduleId(UUID scheduleId, Pageable pageable);
 
     long countByStatusAndStartedAtAfter(RunStatus status, Instant since);
+
+    Optional<ScheduleRunEntity> findTopByScheduleIdOrderByStartedAtDesc(UUID scheduleId);
 }
