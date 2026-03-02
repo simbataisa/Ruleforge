@@ -14,4 +14,6 @@ public interface HolidayEntryRepository extends JpaRepository<HolidayEntryEntity
     List<HolidayEntryEntity> findByCalendarIdAndDateBetween(UUID calendarId, LocalDate start, LocalDate end);
 
     boolean existsByCalendarIdAndDate(UUID calendarId, LocalDate date);
+
+    void deleteByCalendarId(UUID calendarId);
 }

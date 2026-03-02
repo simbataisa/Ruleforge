@@ -1,6 +1,6 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Plus, Trash2, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { ArrowLeft, Plus, Trash2, ChevronLeft, ChevronRight, RefreshCw, Pencil, Upload, Check, X } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Badge } from '@/shared/components/Badge';
 import { Input } from '@/shared/components/Input';
@@ -12,9 +12,12 @@ import {
   useHolidayEntries,
   useCreateHolidayEntry,
   useDeleteHolidayEntry,
+  useUpdateHolidayEntry,
   type HolidayEntry,
   type EntryType,
 } from '@/api/holiday-calendars.api';
+import { EditCalendarModal } from '../components/EditCalendarModal';
+import { BulkImportPanel } from '../components/BulkImportPanel';
 
 const MARKET_FLAGS: Record<string, string> = {
   US: '\u{1F1FA}\u{1F1F8}',
@@ -71,8 +74,10 @@ export function HolidayCalendarDetailPage() {
   const { data: entries } = useHolidayEntries(id ?? '');
   const createEntry = useCreateHolidayEntry();
   const deleteEntry = useDeleteHolidayEntry();
+  const updateEntry = useUpdateHolidayEntry();
 
   const now = new Date();
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`;
   const [viewYear, setViewYear] = useState(now.getFullYear());
   const [viewMonth, setViewMonth] = useState(now.getMonth());
 
@@ -82,6 +87,15 @@ export function HolidayCalendarDetailPage() {
   const [newType, setNewType] = useState<EntryType>('PUBLIC_HOLIDAY');
   const [newRecurring, setNewRecurring] = useState(false);
   const [showAddForm, setShowAddForm] = useState(false);
+
+  // Edit / bulk import / modal state
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
+  const [editingEntryId, setEditingEntryId] = useState<string | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editType, setEditType] = useState<EntryType>('PUBLIC_HOLIDAY');
+  const [editRecurring, setEditRecurring] = useState(false);
+  const addFormRef = useRef<HTMLFormElement>(null);
 
   const entriesList = entries ?? [];
 
@@ -177,6 +191,42 @@ export function HolidayCalendarDetailPage() {
     }
   };
 
+  const handleDayClick = (dateStr: string) => {
+    setNewDate(dateStr);
+    setShowAddForm(true);
+    setTimeout(() => addFormRef.current?.scrollIntoView({ behavior: 'smooth' }), 100);
+  };
+
+  const startEditEntry = (entry: HolidayEntry) => {
+    setEditingEntryId(entry.id);
+    setEditName(entry.name);
+    setEditType(entry.entryType);
+    setEditRecurring(entry.recurring);
+  };
+
+  const cancelEditEntry = () => {
+    setEditingEntryId(null);
+  };
+
+  const handleSaveEntry = async (entryId: string) => {
+    if (!id) return;
+    try {
+      await updateEntry.mutateAsync({
+        calendarId: id,
+        entryId,
+        data: {
+          name: editName.trim(),
+          entryType: editType,
+          recurring: editRecurring,
+        },
+      });
+      addToast({ type: 'success', title: 'Entry updated' });
+      setEditingEntryId(null);
+    } catch {
+      addToast({ type: 'error', title: 'Failed to update entry' });
+    }
+  };
+
   if (isLoading || !calendar) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -229,6 +279,15 @@ export function HolidayCalendarDetailPage() {
           <Badge color={calendar.enabled ? 'green' : 'gray'}>
             {calendar.enabled ? 'Enabled' : 'Disabled'}
           </Badge>
+          <div className="flex-1" />
+          <Button size="sm" variant="outline" onClick={() => setShowEditModal(true)}>
+            <Pencil className="h-3.5 w-3.5" />
+            Edit
+          </Button>
+          <Button size="sm" variant="outline" onClick={() => setShowBulkImport(!showBulkImport)}>
+            <Upload className="h-3.5 w-3.5" />
+            Bulk Import
+          </Button>
         </div>
         <div className="flex items-center gap-3 text-sm text-gray-500">
           <span>Market: {calendar.market}</span>
@@ -238,6 +297,11 @@ export function HolidayCalendarDetailPage() {
           )}
         </div>
       </div>
+
+      {/* Bulk Import Panel */}
+      {showBulkImport && (
+        <BulkImportPanel calendarId={id!} onClose={() => setShowBulkImport(false)} />
+      )}
 
       {/* Month Calendar Grid */}
       <div className="rounded-lg border border-gray-200 bg-white p-4 mb-6">
@@ -272,37 +336,42 @@ export function HolidayCalendarDetailPage() {
           {Array.from({ length: firstDay }).map((_, i) => (
             <div key={`empty-${i}`} className="h-16" />
           ))}
-          {cells.map((cell) => (
-            <div
-              key={cell.day}
-              className={cn(
-                'h-16 rounded p-1 text-sm',
-                cell.isWeekend ? 'bg-gray-50' : 'bg-white',
-                cell.entries.length > 0 && 'ring-1 ring-inset ring-gray-200',
-              )}
-            >
-              <span className={cn(
-                'text-xs font-medium',
-                cell.isWeekend ? 'text-gray-400' : 'text-gray-700',
-              )}>
-                {cell.day}
-              </span>
-              {cell.entries.length > 0 && (
-                <div className="flex flex-wrap gap-0.5 mt-0.5">
-                  {cell.entries.map((entry) => {
-                    const colors = ENTRY_TYPE_COLORS[entry.entryType];
-                    return (
-                      <span
-                        key={entry.id}
-                        className={cn('inline-block h-2 w-2 rounded-full', colors.dot)}
-                        title={`${entry.name} (${entry.entryType})`}
-                      />
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ))}
+          {cells.map((cell) => {
+            const isToday = cell.dateStr === todayStr;
+            return (
+              <div
+                key={cell.day}
+                onClick={() => handleDayClick(cell.dateStr)}
+                className={cn(
+                  'h-16 rounded p-1 text-sm cursor-pointer hover:bg-indigo-50 transition-colors',
+                  cell.isWeekend ? 'bg-gray-50' : 'bg-white',
+                  cell.entries.length > 0 && 'ring-1 ring-inset ring-gray-200',
+                  isToday && 'ring-2 ring-indigo-400',
+                )}
+              >
+                <span className={cn(
+                  'text-xs font-medium',
+                  isToday ? 'text-indigo-600 font-bold' : cell.isWeekend ? 'text-gray-400' : 'text-gray-700',
+                )}>
+                  {cell.day}
+                </span>
+                {cell.entries.length > 0 && (
+                  <div className="flex flex-wrap gap-0.5 mt-0.5">
+                    {cell.entries.map((entry) => {
+                      const colors = ENTRY_TYPE_COLORS[entry.entryType];
+                      return (
+                        <span
+                          key={entry.id}
+                          className={cn('inline-block h-2 w-2 rounded-full', colors.dot)}
+                          title={`${entry.name} (${entry.entryType.replace(/_/g, ' ')})`}
+                        />
+                      );
+                    })}
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
 
         {/* Legend */}
@@ -338,7 +407,7 @@ export function HolidayCalendarDetailPage() {
 
         {/* Add entry form */}
         {showAddForm && (
-          <form onSubmit={handleAddEntry} className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+          <form ref={addFormRef} onSubmit={handleAddEntry} className="px-4 py-3 border-b border-gray-200 bg-gray-50">
             <div className="flex items-end gap-3 flex-wrap">
               <div>
                 <label className="block text-xs font-medium text-gray-600 mb-1">Date</label>
@@ -411,35 +480,97 @@ export function HolidayCalendarDetailPage() {
             <tbody className="divide-y divide-gray-100">
               {sortedEntries.map((entry) => {
                 const colors = ENTRY_TYPE_COLORS[entry.entryType];
+                const isEditing = editingEntryId === entry.id;
                 return (
                   <tr key={entry.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3 text-gray-900">{formatDate(entry.date)}</td>
-                    <td className="px-4 py-3 text-gray-900">{entry.name}</td>
-                    <td className="px-4 py-3">
-                      <span className={cn(
-                        'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
-                        colors.bg,
-                        colors.text,
-                      )}>
-                        {entry.entryType.replace(/_/g, ' ')}
-                      </span>
+                    <td className="px-4 py-3 text-gray-900">
+                      {isEditing ? (
+                        <Input
+                          value={editName}
+                          onChange={(e) => setEditName(e.target.value)}
+                          className="w-full"
+                        />
+                      ) : (
+                        entry.name
+                      )}
                     </td>
                     <td className="px-4 py-3">
-                      {entry.recurring && (
-                        <span className="inline-flex items-center gap-1 text-xs text-gray-500">
-                          <RefreshCw className="h-3 w-3" />
-                          Yearly
+                      {isEditing ? (
+                        <select
+                          value={editType}
+                          onChange={(e) => setEditType(e.target.value as EntryType)}
+                          className="rounded-lg border border-gray-300 px-2 py-1 text-xs text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        >
+                          {ENTRY_TYPES.map((t) => (
+                            <option key={t} value={t}>
+                              {t.replace(/_/g, ' ')}
+                            </option>
+                          ))}
+                        </select>
+                      ) : (
+                        <span className={cn(
+                          'inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium',
+                          colors.bg,
+                          colors.text,
+                        )}>
+                          {entry.entryType.replace(/_/g, ' ')}
                         </span>
                       )}
                     </td>
                     <td className="px-4 py-3">
-                      <button
-                        onClick={() => handleDeleteEntry(entry.id)}
-                        className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-600"
-                        title="Delete"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      {isEditing ? (
+                        <input
+                          type="checkbox"
+                          checked={editRecurring}
+                          onChange={(e) => setEditRecurring(e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                        />
+                      ) : entry.recurring ? (
+                        <span className="inline-flex items-center gap-1 text-xs text-gray-500">
+                          <RefreshCw className="h-3 w-3" />
+                          Yearly
+                        </span>
+                      ) : null}
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="flex items-center gap-1">
+                        {isEditing ? (
+                          <>
+                            <button
+                              onClick={() => handleSaveEntry(entry.id)}
+                              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-green-600"
+                              title="Save"
+                            >
+                              <Check className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={cancelEditEntry}
+                              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+                              title="Cancel"
+                            >
+                              <X className="h-4 w-4" />
+                            </button>
+                          </>
+                        ) : (
+                          <>
+                            <button
+                              onClick={() => startEditEntry(entry)}
+                              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-indigo-600"
+                              title="Edit"
+                            >
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button
+                              onClick={() => handleDeleteEntry(entry.id)}
+                              className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-600"
+                              title="Delete"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 );
@@ -448,6 +579,15 @@ export function HolidayCalendarDetailPage() {
           </table>
         )}
       </div>
+
+      {/* Edit Calendar Modal */}
+      {showEditModal && (
+        <EditCalendarModal
+          isOpen={showEditModal}
+          onClose={() => setShowEditModal(false)}
+          calendar={calendar}
+        />
+      )}
     </div>
   );
 }

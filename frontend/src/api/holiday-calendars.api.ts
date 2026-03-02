@@ -152,6 +152,47 @@ export function useDeleteHolidayEntry() {
   });
 }
 
+export interface BulkImportResult {
+  imported: number;
+  skipped: number;
+  errors: string[];
+}
+
+export interface UpdateHolidayEntryRequest {
+  date?: string;
+  name?: string;
+  entryType?: EntryType;
+  recurring?: boolean;
+}
+
+export function useBulkImportEntries() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ calendarId, entries }: { calendarId: string; entries: CreateHolidayEntryRequest[] }) => {
+      const res = await apiClient.post<BulkImportResult>(`/holiday-calendars/${calendarId}/entries/bulk`, entries);
+      return res.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['holiday-calendars', variables.calendarId, 'entries'] });
+      queryClient.invalidateQueries({ queryKey: ['holiday-calendars'] });
+    },
+  });
+}
+
+export function useUpdateHolidayEntry() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ calendarId, entryId, data }: { calendarId: string; entryId: string; data: UpdateHolidayEntryRequest }) => {
+      const res = await apiClient.put<HolidayEntry>(`/holiday-calendars/${calendarId}/entries/${entryId}`, data);
+      return res.data;
+    },
+    onSuccess: (_data, variables) => {
+      queryClient.invalidateQueries({ queryKey: ['holiday-calendars', variables.calendarId, 'entries'] });
+      queryClient.invalidateQueries({ queryKey: ['holiday-calendars'] });
+    },
+  });
+}
+
 export function useCheckHoliday(calendarId: string, date: string) {
   return useQuery({
     queryKey: ['holiday-calendars', calendarId, 'check', date],

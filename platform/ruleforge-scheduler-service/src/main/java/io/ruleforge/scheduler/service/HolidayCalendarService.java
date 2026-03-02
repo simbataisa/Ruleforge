@@ -11,6 +11,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.DayOfWeek;
 import java.time.LocalDate;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -107,6 +108,53 @@ public class HolidayCalendarService {
             entries = entryRepository.findByCalendarId(calendarId);
         }
         return entries.stream().map(this::toEntryDto).collect(Collectors.toList());
+    }
+
+    public BulkImportResultDto bulkImportEntries(UUID calendarId, List<CreateHolidayEntryRequest> entries) {
+        calendarRepository.findById(calendarId)
+                .orElseThrow(() -> new RuntimeException("Calendar not found: " + calendarId));
+
+        int imported = 0;
+        int skipped = 0;
+        List<String> errors = new ArrayList<>();
+
+        for (int i = 0; i < entries.size(); i++) {
+            CreateHolidayEntryRequest req = entries.get(i);
+            try {
+                if (req.date() == null || req.name() == null || req.name().isBlank()) {
+                    errors.add("Row " + (i + 1) + ": date and name are required");
+                    continue;
+                }
+                if (entryRepository.existsByCalendarIdAndDate(calendarId, req.date())) {
+                    skipped++;
+                    continue;
+                }
+                HolidayEntryEntity entry = new HolidayEntryEntity();
+                entry.setCalendarId(calendarId);
+                entry.setDate(req.date());
+                entry.setName(req.name());
+                entry.setEntryType(req.entryType() != null ? req.entryType() : "PUBLIC_HOLIDAY");
+                entry.setRecurring(req.recurring() != null ? req.recurring() : false);
+                entryRepository.save(entry);
+                imported++;
+            } catch (Exception e) {
+                errors.add("Row " + (i + 1) + ": " + e.getMessage());
+            }
+        }
+        return new BulkImportResultDto(imported, skipped, errors);
+    }
+
+    public HolidayEntryDto updateEntry(UUID calendarId, UUID entryId, UpdateHolidayEntryRequest request) {
+        HolidayEntryEntity entry = entryRepository.findById(entryId)
+                .orElseThrow(() -> new RuntimeException("Entry not found: " + entryId));
+        if (!entry.getCalendarId().equals(calendarId)) {
+            throw new RuntimeException("Entry does not belong to calendar");
+        }
+        if (request.date() != null) entry.setDate(request.date());
+        if (request.name() != null) entry.setName(request.name());
+        if (request.entryType() != null) entry.setEntryType(request.entryType());
+        if (request.recurring() != null) entry.setRecurring(request.recurring());
+        return toEntryDto(entryRepository.save(entry));
     }
 
     public void deleteEntry(UUID calendarId, UUID entryId) {

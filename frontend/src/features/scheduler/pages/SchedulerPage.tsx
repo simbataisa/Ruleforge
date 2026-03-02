@@ -27,6 +27,7 @@ import {
 import { CreateScheduleModal } from '../components/CreateScheduleModal';
 import { EditScheduleModal } from '../components/EditScheduleModal';
 import { CreateCalendarModal } from '../components/CreateCalendarModal';
+import { EditCalendarModal } from '../components/EditCalendarModal';
 
 type BadgeColor = 'gray' | 'green' | 'blue' | 'yellow' | 'red';
 
@@ -84,6 +85,7 @@ export function SchedulerPage() {
   const [showCreate, setShowCreate] = useState(false);
   const [showCreateCalendar, setShowCreateCalendar] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
+  const [editingCalendar, setEditingCalendar] = useState<HolidayCalendar | null>(null);
   const { data, isLoading } = useSchedules();
   const { data: stats } = useScheduleStats();
   const deleteSchedule = useDeleteSchedule();
@@ -149,7 +151,16 @@ export function SchedulerPage() {
     {
       key: 'market',
       header: 'Market',
-      render: (c) => <span className="text-sm text-gray-900">{c.market}</span>,
+      render: (c) => {
+        const MARKET_FLAGS: Record<string, string> = {
+          US: '\u{1F1FA}\u{1F1F8}', UK: '\u{1F1EC}\u{1F1E7}', SG: '\u{1F1F8}\u{1F1EC}', AU: '\u{1F1E6}\u{1F1FA}',
+          JP: '\u{1F1EF}\u{1F1F5}', DE: '\u{1F1E9}\u{1F1EA}', IN: '\u{1F1EE}\u{1F1F3}', GLOBAL: '\u{1F30C}',
+          GB: '\u{1F1EC}\u{1F1E7}', HK: '\u{1F1ED}\u{1F1F0}', FR: '\u{1F1EB}\u{1F1F7}', CN: '\u{1F1E8}\u{1F1F3}',
+          KR: '\u{1F1F0}\u{1F1F7}', CA: '\u{1F1E8}\u{1F1E6}', BR: '\u{1F1E7}\u{1F1F7}',
+        };
+        const flag = MARKET_FLAGS[c.market.toUpperCase()] ?? '';
+        return <span className="text-sm text-gray-900">{flag && <span className="mr-1">{flag}</span>}{c.market}</span>;
+      },
     },
     {
       key: 'region',
@@ -184,6 +195,13 @@ export function SchedulerPage() {
       header: 'Actions',
       render: (c) => (
         <div className="flex items-center gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); setEditingCalendar(c); }}
+            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-indigo-600"
+            title="Edit"
+          >
+            <Pencil className="h-4 w-4" />
+          </button>
           <button
             onClick={(e) => { e.stopPropagation(); handleDeleteCalendar(c.id); }}
             className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-600"
@@ -534,6 +552,14 @@ export function SchedulerPage() {
             isOpen={showCreateCalendar}
             onClose={() => setShowCreateCalendar(false)}
           />
+
+          {editingCalendar && (
+            <EditCalendarModal
+              isOpen={!!editingCalendar}
+              onClose={() => setEditingCalendar(null)}
+              calendar={editingCalendar}
+            />
+          )}
         </>
       )}
     </div>

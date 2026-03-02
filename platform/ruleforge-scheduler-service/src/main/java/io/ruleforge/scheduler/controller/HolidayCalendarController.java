@@ -64,6 +64,21 @@ public class HolidayCalendarController {
         return ResponseEntity.ok(holidayCalendarService.getEntries(id, from, to));
     }
 
+    @PostMapping("/{id}/entries/bulk")
+    public ResponseEntity<BulkImportResultDto> bulkImportEntries(
+            @PathVariable UUID id,
+            @RequestBody List<CreateHolidayEntryRequest> entries) {
+        return ResponseEntity.ok(holidayCalendarService.bulkImportEntries(id, entries));
+    }
+
+    @PutMapping("/{id}/entries/{entryId}")
+    public ResponseEntity<HolidayEntryDto> updateEntry(
+            @PathVariable UUID id,
+            @PathVariable UUID entryId,
+            @RequestBody UpdateHolidayEntryRequest request) {
+        return ResponseEntity.ok(holidayCalendarService.updateEntry(id, entryId, request));
+    }
+
     @DeleteMapping("/{id}/entries/{entryId}")
     public ResponseEntity<Void> deleteEntry(@PathVariable UUID id, @PathVariable UUID entryId) {
         holidayCalendarService.deleteEntry(id, entryId);
