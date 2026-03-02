@@ -42,6 +42,12 @@ public class WorkflowEntity {
     @Column(name = "trigger_config", columnDefinition = "jsonb")
     private Map<String, Object> triggerConfig = new HashMap<>();
 
+    @Column(name = "holiday_calendar_id")
+    private UUID holidayCalendarId;
+
+    @Column(name = "skip_on_holiday", nullable = false)
+    private String skipOnHoliday = "SKIP";
+
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
 
@@ -84,4 +90,8 @@ public class WorkflowEntity {
     public void setTriggerType(String triggerType) { this.triggerType = triggerType; }
     public Map<String, Object> getTriggerConfig() { return triggerConfig; }
     public void setTriggerConfig(Map<String, Object> triggerConfig) { this.triggerConfig = triggerConfig; }
+    public UUID getHolidayCalendarId() { return holidayCalendarId; }
+    public void setHolidayCalendarId(UUID holidayCalendarId) { this.holidayCalendarId = holidayCalendarId; }
+    public String getSkipOnHoliday() { return skipOnHoliday; }
+    public void setSkipOnHoliday(String skipOnHoliday) { this.skipOnHoliday = skipOnHoliday; }
 }

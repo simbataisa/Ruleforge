@@ -62,6 +62,9 @@ const ApprovalQueuePage = lazy(() =>
 const WorkflowBuilderPage = lazy(() =>
   import('@/features/scheduler/pages/WorkflowBuilderPage').then((m) => ({ default: m.WorkflowBuilderPage })),
 );
+const HolidayCalendarDetailPage = lazy(() =>
+  import('@/features/scheduler/pages/HolidayCalendarDetailPage').then((m) => ({ default: m.HolidayCalendarDetailPage })),
+);
 
 function LazyFallback() {
   return (
@@ -101,6 +104,7 @@ export const router = createBrowserRouter([
       { path: '/schedules', element: <Lazy><SchedulerPage /></Lazy> },
       { path: '/schedules/:id', element: <Lazy><ScheduleDetailPage /></Lazy> },
       { path: '/workflows/:id', element: <Lazy><WorkflowBuilderPage /></Lazy> },
+      { path: '/holiday-calendars/:id', element: <Lazy><HolidayCalendarDetailPage /></Lazy> },
       { path: '/connectors', element: <Lazy><ConnectorsPage /></Lazy> },
       { path: '/ab-tests', element: <Lazy><AbTestListPage /></Lazy> },
       { path: '/ab-tests/:id', element: <Lazy><AbTestDetailPage /></Lazy> },

@@ -5,6 +5,7 @@ import { Input } from '@/shared/components/Input';
 import { useToastStore } from '@/stores/toast.store';
 import { useCreateSchedule } from '@/api/schedules.api';
 import { useRules } from '@/api/rules.api';
+import { useHolidayCalendars, type SkipOnHoliday } from '@/api/holiday-calendars.api';
 import { JsonModelEditor } from '@/features/rules/components/JsonModelEditor';
 import { cn } from '@/shared/utils/cn';
 
@@ -51,7 +52,11 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
   const [cronExpression, setCronExpression] = useState('');
   const [timezone, setTimezone] = useState('UTC');
   const [inputTemplate, setInputTemplate] = useState('{\n  \n}');
+  const [holidayCalendarId, setHolidayCalendarId] = useState('');
+  const [skipOnHoliday, setSkipOnHoliday] = useState<SkipOnHoliday>('SKIP');
 
+  const { data: calendarsData } = useHolidayCalendars();
+  const calendars = calendarsData ?? [];
   const rules = rulesData?.content ?? [];
 
   const handleClose = () => {
@@ -63,6 +68,8 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
     setCronExpression('');
     setTimezone('UTC');
     setInputTemplate('{\n  \n}');
+    setHolidayCalendarId('');
+    setSkipOnHoliday('SKIP');
     onClose();
   };
 
@@ -103,6 +110,8 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
         cronExpression: cronExpression.trim(),
         timezone,
         inputTemplate: parsedPayload,
+        holidayCalendarId: holidayCalendarId || undefined,
+        skipOnHoliday: holidayCalendarId ? skipOnHoliday : undefined,
       });
       addToast({ type: 'success', title: 'Schedule created successfully' });
       handleClose();
@@ -207,6 +216,49 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
             placeholder="UTC"
           />
         </div>
+
+        {calendars.length > 0 && (
+          <div>
+            <label htmlFor="sched-calendar" className="block text-sm font-medium text-gray-700 mb-1">
+              Holiday Calendar
+            </label>
+            <select
+              id="sched-calendar"
+              value={holidayCalendarId}
+              onChange={(e) => setHolidayCalendarId(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+            >
+              <option value="">None</option>
+              {calendars.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.market})
+                </option>
+              ))}
+            </select>
+            {holidayCalendarId && (
+              <div className="mt-2">
+                <label className="block text-xs font-medium text-gray-600 mb-1.5">
+                  On Holiday
+                </label>
+                <div className="flex gap-4">
+                  {([['SKIP', 'Skip'], ['DEFER_NEXT', 'Defer to Next Business Day'], ['RUN_ANYWAY', 'Run Anyway']] as const).map(([value, label]) => (
+                    <label key={value} className="flex items-center gap-1.5 cursor-pointer">
+                      <input
+                        type="radio"
+                        name="skipOnHoliday"
+                        value={value}
+                        checked={skipOnHoliday === value}
+                        onChange={() => setSkipOnHoliday(value)}
+                        className="h-3.5 w-3.5 text-indigo-600 border-gray-300 focus:ring-indigo-500"
+                      />
+                      <span className="text-xs text-gray-700">{label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-1">

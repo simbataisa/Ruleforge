@@ -1,6 +1,7 @@
 package io.ruleforge.scheduler.workflow.service;
 
 import io.ruleforge.common.tenant.TenantContext;
+import io.ruleforge.scheduler.repository.HolidayCalendarRepository;
 import io.ruleforge.scheduler.workflow.dto.*;
 import io.ruleforge.scheduler.workflow.entity.WorkflowEntity;
 import io.ruleforge.scheduler.workflow.entity.WorkflowRunEntity;
@@ -22,11 +23,14 @@ public class WorkflowService {
 
     private final WorkflowRepository workflowRepository;
     private final WorkflowRunRepository workflowRunRepository;
+    private final HolidayCalendarRepository holidayCalendarRepository;
 
     public WorkflowService(WorkflowRepository workflowRepository,
-                           WorkflowRunRepository workflowRunRepository) {
+                           WorkflowRunRepository workflowRunRepository,
+                           HolidayCalendarRepository holidayCalendarRepository) {
         this.workflowRepository = workflowRepository;
         this.workflowRunRepository = workflowRunRepository;
+        this.holidayCalendarRepository = holidayCalendarRepository;
     }
 
     public WorkflowDto create(CreateWorkflowRequest request) {
@@ -47,6 +51,8 @@ public class WorkflowService {
         if (request.triggerConfig() != null) {
             entity.setTriggerConfig(request.triggerConfig());
         }
+        if (request.holidayCalendarId() != null) entity.setHolidayCalendarId(request.holidayCalendarId());
+        if (request.skipOnHoliday() != null) entity.setSkipOnHoliday(request.skipOnHoliday());
         return toDto(workflowRepository.save(entity));
     }
 
@@ -81,6 +87,8 @@ public class WorkflowService {
         if (request.enabled() != null) entity.setEnabled(request.enabled());
         if (request.triggerType() != null) entity.setTriggerType(request.triggerType());
         if (request.triggerConfig() != null) entity.setTriggerConfig(request.triggerConfig());
+        if (request.holidayCalendarId() != null) entity.setHolidayCalendarId(request.holidayCalendarId());
+        if (request.skipOnHoliday() != null) entity.setSkipOnHoliday(request.skipOnHoliday());
         return toDto(workflowRepository.save(entity));
     }
 
@@ -109,10 +117,19 @@ public class WorkflowService {
 
     private WorkflowDto toDto(WorkflowEntity e) {
         String status = e.isEnabled() ? "ACTIVE" : "DRAFT";
+
+        String holidayCalendarName = null;
+        if (e.getHolidayCalendarId() != null) {
+            holidayCalendarName = holidayCalendarRepository.findById(e.getHolidayCalendarId())
+                    .map(c -> c.getName())
+                    .orElse(null);
+        }
+
         return new WorkflowDto(e.getId(), e.getSpaceId(), e.getName(), e.getDescription(),
                 e.getDefinition(), e.isEnabled(), e.getCronExpression(),
                 e.getCreatedBy(), e.getCreatedAt(), e.getUpdatedAt(), status,
-                e.getTriggerType(), e.getTriggerConfig());
+                e.getTriggerType(), e.getTriggerConfig(),
+                e.getHolidayCalendarId(), e.getSkipOnHoliday(), holidayCalendarName);
     }
 
     private WorkflowRunDto toRunDto(WorkflowRunEntity e) {

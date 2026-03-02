@@ -22,5 +22,8 @@ public record ScheduleDto(
     Instant nextRunAt,
     Instant lastRunAt,
     UUID workflowId,
-    String workflowName
+    String workflowName,
+    UUID holidayCalendarId,
+    String skipOnHoliday,
+    String holidayCalendarName
 ) {}

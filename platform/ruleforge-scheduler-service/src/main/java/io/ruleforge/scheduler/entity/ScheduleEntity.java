@@ -47,6 +47,12 @@ public class ScheduleEntity {
     @Column(name = "rule_type")
     private String ruleType;
 
+    @Column(name = "holiday_calendar_id")
+    private UUID holidayCalendarId;
+
+    @Column(name = "skip_on_holiday", nullable = false)
+    private String skipOnHoliday = "SKIP";
+
     @Column(name = "created_by", nullable = false)
     private UUID createdBy;
 
@@ -93,4 +99,8 @@ public class ScheduleEntity {
     public void setRuleType(String ruleType) { this.ruleType = ruleType; }
     public UUID getWorkflowId() { return workflowId; }
     public void setWorkflowId(UUID workflowId) { this.workflowId = workflowId; }
+    public UUID getHolidayCalendarId() { return holidayCalendarId; }
+    public void setHolidayCalendarId(UUID holidayCalendarId) { this.holidayCalendarId = holidayCalendarId; }
+    public String getSkipOnHoliday() { return skipOnHoliday; }
+    public void setSkipOnHoliday(String skipOnHoliday) { this.skipOnHoliday = skipOnHoliday; }
 }

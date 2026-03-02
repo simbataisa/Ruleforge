@@ -1,6 +1,7 @@
 package io.ruleforge.scheduler.workflow.dto;
 
 import java.util.Map;
+import java.util.UUID;
 
 public record UpdateWorkflowRequest(
     String name,
@@ -9,5 +10,7 @@ public record UpdateWorkflowRequest(
     String cronExpression,
     Boolean enabled,
     String triggerType,
-    Map<String, Object> triggerConfig
+    Map<String, Object> triggerConfig,
+    UUID holidayCalendarId,
+    String skipOnHoliday
 ) {}

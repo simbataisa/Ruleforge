@@ -17,5 +17,8 @@ public record WorkflowDto(
     Instant updatedAt,
     String status,
     String triggerType,
-    Map<String, Object> triggerConfig
+    Map<String, Object> triggerConfig,
+    UUID holidayCalendarId,
+    String skipOnHoliday,
+    String holidayCalendarName
 ) {}

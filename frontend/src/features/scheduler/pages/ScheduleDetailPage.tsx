@@ -307,6 +307,28 @@ export function ScheduleDetailPage() {
               <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Rule ID</p>
               <p className="text-sm text-gray-900 mt-1 font-mono">{schedule.ruleId}</p>
             </div>
+            {schedule.holidayCalendarId && (
+              <>
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Holiday Calendar</p>
+                  <button
+                    onClick={() => navigate(`/holiday-calendars/${schedule.holidayCalendarId}`)}
+                    className="text-sm text-indigo-600 hover:text-indigo-800 font-medium mt-1"
+                  >
+                    {schedule.holidayCalendarName ?? schedule.holidayCalendarId}
+                  </button>
+                </div>
+                <div>
+                  <p className="text-xs font-medium text-gray-500 uppercase tracking-wider">Holiday Behavior</p>
+                  <p className="text-sm text-gray-900 mt-1">
+                    {schedule.skipOnHoliday === 'SKIP' && 'Skip execution'}
+                    {schedule.skipOnHoliday === 'DEFER_NEXT' && 'Defer to next business day'}
+                    {schedule.skipOnHoliday === 'RUN_ANYWAY' && 'Run anyway'}
+                    {!schedule.skipOnHoliday && 'Skip execution'}
+                  </p>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}

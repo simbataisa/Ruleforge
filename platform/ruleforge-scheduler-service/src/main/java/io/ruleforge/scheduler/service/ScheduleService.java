@@ -4,6 +4,7 @@ import io.ruleforge.scheduler.dto.*;
 import io.ruleforge.scheduler.entity.ScheduleEntity;
 import io.ruleforge.scheduler.entity.ScheduleRunEntity;
 import io.ruleforge.scheduler.entity.RunStatus;
+import io.ruleforge.scheduler.repository.HolidayCalendarRepository;
 import io.ruleforge.scheduler.repository.ScheduleRepository;
 import io.ruleforge.scheduler.repository.ScheduleRunRepository;
 import io.ruleforge.scheduler.workflow.repository.WorkflowRepository;
@@ -25,15 +26,18 @@ public class ScheduleService {
     private final ScheduleRepository scheduleRepository;
     private final ScheduleRunRepository scheduleRunRepository;
     private final WorkflowRepository workflowRepository;
+    private final HolidayCalendarRepository holidayCalendarRepository;
     private final Scheduler quartzScheduler;
 
     public ScheduleService(ScheduleRepository scheduleRepository,
                             ScheduleRunRepository scheduleRunRepository,
                             WorkflowRepository workflowRepository,
+                            HolidayCalendarRepository holidayCalendarRepository,
                             Scheduler quartzScheduler) {
         this.scheduleRepository = scheduleRepository;
         this.scheduleRunRepository = scheduleRunRepository;
         this.workflowRepository = workflowRepository;
+        this.holidayCalendarRepository = holidayCalendarRepository;
         this.quartzScheduler = quartzScheduler;
     }
 
@@ -53,6 +57,8 @@ public class ScheduleService {
         entity.setRuleName(request.ruleName());
         entity.setRuleType(request.ruleType());
         entity.setCreatedBy(request.createdBy());
+        if (request.holidayCalendarId() != null) entity.setHolidayCalendarId(request.holidayCalendarId());
+        if (request.skipOnHoliday() != null) entity.setSkipOnHoliday(request.skipOnHoliday());
         ScheduleEntity saved = scheduleRepository.save(entity);
 
         if (saved.isEnabled()) {
@@ -92,6 +98,8 @@ public class ScheduleService {
         if (request.inputTemplate() != null) entity.setInputTemplate(request.inputTemplate());
         if (request.description() != null) entity.setDescription(request.description());
         if (request.workflowId() != null) entity.setWorkflowId(request.workflowId());
+        if (request.holidayCalendarId() != null) entity.setHolidayCalendarId(request.holidayCalendarId());
+        if (request.skipOnHoliday() != null) entity.setSkipOnHoliday(request.skipOnHoliday());
 
         if (request.enabled() != null) {
             boolean wasEnabled = entity.isEnabled();
@@ -221,12 +229,20 @@ public class ScheduleService {
                     .orElse(null);
         }
 
+        String holidayCalendarName = null;
+        if (e.getHolidayCalendarId() != null) {
+            holidayCalendarName = holidayCalendarRepository.findById(e.getHolidayCalendarId())
+                    .map(c -> c.getName())
+                    .orElse(null);
+        }
+
         return new ScheduleDto(e.getId(), e.getSpaceId(), e.getRuleId(), e.getName(),
                 e.getCronExpression(), e.getInputTemplate(), e.isEnabled(), e.getDescription(),
                 e.getRuleName(), e.getRuleType(),
                 e.getCreatedBy(), e.getCreatedAt(), e.getUpdatedAt(),
                 status, nextRunAt, lastRunAt,
-                e.getWorkflowId(), workflowName);
+                e.getWorkflowId(), workflowName,
+                e.getHolidayCalendarId(), e.getSkipOnHoliday(), holidayCalendarName);
     }
 
     private ScheduleRunDto toRunDto(ScheduleRunEntity e) {

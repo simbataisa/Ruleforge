@@ -25,6 +25,7 @@ export default defineConfig({
       '/v1/tags': { target: 'http://localhost:8082', changeOrigin: true },
       '/v1/solve': { target: 'http://localhost:8083', changeOrigin: true },
       '/v1/analytics': { target: 'http://localhost:8085', changeOrigin: true },
+      '/v1/holiday-calendars': { target: 'http://localhost:8086', changeOrigin: true },
       '/v1/schedules': { target: 'http://localhost:8086', changeOrigin: true },
       '/v1/workflows': { target: 'http://localhost:8086', changeOrigin: true },
       '/v1/batch': { target: 'http://localhost:8086', changeOrigin: true },

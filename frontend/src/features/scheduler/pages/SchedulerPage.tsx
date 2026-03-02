@@ -19,8 +19,14 @@ import {
   type Schedule,
 } from '@/api/schedules.api';
 import { useWorkflows, type Workflow } from '@/api/workflows.api';
+import {
+  useHolidayCalendars,
+  useDeleteHolidayCalendar,
+  type HolidayCalendar,
+} from '@/api/holiday-calendars.api';
 import { CreateScheduleModal } from '../components/CreateScheduleModal';
 import { EditScheduleModal } from '../components/EditScheduleModal';
+import { CreateCalendarModal } from '../components/CreateCalendarModal';
 
 type BadgeColor = 'gray' | 'green' | 'blue' | 'yellow' | 'red';
 
@@ -69,13 +75,14 @@ function statusColor(status: string): BadgeColor {
   }
 }
 
-type TabId = 'schedules' | 'workflows';
+type TabId = 'schedules' | 'workflows' | 'holidays';
 
 export function SchedulerPage() {
   const addToast = useToastStore((s) => s.addToast);
   const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState<TabId>('schedules');
   const [showCreate, setShowCreate] = useState(false);
+  const [showCreateCalendar, setShowCreateCalendar] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
   const { data, isLoading } = useSchedules();
   const { data: stats } = useScheduleStats();
@@ -83,9 +90,12 @@ export function SchedulerPage() {
   const pauseSchedule = usePauseSchedule();
   const resumeSchedule = useResumeSchedule();
   const { data: workflowsData, isLoading: workflowsLoading } = useWorkflows();
+  const { data: calendarsData, isLoading: calendarsLoading } = useHolidayCalendars();
+  const deleteCalendar = useDeleteHolidayCalendar();
 
   const schedules = data?.content ?? [];
   const workflows = workflowsData?.content ?? [];
+  const calendars = calendarsData ?? [];
 
   const handleDelete = async (id: string) => {
     try {
@@ -113,6 +123,78 @@ export function SchedulerPage() {
       addToast({ type: 'error', title: 'Failed to resume schedule' });
     }
   };
+
+  const handleDeleteCalendar = async (calId: string) => {
+    try {
+      await deleteCalendar.mutateAsync(calId);
+      addToast({ type: 'success', title: 'Calendar deleted' });
+    } catch {
+      addToast({ type: 'error', title: 'Failed to delete calendar' });
+    }
+  };
+
+  const calendarColumns: Column<HolidayCalendar>[] = [
+    {
+      key: 'name',
+      header: 'Name',
+      render: (c) => (
+        <div>
+          <p className="font-medium text-gray-900">{c.name}</p>
+          {c.description && (
+            <p className="text-xs text-gray-500 truncate max-w-[250px]">{c.description}</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'market',
+      header: 'Market',
+      render: (c) => <span className="text-sm text-gray-900">{c.market}</span>,
+    },
+    {
+      key: 'region',
+      header: 'Region',
+      render: (c) => <span className="text-sm text-gray-600">{c.region ?? '-'}</span>,
+    },
+    {
+      key: 'entryCount',
+      header: 'Holidays',
+      render: (c) => <span className="text-sm text-gray-600">{c.entryCount}</span>,
+    },
+    {
+      key: 'weekendDays',
+      header: 'Weekend Days',
+      render: (c) => (
+        <span className="text-xs text-gray-600">
+          {(c.weekendDays ?? []).map((d) => d.slice(0, 3)).join(', ')}
+        </span>
+      ),
+    },
+    {
+      key: 'status',
+      header: 'Status',
+      render: (c) => (
+        <Badge color={c.enabled ? 'green' : 'gray'}>
+          {c.enabled ? 'Enabled' : 'Disabled'}
+        </Badge>
+      ),
+    },
+    {
+      key: 'actions',
+      header: 'Actions',
+      render: (c) => (
+        <div className="flex items-center gap-1">
+          <button
+            onClick={(e) => { e.stopPropagation(); handleDeleteCalendar(c.id); }}
+            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-600"
+            title="Delete"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
+        </div>
+      ),
+    },
+  ];
 
   const scheduleColumns: Column<Schedule>[] = [
     {
@@ -292,6 +374,7 @@ export function SchedulerPage() {
   const tabs: { id: TabId; label: string }[] = [
     { id: 'schedules', label: `Schedules (${schedules.length})` },
     { id: 'workflows', label: `Workflows (${workflows.length})` },
+    { id: 'holidays', label: `Holidays (${calendars.length})` },
   ];
 
   return (
@@ -409,6 +492,48 @@ export function SchedulerPage() {
               />
             </div>
           )}
+        </>
+      )}
+
+      {activeTab === 'holidays' && (
+        <>
+          <PageHeader
+            title="Holiday Calendars"
+            description="Manage market holiday calendars for schedule skip logic"
+            actions={
+              <Button onClick={() => setShowCreateCalendar(true)}>
+                <Plus className="h-4 w-4" />
+                Create Calendar
+              </Button>
+            }
+          />
+
+          {calendarsLoading ? (
+            <div className="flex items-center justify-center py-12">
+              <Spinner size="lg" />
+            </div>
+          ) : calendars.length === 0 ? (
+            <EmptyState
+              icon={<Calendar className="h-12 w-12" />}
+              title="No holiday calendars yet"
+              description="Create a holiday calendar to define market holidays and skip schedules."
+              actionLabel="Create Calendar"
+              onAction={() => setShowCreateCalendar(true)}
+            />
+          ) : (
+            <div className="rounded-lg border border-gray-200 bg-white">
+              <DataTable
+                columns={calendarColumns}
+                data={calendars}
+                onRowClick={(c) => navigate(`/holiday-calendars/${c.id}`)}
+              />
+            </div>
+          )}
+
+          <CreateCalendarModal
+            isOpen={showCreateCalendar}
+            onClose={() => setShowCreateCalendar(false)}
+          />
         </>
       )}
     </div>

@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react';
 import { type Node } from '@xyflow/react';
-import { X, Clock, MousePointerClick, Webhook, Radio, ArrowRightCircle, GitBranch, Copy, Check } from 'lucide-react';
+import { X, Clock, MousePointerClick, Webhook, Radio, ArrowRightCircle, GitBranch, Copy, Check, CalendarDays } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
 import { Badge } from '@/shared/components/Badge';
 import { cn } from '@/shared/utils/cn';
 import { useRules } from '@/api/rules.api';
+import { useHolidayCalendars, type SkipOnHoliday } from '@/api/holiday-calendars.api';
 
 interface NodeEditPanelProps {
   node: Node;
@@ -64,9 +65,17 @@ export function NodeEditPanel({ node, onClose, onNodeUpdate, workflowId }: NodeE
   const [outputType, setOutputType] = useState((config.outputType as string) ?? 'LOG');
   const [outputDescription, setOutputDescription] = useState((config.description as string) ?? '');
   const [copied, setCopied] = useState(false);
+  const [holidayCalendarId, setHolidayCalendarId] = useState(
+    (config.holidayCalendarId as string) ?? '',
+  );
+  const [skipOnHoliday, setSkipOnHoliday] = useState<SkipOnHoliday>(
+    (config.skipOnHoliday as SkipOnHoliday) ?? 'SKIP',
+  );
 
   const { data: rulesData } = useRules({ size: 100 });
   const rules = rulesData?.content ?? [];
+  const { data: calendarsData } = useHolidayCalendars();
+  const calendars = calendarsData ?? [];
 
   // Reset form when node changes
   useEffect(() => {
@@ -82,6 +91,8 @@ export function NodeEditPanel({ node, onClose, onNodeUpdate, workflowId }: NodeE
     setFalseBranchLabel((c.falseBranchLabel as string) ?? '');
     setOutputType((c.outputType as string) ?? 'LOG');
     setOutputDescription((c.description as string) ?? '');
+    setHolidayCalendarId((c.holidayCalendarId as string) ?? '');
+    setSkipOnHoliday((c.skipOnHoliday as SkipOnHoliday) ?? 'SKIP');
     setCopied(false);
   }, [node.id, node.data]);
 
@@ -101,7 +112,13 @@ export function NodeEditPanel({ node, onClose, onNodeUpdate, workflowId }: NodeE
 
     if (nodeType === 'trigger') {
       const triggerConfig: Record<string, unknown> = { triggerType };
-      if (triggerType === 'CRON') triggerConfig.cronExpression = cronExpression;
+      if (triggerType === 'CRON') {
+        triggerConfig.cronExpression = cronExpression;
+        if (holidayCalendarId) {
+          triggerConfig.holidayCalendarId = holidayCalendarId;
+          triggerConfig.skipOnHoliday = skipOnHoliday;
+        }
+      }
       if (triggerType === 'EVENT') triggerConfig.eventTopic = eventTopic;
       if (triggerType === 'WEBHOOK') triggerConfig.webhookUrl = webhookUrl;
       updated.config = triggerConfig;
@@ -170,7 +187,7 @@ export function NodeEditPanel({ node, onClose, onNodeUpdate, workflowId }: NodeE
           <>
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">Trigger Type</label>
-              <div className="flex rounded-lg border border-gray-200 overflow-hidden">
+              <div className="grid grid-cols-2 gap-1.5">
                 {TRIGGER_TYPES.map((t) => {
                   const TIcon = getTriggerIcon(t);
                   return (
@@ -179,14 +196,13 @@ export function NodeEditPanel({ node, onClose, onNodeUpdate, workflowId }: NodeE
                       type="button"
                       onClick={() => setTriggerType(t)}
                       className={cn(
-                        'flex-1 flex items-center justify-center gap-1 px-2 py-2 text-xs font-medium transition-colors',
+                        'flex items-center justify-center gap-1.5 rounded-lg border px-3 py-2 text-xs font-medium transition-colors',
                         triggerType === t
-                          ? 'bg-indigo-50 text-indigo-700 border-indigo-200'
-                          : 'bg-white text-gray-600 hover:bg-gray-50',
-                        t !== TRIGGER_TYPES[0] && 'border-l border-gray-200',
+                          ? 'bg-indigo-50 text-indigo-700 border-indigo-300 ring-1 ring-indigo-200'
+                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50',
                       )}
                     >
-                      <TIcon className="h-3 w-3" />
+                      <TIcon className="h-3.5 w-3.5 flex-shrink-0" />
                       {t}
                     </button>
                   );
@@ -195,31 +211,88 @@ export function NodeEditPanel({ node, onClose, onNodeUpdate, workflowId }: NodeE
             </div>
 
             {triggerType === 'CRON' && (
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-2">Cron Expression</label>
-                <div className="flex flex-wrap gap-1.5 mb-2">
-                  {CRON_PRESETS.map((preset) => (
-                    <button
-                      key={preset.cron}
-                      type="button"
-                      onClick={() => setCronExpression(preset.cron)}
-                      className={cn(
-                        'rounded-full px-2.5 py-1 text-[11px] font-medium border transition-colors',
-                        cronExpression === preset.cron
-                          ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
-                          : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50',
-                      )}
-                    >
-                      {preset.label}
-                    </button>
-                  ))}
+              <>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Cron Expression</label>
+                  <div className="flex flex-wrap gap-1.5 mb-2">
+                    {CRON_PRESETS.map((preset) => (
+                      <button
+                        key={preset.cron}
+                        type="button"
+                        onClick={() => setCronExpression(preset.cron)}
+                        className={cn(
+                          'rounded-full px-2.5 py-1 text-[11px] font-medium border transition-colors',
+                          cronExpression === preset.cron
+                            ? 'bg-indigo-100 text-indigo-700 border-indigo-300'
+                            : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50',
+                        )}
+                      >
+                        {preset.label}
+                      </button>
+                    ))}
+                  </div>
+                  <Input
+                    value={cronExpression}
+                    onChange={(e) => setCronExpression(e.target.value)}
+                    placeholder="*/5 * * * *"
+                  />
                 </div>
-                <Input
-                  value={cronExpression}
-                  onChange={(e) => setCronExpression(e.target.value)}
-                  placeholder="*/5 * * * *"
-                />
-              </div>
+
+                {/* Holiday Calendar — only for CRON triggers */}
+                <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 space-y-3">
+                  <div className="flex items-center gap-1.5">
+                    <CalendarDays className="h-3.5 w-3.5 text-gray-500" />
+                    <label className="text-sm font-medium text-gray-700">Holiday Calendar</label>
+                  </div>
+                  <select
+                    value={holidayCalendarId}
+                    onChange={(e) => setHolidayCalendarId(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 bg-white"
+                  >
+                    <option value="">None — run on all days</option>
+                    {calendars.map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name} ({c.market})
+                      </option>
+                    ))}
+                  </select>
+                  {holidayCalendarId && (
+                    <div>
+                      <label className="block text-xs font-medium text-gray-600 mb-1.5">On holidays:</label>
+                      <div className="space-y-1">
+                        {([
+                          { value: 'SKIP', label: 'Skip execution', desc: 'Do not run on holidays' },
+                          { value: 'DEFER_NEXT', label: 'Defer to next business day', desc: 'Run on the next working day' },
+                          { value: 'RUN_ANYWAY', label: 'Run anyway', desc: 'Ignore holiday calendar' },
+                        ] as const).map((opt) => (
+                          <label
+                            key={opt.value}
+                            className={cn(
+                              'flex items-start gap-2 rounded-lg border px-3 py-2 cursor-pointer transition-colors',
+                              skipOnHoliday === opt.value
+                                ? 'border-indigo-300 bg-indigo-50'
+                                : 'border-gray-200 bg-white hover:bg-gray-50',
+                            )}
+                          >
+                            <input
+                              type="radio"
+                              name="skipOnHoliday"
+                              value={opt.value}
+                              checked={skipOnHoliday === opt.value}
+                              onChange={() => setSkipOnHoliday(opt.value)}
+                              className="mt-0.5 h-3.5 w-3.5 text-indigo-600 focus:ring-indigo-500"
+                            />
+                            <div>
+                              <span className="text-xs font-medium text-gray-900">{opt.label}</span>
+                              <p className="text-[10px] text-gray-500">{opt.desc}</p>
+                            </div>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              </>
             )}
 
             {triggerType === 'MANUAL' && (

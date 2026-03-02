@@ -17,6 +17,9 @@ export interface Schedule {
   nextRunAt?: string;
   lastRunAt?: string;
   inputTemplate?: Record<string, unknown>;
+  holidayCalendarId?: string;
+  skipOnHoliday?: 'SKIP' | 'DEFER_NEXT' | 'RUN_ANYWAY';
+  holidayCalendarName?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -49,6 +52,8 @@ export interface CreateScheduleRequest {
   cronExpression: string;
   timezone?: string;
   inputTemplate?: Record<string, unknown>;
+  holidayCalendarId?: string;
+  skipOnHoliday?: string;
 }
 
 export function useScheduleStats() {

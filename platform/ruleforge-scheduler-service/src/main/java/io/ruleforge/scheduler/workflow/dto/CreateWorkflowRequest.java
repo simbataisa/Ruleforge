@@ -13,5 +13,7 @@ public record CreateWorkflowRequest(
     String cronExpression,
     UUID createdBy,
     String triggerType,
-    Map<String, Object> triggerConfig
+    Map<String, Object> triggerConfig,
+    UUID holidayCalendarId,
+    String skipOnHoliday
 ) {}

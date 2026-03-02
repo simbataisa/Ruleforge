@@ -36,6 +36,9 @@ export interface Workflow {
   triggerType: TriggerType;
   triggerConfig?: Record<string, unknown>;
   status: 'ACTIVE' | 'PAUSED' | 'DRAFT';
+  holidayCalendarId?: string;
+  skipOnHoliday?: string;
+  holidayCalendarName?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -58,6 +61,8 @@ export interface CreateWorkflowRequest {
   cronExpression?: string;
   triggerType?: TriggerType;
   triggerConfig?: Record<string, unknown>;
+  holidayCalendarId?: string;
+  skipOnHoliday?: string;
 }
 
 // Hooks

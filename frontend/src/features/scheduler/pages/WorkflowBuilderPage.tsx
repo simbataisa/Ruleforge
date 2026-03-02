@@ -245,6 +245,7 @@ export function WorkflowBuilderPage() {
     if (initialEdges.length > 0) setEdges(initialEdges);
   }, [initialEdges, setEdges]);
 
+
   const onConnect: OnConnect = useCallback(
     (params) => setEdges((eds) => addEdge({ ...params, animated: true }, eds)),
     [setEdges],
@@ -337,9 +338,19 @@ export function WorkflowBuilderPage() {
           label: typeof e.label === 'string' ? e.label : undefined,
         })),
       };
+      // Extract holiday calendar from trigger node config
+      const calId = triggerConfig?.holidayCalendarId as string | undefined;
+      const skipBehavior = triggerConfig?.skipOnHoliday as string | undefined;
+
       await updateWorkflow.mutateAsync({
         id,
-        data: { definition, triggerType, triggerConfig: triggerConfig ?? {} },
+        data: {
+          definition,
+          triggerType,
+          triggerConfig: triggerConfig ?? {},
+          holidayCalendarId: calId || undefined,
+          skipOnHoliday: calId ? (skipBehavior ?? 'SKIP') : undefined,
+        },
       });
       addToast({ type: 'success', title: 'Workflow saved' });
     } catch {

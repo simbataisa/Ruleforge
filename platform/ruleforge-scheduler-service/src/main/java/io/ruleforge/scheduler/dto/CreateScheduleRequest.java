@@ -16,5 +16,7 @@ public record CreateScheduleRequest(
     String ruleName,
     String ruleType,
     @NotNull UUID createdBy,
-    UUID workflowId
+    UUID workflowId,
+    UUID holidayCalendarId,
+    String skipOnHoliday
 ) {}

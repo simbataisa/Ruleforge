@@ -9,5 +9,7 @@ public record UpdateScheduleRequest(
     Map<String, Object> inputTemplate,
     Boolean enabled,
     String description,
-    UUID workflowId
+    UUID workflowId,
+    UUID holidayCalendarId,
+    String skipOnHoliday
 ) {}
