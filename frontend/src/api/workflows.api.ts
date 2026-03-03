@@ -39,6 +39,8 @@ export interface Workflow {
   holidayCalendarId?: string;
   skipOnHoliday?: string;
   holidayCalendarName?: string;
+  scheduleId?: string;
+  scheduleName?: string;
   createdAt: string;
   updatedAt: string;
 }

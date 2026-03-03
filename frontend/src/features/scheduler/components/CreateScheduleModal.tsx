@@ -5,6 +5,7 @@ import { Input } from '@/shared/components/Input';
 import { useToastStore } from '@/stores/toast.store';
 import { useCreateSchedule } from '@/api/schedules.api';
 import { useRules } from '@/api/rules.api';
+import { useWorkflows } from '@/api/workflows.api';
 import { useHolidayCalendars, type SkipOnHoliday } from '@/api/holiday-calendars.api';
 import { JsonModelEditor } from '@/features/rules/components/JsonModelEditor';
 import { cn } from '@/shared/utils/cn';
@@ -39,16 +40,21 @@ function cronToHuman(cron: string): string {
   return map[cron] ?? '';
 }
 
+type TargetType = 'rule' | 'workflow';
+
 export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProps) {
   const addToast = useToastStore((s) => s.addToast);
   const createSchedule = useCreateSchedule();
   const { data: rulesData } = useRules({ size: 100 });
+  const { data: workflowsData } = useWorkflows();
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
+  const [targetType, setTargetType] = useState<TargetType>('rule');
   const [ruleId, setRuleId] = useState('');
   const [ruleName, setRuleName] = useState('');
   const [ruleType, setRuleType] = useState('');
+  const [selectedWorkflowId, setSelectedWorkflowId] = useState('');
   const [cronExpression, setCronExpression] = useState('');
   const [timezone, setTimezone] = useState('UTC');
   const [inputTemplate, setInputTemplate] = useState('{\n  \n}');
@@ -58,13 +64,16 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
   const { data: calendarsData } = useHolidayCalendars();
   const calendars = calendarsData ?? [];
   const rules = rulesData?.content ?? [];
+  const workflows = workflowsData?.content ?? [];
 
   const handleClose = () => {
     setName('');
     setDescription('');
+    setTargetType('rule');
     setRuleId('');
     setRuleName('');
     setRuleType('');
+    setSelectedWorkflowId('');
     setCronExpression('');
     setTimezone('UTC');
     setInputTemplate('{\n  \n}');
@@ -87,7 +96,9 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim() || !ruleId || !cronExpression.trim()) return;
+    if (!name.trim() || !cronExpression.trim()) return;
+    if (targetType === 'rule' && !ruleId) return;
+    if (targetType === 'workflow' && !selectedWorkflowId) return;
 
     let parsedPayload: Record<string, unknown> | undefined;
     try {
@@ -104,9 +115,10 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
       await createSchedule.mutateAsync({
         name: name.trim(),
         description: description.trim() || undefined,
-        ruleId,
-        ruleName: ruleName || undefined,
-        ruleType: ruleType || undefined,
+        ruleId: targetType === 'rule' ? ruleId : '',
+        ruleName: targetType === 'rule' ? ruleName || undefined : undefined,
+        ruleType: targetType === 'rule' ? ruleType || undefined : undefined,
+        workflowId: targetType === 'workflow' ? selectedWorkflowId : undefined,
         cronExpression: cronExpression.trim(),
         timezone,
         inputTemplate: parsedPayload,
@@ -153,25 +165,79 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
           />
         </div>
 
+        {/* Target type toggle */}
         <div>
-          <label htmlFor="sched-rule" className="block text-sm font-medium text-gray-700 mb-1">
-            Rule
-          </label>
-          <select
-            id="sched-rule"
-            value={ruleId}
-            onChange={(e) => handleRuleChange(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-            required
-          >
-            <option value="">Select a rule...</option>
-            {rules.map((r) => (
-              <option key={r.id} value={r.id}>
-                {r.name} ({r.type})
-              </option>
-            ))}
-          </select>
+          <label className="block text-sm font-medium text-gray-700 mb-1">Target Type</label>
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setTargetType('rule')}
+              className={cn(
+                'flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                targetType === 'rule'
+                  ? 'bg-blue-50 text-blue-700 border-blue-300'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50',
+              )}
+            >
+              Rule
+            </button>
+            <button
+              type="button"
+              onClick={() => setTargetType('workflow')}
+              className={cn(
+                'flex-1 rounded-lg border px-3 py-2 text-sm font-medium transition-colors',
+                targetType === 'workflow'
+                  ? 'bg-purple-50 text-purple-700 border-purple-300'
+                  : 'bg-white text-gray-600 border-gray-200 hover:bg-gray-50',
+              )}
+            >
+              Workflow
+            </button>
+          </div>
         </div>
+
+        {targetType === 'rule' ? (
+          <div>
+            <label htmlFor="sched-rule" className="block text-sm font-medium text-gray-700 mb-1">
+              Rule
+            </label>
+            <select
+              id="sched-rule"
+              value={ruleId}
+              onChange={(e) => handleRuleChange(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              required
+            >
+              <option value="">Select a rule...</option>
+              {rules.map((r) => (
+                <option key={r.id} value={r.id}>
+                  {r.name} ({r.type})
+                </option>
+              ))}
+            </select>
+          </div>
+        ) : (
+          <div>
+            <label htmlFor="sched-workflow" className="block text-sm font-medium text-gray-700 mb-1">
+              Workflow
+            </label>
+            <select
+              id="sched-workflow"
+              value={selectedWorkflowId}
+              onChange={(e) => setSelectedWorkflowId(e.target.value)}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+              required
+            >
+              <option value="">Select a workflow...</option>
+              {workflows.map((w) => (
+                <option key={w.id} value={w.id}>
+                  {w.name}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">The workflow's trigger node will be updated with this cron expression.</p>
+          </div>
+        )}
 
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -280,7 +346,12 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
           <Button
             type="submit"
             loading={createSchedule.isPending}
-            disabled={!name.trim() || !ruleId || !cronExpression.trim()}
+            disabled={
+              !name.trim() ||
+              !cronExpression.trim() ||
+              (targetType === 'rule' && !ruleId) ||
+              (targetType === 'workflow' && !selectedWorkflowId)
+            }
           >
             Create Schedule
           </Button>

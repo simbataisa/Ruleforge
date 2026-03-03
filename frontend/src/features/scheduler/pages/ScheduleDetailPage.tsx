@@ -173,14 +173,26 @@ export function ScheduleDetailPage() {
 
       {/* Linked workflow */}
       {schedule.workflowId && (
-        <div className="mb-4">
-          <span className="text-sm text-gray-500">Linked Workflow: </span>
-          <button
-            onClick={() => navigate(`/workflows/${schedule.workflowId}`)}
-            className="text-sm text-indigo-600 hover:text-indigo-800 font-medium"
-          >
-            {schedule.workflowName ?? schedule.workflowId}
-          </button>
+        <div className="mb-6 rounded-lg border border-purple-200 bg-purple-50 p-4">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-semibold text-purple-700">
+                Workflow
+              </span>
+              <span className="text-sm font-medium text-gray-900">
+                {schedule.workflowName ?? schedule.workflowId}
+              </span>
+            </div>
+            <button
+              onClick={() => navigate(`/workflows/${schedule.workflowId}`)}
+              className="rounded-lg bg-purple-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-purple-700 transition-colors"
+            >
+              View Workflow
+            </button>
+          </div>
+          <p className="text-xs text-purple-600 mt-2">
+            Cron changes sync to the workflow's trigger node.
+          </p>
         </div>
       )}
 

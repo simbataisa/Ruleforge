@@ -218,23 +218,50 @@ export function SchedulerPage() {
     {
       key: 'name',
       header: 'Name',
+      render: (s) => (
+        <div>
+          <p className="font-medium text-gray-900">{s.name}</p>
+          {s.description && (
+            <p className="text-xs text-gray-500 truncate max-w-[200px] mt-0.5">{s.description}</p>
+          )}
+        </div>
+      ),
+    },
+    {
+      key: 'target',
+      header: 'Target',
       render: (s) => {
+        if (s.workflowId) {
+          return (
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-[10px] font-semibold text-purple-700">
+                Workflow
+              </span>
+              <button
+                onClick={(e) => { e.stopPropagation(); navigate(`/workflows/${s.workflowId}`); }}
+                className="text-xs text-purple-600 hover:text-purple-800 font-medium truncate max-w-[120px]"
+              >
+                {s.workflowName ?? 'View'}
+              </button>
+            </div>
+          );
+        }
         const colors = s.ruleType
           ? RULE_TYPE_COLORS[s.ruleType] ?? { bg: 'bg-gray-100', text: 'text-gray-600' }
           : null;
         return (
-          <div>
-            <p className="font-medium text-gray-900">{s.name}</p>
-            <div className="flex items-center gap-2 mt-0.5">
-              {colors && (
-                <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold', colors.bg, colors.text)}>
-                  {s.ruleType}
-                </span>
-              )}
-              {s.description && (
-                <p className="text-xs text-gray-500 truncate max-w-[200px]">{s.description}</p>
-              )}
-            </div>
+          <div className="flex items-center gap-1.5">
+            <span className="inline-flex items-center rounded-full bg-blue-100 px-2 py-0.5 text-[10px] font-semibold text-blue-700">
+              Rule
+            </span>
+            {colors && (
+              <span className={cn('inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold', colors.bg, colors.text)}>
+                {s.ruleType}
+              </span>
+            )}
+            {s.ruleName && (
+              <span className="text-xs text-gray-600 truncate max-w-[120px]">{s.ruleName}</span>
+            )}
           </div>
         );
       },

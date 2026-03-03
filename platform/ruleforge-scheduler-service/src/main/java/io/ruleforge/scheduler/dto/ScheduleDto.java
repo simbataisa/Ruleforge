@@ -25,5 +25,6 @@ public record ScheduleDto(
     String workflowName,
     UUID holidayCalendarId,
     String skipOnHoliday,
-    String holidayCalendarName
+    String holidayCalendarName,
+    boolean isWorkflowSchedule
 ) {}

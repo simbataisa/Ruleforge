@@ -433,6 +433,15 @@ export function WorkflowBuilderPage() {
           </div>
         </div>
         <div className="flex items-center gap-2">
+          {workflow?.scheduleId && (
+            <button
+              onClick={() => navigate(`/schedules/${workflow.scheduleId}`)}
+              className="flex items-center gap-1.5 rounded-full bg-blue-50 border border-blue-200 px-3 py-1 text-xs font-medium text-blue-700 hover:bg-blue-100"
+            >
+              <Clock className="h-3 w-3" />
+              Scheduled: {workflow.scheduleName ?? 'View Schedule'}
+            </button>
+          )}
           <button
             onClick={handleToggleEnabled}
             className={cn(

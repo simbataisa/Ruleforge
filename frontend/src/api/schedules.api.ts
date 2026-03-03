@@ -19,6 +19,7 @@ export interface Schedule {
   inputTemplate?: Record<string, unknown>;
   holidayCalendarId?: string;
   skipOnHoliday?: 'SKIP' | 'DEFER_NEXT' | 'RUN_ANYWAY';
+  isWorkflowSchedule?: boolean;
   holidayCalendarName?: string;
   createdAt: string;
   updatedAt: string;

@@ -15,7 +15,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
@@ -60,6 +62,10 @@ public class ScheduleService {
         if (request.holidayCalendarId() != null) entity.setHolidayCalendarId(request.holidayCalendarId());
         if (request.skipOnHoliday() != null) entity.setSkipOnHoliday(request.skipOnHoliday());
         ScheduleEntity saved = scheduleRepository.save(entity);
+
+        if (saved.getWorkflowId() != null) {
+            syncWorkflowTrigger(saved);
+        }
 
         if (saved.isEnabled()) {
             scheduleQuartzJob(saved);
@@ -111,7 +117,13 @@ public class ScheduleService {
             }
         }
 
-        return toDto(scheduleRepository.save(entity));
+        ScheduleEntity updated = scheduleRepository.save(entity);
+
+        if (updated.getWorkflowId() != null) {
+            syncWorkflowTrigger(updated);
+        }
+
+        return toDto(updated);
     }
 
     public void delete(UUID id) {
@@ -146,6 +158,54 @@ public class ScheduleService {
     @Transactional(readOnly = true)
     public Page<ScheduleRunDto> getRuns(UUID scheduleId, Pageable pageable) {
         return scheduleRunRepository.findByScheduleId(scheduleId, pageable).map(this::toRunDto);
+    }
+
+    @SuppressWarnings("unchecked")
+    private void syncWorkflowTrigger(ScheduleEntity schedule) {
+        workflowRepository.findById(schedule.getWorkflowId()).ifPresent(workflow -> {
+            workflow.setTriggerType("CRON");
+            workflow.setCronExpression(schedule.getCronExpression());
+            Map<String, Object> config = workflow.getTriggerConfig() != null
+                    ? new HashMap<>(workflow.getTriggerConfig()) : new HashMap<>();
+            config.put("triggerType", "CRON");
+            config.put("cronExpression", schedule.getCronExpression());
+            config.put("scheduleId", schedule.getId().toString());
+            if (schedule.getHolidayCalendarId() != null) {
+                config.put("holidayCalendarId", schedule.getHolidayCalendarId().toString());
+                config.put("skipOnHoliday", schedule.getSkipOnHoliday());
+            }
+            workflow.setTriggerConfig(config);
+            if (schedule.getHolidayCalendarId() != null) {
+                workflow.setHolidayCalendarId(schedule.getHolidayCalendarId());
+                workflow.setSkipOnHoliday(schedule.getSkipOnHoliday());
+            }
+            // Update the workflow definition to set trigger node config
+            Map<String, Object> definition = workflow.getDefinition();
+            if (definition != null && definition.containsKey("nodes")) {
+                List<Map<String, Object>> nodes = (List<Map<String, Object>>) definition.get("nodes");
+                for (Map<String, Object> node : nodes) {
+                    if ("trigger".equals(node.get("type"))) {
+                        Map<String, Object> data = (Map<String, Object>) node.get("data");
+                        if (data == null) {
+                            data = new HashMap<>();
+                            node.put("data", data);
+                        }
+                        Map<String, Object> nodeConfig = new HashMap<>();
+                        nodeConfig.put("triggerType", "CRON");
+                        nodeConfig.put("cronExpression", schedule.getCronExpression());
+                        if (schedule.getHolidayCalendarId() != null) {
+                            nodeConfig.put("holidayCalendarId", schedule.getHolidayCalendarId().toString());
+                            nodeConfig.put("skipOnHoliday", schedule.getSkipOnHoliday());
+                        }
+                        data.put("config", nodeConfig);
+                        data.put("label", "Cron: " + schedule.getCronExpression());
+                        break;
+                    }
+                }
+                workflow.setDefinition(definition);
+            }
+            workflowRepository.save(workflow);
+        });
     }
 
     private void scheduleQuartzJob(ScheduleEntity entity) {
@@ -242,7 +302,8 @@ public class ScheduleService {
                 e.getCreatedBy(), e.getCreatedAt(), e.getUpdatedAt(),
                 status, nextRunAt, lastRunAt,
                 e.getWorkflowId(), workflowName,
-                e.getHolidayCalendarId(), e.getSkipOnHoliday(), holidayCalendarName);
+                e.getHolidayCalendarId(), e.getSkipOnHoliday(), holidayCalendarName,
+                e.getWorkflowId() != null);
     }
 
     private ScheduleRunDto toRunDto(ScheduleRunEntity e) {

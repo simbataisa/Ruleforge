@@ -16,4 +16,6 @@ public interface ScheduleRepository extends JpaRepository<ScheduleEntity, UUID> 
     Optional<ScheduleEntity> findByIdAndSpaceId(UUID id, UUID spaceId);
 
     long countByEnabledTrue();
+
+    Optional<ScheduleEntity> findByWorkflowId(UUID workflowId);
 }

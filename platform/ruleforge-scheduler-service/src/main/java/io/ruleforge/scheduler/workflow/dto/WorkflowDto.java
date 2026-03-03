@@ -20,5 +20,7 @@ public record WorkflowDto(
     Map<String, Object> triggerConfig,
     UUID holidayCalendarId,
     String skipOnHoliday,
-    String holidayCalendarName
+    String holidayCalendarName,
+    UUID scheduleId,
+    String scheduleName
 ) {}

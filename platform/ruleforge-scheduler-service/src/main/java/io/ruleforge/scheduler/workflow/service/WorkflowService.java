@@ -2,6 +2,7 @@ package io.ruleforge.scheduler.workflow.service;
 
 import io.ruleforge.common.tenant.TenantContext;
 import io.ruleforge.scheduler.repository.HolidayCalendarRepository;
+import io.ruleforge.scheduler.repository.ScheduleRepository;
 import io.ruleforge.scheduler.workflow.dto.*;
 import io.ruleforge.scheduler.workflow.entity.WorkflowEntity;
 import io.ruleforge.scheduler.workflow.entity.WorkflowRunEntity;
@@ -24,13 +25,16 @@ public class WorkflowService {
     private final WorkflowRepository workflowRepository;
     private final WorkflowRunRepository workflowRunRepository;
     private final HolidayCalendarRepository holidayCalendarRepository;
+    private final ScheduleRepository scheduleRepository;
 
     public WorkflowService(WorkflowRepository workflowRepository,
                            WorkflowRunRepository workflowRunRepository,
-                           HolidayCalendarRepository holidayCalendarRepository) {
+                           HolidayCalendarRepository holidayCalendarRepository,
+                           ScheduleRepository scheduleRepository) {
         this.workflowRepository = workflowRepository;
         this.workflowRunRepository = workflowRunRepository;
         this.holidayCalendarRepository = holidayCalendarRepository;
+        this.scheduleRepository = scheduleRepository;
     }
 
     public WorkflowDto create(CreateWorkflowRequest request) {
@@ -89,7 +93,21 @@ public class WorkflowService {
         if (request.triggerConfig() != null) entity.setTriggerConfig(request.triggerConfig());
         if (request.holidayCalendarId() != null) entity.setHolidayCalendarId(request.holidayCalendarId());
         if (request.skipOnHoliday() != null) entity.setSkipOnHoliday(request.skipOnHoliday());
-        return toDto(workflowRepository.save(entity));
+        WorkflowEntity saved = workflowRepository.save(entity);
+
+        // Sync back to linked schedule if workflow trigger changed
+        scheduleRepository.findByWorkflowId(id).ifPresent(schedule -> {
+            if ("CRON".equals(saved.getTriggerType()) && saved.getCronExpression() != null) {
+                schedule.setCronExpression(saved.getCronExpression());
+                if (saved.getHolidayCalendarId() != null) {
+                    schedule.setHolidayCalendarId(saved.getHolidayCalendarId());
+                    schedule.setSkipOnHoliday(saved.getSkipOnHoliday());
+                }
+                scheduleRepository.save(schedule);
+            }
+        });
+
+        return toDto(saved);
     }
 
     public void delete(UUID id) {
@@ -125,11 +143,20 @@ public class WorkflowService {
                     .orElse(null);
         }
 
+        UUID scheduleId = null;
+        String scheduleName = null;
+        var linkedSchedule = scheduleRepository.findByWorkflowId(e.getId());
+        if (linkedSchedule.isPresent()) {
+            scheduleId = linkedSchedule.get().getId();
+            scheduleName = linkedSchedule.get().getName();
+        }
+
         return new WorkflowDto(e.getId(), e.getSpaceId(), e.getName(), e.getDescription(),
                 e.getDefinition(), e.isEnabled(), e.getCronExpression(),
                 e.getCreatedBy(), e.getCreatedAt(), e.getUpdatedAt(), status,
                 e.getTriggerType(), e.getTriggerConfig(),
-                e.getHolidayCalendarId(), e.getSkipOnHoliday(), holidayCalendarName);
+                e.getHolidayCalendarId(), e.getSkipOnHoliday(), holidayCalendarName,
+                scheduleId, scheduleName);
     }
 
     private WorkflowRunDto toRunDto(WorkflowRunEntity e) {
