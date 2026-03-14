@@ -7,7 +7,7 @@ ALTER TABLE audit_events
   ADD COLUMN IF NOT EXISTS metadata      JSONB;
 
 -- Give the legacy timestamp column a default so new rows don't require it
-ALTER TABLE audit_events ALTER COLUMN timestamp SET DEFAULT now();
+ALTER TABLE audit_events ALTER COLUMN created_at SET DEFAULT now();
 
 CREATE INDEX IF NOT EXISTS idx_audit_events_resource_type ON audit_events(resource_type);
 CREATE INDEX IF NOT EXISTS idx_audit_events_actor_id      ON audit_events(actor_id);

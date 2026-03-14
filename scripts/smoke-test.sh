@@ -584,6 +584,217 @@ else:
   else
     skip "Holiday Calendar API tests — no admin token"
   fi
+
+  # --- 3.14: Analytics Service API tests ---
+  info "--- Analytics Service API tests ---"
+
+  # Attempt admin login for analytics (reuse ADMIN_TOKEN if already set)
+  if [[ -z "${ADMIN_TOKEN:-}" ]]; then
+    ADMIN_RESP=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8081/v1/auth/login \
+      -H 'Content-Type: application/json' \
+      -d '{"email":"admin@ruleforge.io","password":"password123"}' 2>/dev/null)
+    ADMIN_CODE=$(echo "$ADMIN_RESP" | tail -1)
+    ADMIN_BODY=$(echo "$ADMIN_RESP" | sed '$d')
+    if [[ "$ADMIN_CODE" == "200" ]]; then
+      ADMIN_TOKEN=$(echo "$ADMIN_BODY" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['accessToken'])" 2>/dev/null || echo "")
+    fi
+  fi
+
+  if [[ -n "${ADMIN_TOKEN:-}" ]]; then
+    # GET /v1/analytics/dashboard — should return 200 (empty data is OK, must not 500)
+    ANALYTICS_DASH_RESP=$(curl -s -w "\n%{http_code}" \
+      "http://localhost:8085/v1/analytics/dashboard?hours=24" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    ANALYTICS_DASH_CODE=$(echo "$ANALYTICS_DASH_RESP" | tail -1)
+    ANALYTICS_DASH_BODY=$(echo "$ANALYTICS_DASH_RESP" | sed '$d')
+
+    if [[ "$ANALYTICS_DASH_CODE" == "200" ]]; then
+      pass "GET /v1/analytics/dashboard — HTTP 200 (graceful empty OK)"
+      verbose "$ANALYTICS_DASH_BODY"
+    else
+      fail "GET /v1/analytics/dashboard — HTTP $ANALYTICS_DASH_CODE (expected 200)"
+      verbose "$ANALYTICS_DASH_BODY"
+    fi
+
+    # GET /v1/analytics/decisions — should return 200 with paginated empty result
+    ANALYTICS_DEC_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+      "http://localhost:8085/v1/analytics/decisions?page=0&size=20" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    if [[ "$ANALYTICS_DEC_CODE" == "200" ]]; then
+      pass "GET /v1/analytics/decisions — HTTP 200"
+    else
+      fail "GET /v1/analytics/decisions — HTTP $ANALYTICS_DEC_CODE"
+    fi
+
+    # GET /v1/analytics/decisions with filters — status, search, latency
+    ANALYTICS_DEC_FILTER_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+      "http://localhost:8085/v1/analytics/decisions?status=ERROR&search=test&minLatency=10&maxLatency=500" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    if [[ "$ANALYTICS_DEC_FILTER_CODE" == "200" ]]; then
+      pass "GET /v1/analytics/decisions?status=ERROR&search=test&minLatency=10&maxLatency=500 — filters accepted"
+    else
+      fail "GET /v1/analytics/decisions (with filters) — HTTP $ANALYTICS_DEC_FILTER_CODE"
+    fi
+
+    # GET /v1/analytics/timeline — must not 500
+    ANALYTICS_TL_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+      "http://localhost:8085/v1/analytics/timeline?hours=24&interval=hour" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    if [[ "$ANALYTICS_TL_CODE" == "200" ]]; then
+      pass "GET /v1/analytics/timeline — HTTP 200"
+    else
+      fail "GET /v1/analytics/timeline — HTTP $ANALYTICS_TL_CODE"
+    fi
+
+    # GET /v1/analytics/type-distribution — verify field name fix
+    ANALYTICS_TYPE_RESP=$(curl -s -w "\n%{http_code}" \
+      "http://localhost:8085/v1/analytics/type-distribution?hours=24" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    ANALYTICS_TYPE_CODE=$(echo "$ANALYTICS_TYPE_RESP" | tail -1)
+    ANALYTICS_TYPE_BODY=$(echo "$ANALYTICS_TYPE_RESP" | sed '$d')
+    if [[ "$ANALYTICS_TYPE_CODE" == "200" ]]; then
+      # Verify "type" field (not "ruleType") in response items when non-empty
+      HAS_RULE_TYPE=$(echo "$ANALYTICS_TYPE_BODY" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    if isinstance(d, list) and len(d) > 0:
+        print('ruleType' if 'ruleType' in d[0] else 'ok')
+    else:
+        print('ok')
+except:
+    print('ok')
+" 2>/dev/null || echo "ok")
+      if [[ "$HAS_RULE_TYPE" == "ruleType" ]]; then
+        fail "GET /v1/analytics/type-distribution — response still contains 'ruleType' field (should be 'type')"
+      else
+        pass "GET /v1/analytics/type-distribution — HTTP 200, field name correct"
+      fi
+      verbose "$ANALYTICS_TYPE_BODY"
+    else
+      fail "GET /v1/analytics/type-distribution — HTTP $ANALYTICS_TYPE_CODE"
+    fi
+
+    # GET /v1/analytics/latency-percentiles — must not 500
+    ANALYTICS_LAT_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+      "http://localhost:8085/v1/analytics/latency-percentiles?hours=24" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    if [[ "$ANALYTICS_LAT_CODE" == "200" ]]; then
+      pass "GET /v1/analytics/latency-percentiles — HTTP 200"
+    else
+      fail "GET /v1/analytics/latency-percentiles — HTTP $ANALYTICS_LAT_CODE"
+    fi
+
+    # GET /v1/analytics/pass-fail — must not 500
+    ANALYTICS_PF_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+      "http://localhost:8085/v1/analytics/pass-fail?hours=24&interval=hour" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    if [[ "$ANALYTICS_PF_CODE" == "200" ]]; then
+      pass "GET /v1/analytics/pass-fail — HTTP 200"
+    else
+      fail "GET /v1/analytics/pass-fail — HTTP $ANALYTICS_PF_CODE"
+    fi
+
+  else
+    skip "Analytics API tests — no admin token (auth service unavailable?)"
+  fi
+fi
+
+# ============================================================================
+# 3.15 — Event Service: Audit Log API
+# ============================================================================
+info "3.15 — Audit Log API (event-service :8084)"
+
+EVENT_HEALTH=$(curl -sf --max-time 3 "http://localhost:8084/actuator/health" 2>/dev/null | \
+  python3 -c "import sys,json; print(json.load(sys.stdin).get('status','DOWN'))" 2>/dev/null || echo "DOWN")
+
+if [[ "$EVENT_HEALTH" != "UP" ]]; then
+  skip "Audit Log API tests — event-service not running (health: $EVENT_HEALTH)"
+elif [[ -z "${ADMIN_TOKEN:-}" ]]; then
+  skip "Audit Log API tests — no admin token (auth service unavailable?)"
+else
+  if [[ "$QUICK" == "false" ]]; then
+
+    # GET /v1/audit — paginated list, must return 200
+    AUDIT_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+      "http://localhost:8084/v1/audit" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    if [[ "$AUDIT_CODE" == "200" ]]; then
+      pass "GET /v1/audit — HTTP 200"
+    else
+      fail "GET /v1/audit — HTTP $AUDIT_CODE"
+    fi
+
+    # GET /v1/audit — verify response shape has content[] and totalElements
+    AUDIT_RESP=$(curl -s \
+      "http://localhost:8084/v1/audit" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    HAS_CONTENT=$(echo "$AUDIT_RESP" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    data = d.get('data', d)
+    has_content = 'content' in data
+    has_total = 'totalElements' in data
+    print('ok' if has_content and has_total else 'missing')
+except: print('missing')
+" 2>/dev/null || echo "missing")
+    if [[ "$HAS_CONTENT" == "ok" ]]; then
+      pass "GET /v1/audit — response has content[] and totalElements"
+    else
+      fail "GET /v1/audit — response missing content[] or totalElements fields"
+    fi
+    verbose "$AUDIT_RESP"
+
+    # GET /v1/audit?eventType=RULE_CREATED — must return 200
+    AUDIT_FILTER_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+      "http://localhost:8084/v1/audit?eventType=RULE_CREATED" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    if [[ "$AUDIT_FILTER_CODE" == "200" ]]; then
+      pass "GET /v1/audit?eventType=RULE_CREATED — HTTP 200"
+    else
+      fail "GET /v1/audit?eventType=RULE_CREATED — HTTP $AUDIT_FILTER_CODE"
+    fi
+
+    # GET /v1/audit?search=Loan — must return 200
+    AUDIT_SEARCH_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+      "http://localhost:8084/v1/audit?search=Loan" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    if [[ "$AUDIT_SEARCH_CODE" == "200" ]]; then
+      pass "GET /v1/audit?search=Loan — HTTP 200"
+    else
+      fail "GET /v1/audit?search=Loan — HTTP $AUDIT_SEARCH_CODE"
+    fi
+
+    # GET /v1/audit/resources/RULE/{ruleId} — must return 200
+    RULE_ID="e0000000-0000-0000-0000-000000000001"
+    AUDIT_RES_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+      "http://localhost:8084/v1/audit/resources/RULE/$RULE_ID" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    if [[ "$AUDIT_RES_CODE" == "200" ]]; then
+      pass "GET /v1/audit/resources/RULE/{id} — HTTP 200"
+    else
+      fail "GET /v1/audit/resources/RULE/{id} — HTTP $AUDIT_RES_CODE"
+    fi
+
+    # GET /v1/audit/export — must return 200 with CSV content-type
+    AUDIT_EXPORT_RESP=$(curl -s -D - -o /dev/null \
+      "http://localhost:8084/v1/audit/export" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    AUDIT_EXPORT_CODE=$(echo "$AUDIT_EXPORT_RESP" | grep "^HTTP/" | awk '{print $2}' | tail -1)
+    AUDIT_EXPORT_CT=$(echo "$AUDIT_EXPORT_RESP" | grep -i "content-type:" | head -1)
+    if [[ "$AUDIT_EXPORT_CODE" == "200" ]]; then
+      pass "GET /v1/audit/export — HTTP 200"
+    else
+      fail "GET /v1/audit/export — HTTP $AUDIT_EXPORT_CODE"
+    fi
+    if echo "$AUDIT_EXPORT_CT" | grep -qi "text/csv"; then
+      pass "GET /v1/audit/export — Content-Type: text/csv"
+    else
+      fail "GET /v1/audit/export — Content-Type not text/csv (got: $AUDIT_EXPORT_CT)"
+    fi
+
+  fi
 fi
 
 # ============================================================================

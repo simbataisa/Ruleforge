@@ -4,7 +4,6 @@ import co.elastic.clients.elasticsearch._types.aggregations.Aggregation;
 import co.elastic.clients.elasticsearch._types.aggregations.CalendarInterval;
 import co.elastic.clients.elasticsearch._types.aggregations.DateHistogramBucket;
 import co.elastic.clients.elasticsearch._types.aggregations.FiltersBucket;
-import co.elastic.clients.elasticsearch._types.aggregations.PercentilesAggregation;
 import co.elastic.clients.elasticsearch._types.aggregations.StringTermsBucket;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
 import co.elastic.clients.elasticsearch._types.query_dsl.Query;
@@ -22,6 +21,8 @@ import io.ruleforge.analytics.dto.TypeDistributionDto;
 import io.ruleforge.analytics.dto.VariantStatsDto;
 import io.ruleforge.analytics.model.DecisionLogDocument;
 import io.ruleforge.analytics.repository.DecisionLogRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.data.domain.PageRequest;
@@ -44,6 +45,8 @@ import java.util.stream.Collectors;
 @Service
 public class AnalyticsService {
 
+    private static final Logger log = LoggerFactory.getLogger(AnalyticsService.class);
+
     private final DecisionLogRepository decisionLogRepository;
     private final ElasticsearchOperations elasticsearchOperations;
 
@@ -54,29 +57,50 @@ public class AnalyticsService {
     }
 
     public Page<DecisionLogDto> queryDecisions(DecisionQueryRequest request) {
-        Instant from = request.from() != null ? request.from() : Instant.EPOCH;
+        Instant from = request.from() != null ? request.from() : Instant.now().minus(30, ChronoUnit.DAYS);
         Instant to = request.to() != null ? request.to() : Instant.now();
         int page = Math.max(0, request.page());
         int size = request.size() > 0 ? request.size() : 20;
         Pageable pageable = PageRequest.of(page, size);
 
-        List<DecisionLogDocument> docs;
+        try {
+            BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
+            boolBuilder.must(m -> m.term(t -> t.field("orgId").value(request.orgId())));
+            boolBuilder.must(m -> m.range(r -> r.field("timestamp")
+                    .gte(JsonData.of(from.toString()))
+                    .lte(JsonData.of(to.toString()))));
 
-        if (request.ruleId() != null && !request.ruleId().isBlank()) {
-            docs = decisionLogRepository.findByRuleIdAndTimestampBetween(
-                    request.ruleId(), from, to, pageable);
-        } else if (request.orgId() != null && !request.orgId().isBlank()) {
-            docs = decisionLogRepository.findByOrgIdAndTimestampBetween(
-                    request.orgId(), from, to, pageable);
-        } else {
-            docs = List.of();
+            if (request.ruleId() != null && !request.ruleId().isBlank()) {
+                boolBuilder.must(m -> m.term(t -> t.field("ruleId").value(request.ruleId())));
+            }
+            if (request.status() != null && !request.status().isBlank()) {
+                boolBuilder.must(m -> m.term(t -> t.field("status").value(request.status())));
+            }
+            if (request.search() != null && !request.search().isBlank()) {
+                boolBuilder.must(m -> m.match(mt -> mt.field("ruleName").query(request.search())));
+            }
+            if (request.minLatency() != null) {
+                boolBuilder.must(m -> m.range(r -> r.field("executionTimeMs").gte(JsonData.of(request.minLatency()))));
+            }
+            if (request.maxLatency() != null) {
+                boolBuilder.must(m -> m.range(r -> r.field("executionTimeMs").lte(JsonData.of(request.maxLatency()))));
+            }
+
+            NativeQuery query = NativeQuery.builder()
+                    .withQuery(Query.of(q -> q.bool(boolBuilder.build())))
+                    .withPageable(pageable)
+                    .build();
+
+            SearchHits<DecisionLogDocument> hits = elasticsearchOperations.search(query, DecisionLogDocument.class);
+            List<DecisionLogDto> dtos = hits.getSearchHits().stream()
+                    .map(h -> toDto(h.getContent()))
+                    .collect(Collectors.toList());
+            long total = hits.getTotalHits();
+            return new PageImpl<>(dtos, pageable, total);
+        } catch (Exception e) {
+            log.warn("Analytics queryDecisions failed (Elasticsearch unavailable?): {}", e.getMessage());
+            return new PageImpl<>(List.of(), pageable, 0);
         }
-
-        List<DecisionLogDto> dtos = docs.stream()
-                .map(this::toDto)
-                .collect(Collectors.toList());
-
-        return new PageImpl<>(dtos, pageable, dtos.size());
     }
 
     public RuleStatsDto getRuleStats(String ruleId, int days) {
@@ -84,33 +108,34 @@ public class AnalyticsService {
         Instant from = Instant.now().minus(effectiveDays, ChronoUnit.DAYS);
         Instant to = Instant.now();
 
-        List<DecisionLogDocument> docs = decisionLogRepository.findByRuleIdAndTimestampBetween(
-                ruleId, from, to, PageRequest.of(0, 10000));
+        try {
+            List<DecisionLogDocument> docs = decisionLogRepository.findByRuleIdAndTimestampBetween(
+                    ruleId, from, to, PageRequest.of(0, 10000));
 
-        long total = docs.size();
-        double avgExecTime = docs.stream()
-                .mapToLong(DecisionLogDocument::getExecutionTimeMs)
-                .average()
-                .orElse(0.0);
-
-        long errorCount = docs.stream()
-                .filter(d -> "ERROR".equalsIgnoreCase(d.getStatus()))
-                .count();
-        double errorRate = total > 0 ? (double) errorCount / total : 0.0;
-
-        Instant lastExecuted = docs.stream()
-                .map(DecisionLogDocument::getTimestamp)
-                .filter(t -> t != null)
-                .max(Comparator.naturalOrder())
-                .orElse(null);
-
-        String ruleName = docs.stream()
-                .map(DecisionLogDocument::getRuleName)
-                .filter(n -> n != null)
-                .findFirst()
-                .orElse(ruleId);
-
-        return new RuleStatsDto(ruleId, ruleName, total, avgExecTime, errorRate, lastExecuted);
+            long total = docs.size();
+            double avgExecTime = docs.stream()
+                    .mapToLong(DecisionLogDocument::getExecutionTimeMs)
+                    .average()
+                    .orElse(0.0);
+            long errorCount = docs.stream()
+                    .filter(d -> "ERROR".equalsIgnoreCase(d.getStatus()))
+                    .count();
+            double errorRate = total > 0 ? (double) errorCount / total : 0.0;
+            Instant lastExecuted = docs.stream()
+                    .map(DecisionLogDocument::getTimestamp)
+                    .filter(t -> t != null)
+                    .max(Comparator.naturalOrder())
+                    .orElse(null);
+            String ruleName = docs.stream()
+                    .map(DecisionLogDocument::getRuleName)
+                    .filter(n -> n != null)
+                    .findFirst()
+                    .orElse(ruleId);
+            return new RuleStatsDto(ruleId, ruleName, total, avgExecTime, errorRate, lastExecuted);
+        } catch (Exception e) {
+            log.warn("Analytics getRuleStats failed for ruleId={}: {}", ruleId, e.getMessage());
+            return new RuleStatsDto(ruleId, ruleId, 0, 0.0, 0.0, null);
+        }
     }
 
     /**
@@ -120,52 +145,66 @@ public class AnalyticsService {
         int effectiveHours = hours > 0 ? hours : 24;
         Instant from = Instant.now().minus(effectiveHours, ChronoUnit.HOURS);
 
-        Query baseQuery = buildOrgTimeRangeQuery(orgId, from);
+        try {
+            Query baseQuery = buildOrgTimeRangeQuery(orgId, from);
 
-        NativeQuery query = NativeQuery.builder()
-                .withQuery(baseQuery)
-                .withMaxResults(0)
-                .withAggregation("total_count", Aggregation.of(a -> a.valueCount(v -> v.field("_id"))))
-                .withAggregation("avg_exec_time", Aggregation.of(a -> a.avg(avg -> avg.field("executionTimeMs"))))
-                .withAggregation("error_count", Aggregation.of(a -> a.filter(f ->
-                        f.term(t -> t.field("status").value("ERROR")))))
-                .withAggregation("top_rules", Aggregation.of(a -> a.terms(t -> t.field("ruleId").size(10))
-                        .aggregations("avg_latency", Aggregation.of(sa -> sa.avg(avg -> avg.field("executionTimeMs"))))
-                        .aggregations("errors", Aggregation.of(sa -> sa.filter(f ->
-                                f.term(t2 -> t2.field("status").value("ERROR")))))
-                        .aggregations("last_exec", Aggregation.of(sa -> sa.max(m -> m.field("timestamp"))))))
-                .build();
+            NativeQuery query = NativeQuery.builder()
+                    .withQuery(baseQuery)
+                    .withMaxResults(0)
+                    .withAggregation("avg_exec_time", Aggregation.of(a -> a.avg(avg -> avg.field("executionTimeMs"))))
+                    .withAggregation("error_count", Aggregation.of(a -> a.filter(f ->
+                            f.term(t -> t.field("status").value("ERROR")))))
+                    .withAggregation("top_rules", Aggregation.of(a -> a.terms(t -> t.field("ruleId").size(10))
+                            .aggregations("avg_latency", Aggregation.of(sa -> sa.avg(avg -> avg.field("executionTimeMs"))))
+                            .aggregations("errors", Aggregation.of(sa -> sa.filter(f ->
+                                    f.term(t2 -> t2.field("status").value("ERROR")))))
+                            .aggregations("last_exec", Aggregation.of(sa -> sa.max(m -> m.field("timestamp"))))
+                            .aggregations("rule_name", Aggregation.of(sa -> sa.terms(t -> t.field("ruleName").size(1))))))
+                    .build();
 
-        SearchHits<DecisionLogDocument> hits = elasticsearchOperations.search(query, DecisionLogDocument.class);
-        ElasticsearchAggregations aggs = (ElasticsearchAggregations) hits.getAggregations();
-        if (aggs == null) {
+            SearchHits<DecisionLogDocument> hits = elasticsearchOperations.search(query, DecisionLogDocument.class);
+            ElasticsearchAggregations aggs = (ElasticsearchAggregations) hits.getAggregations();
+            if (aggs == null) {
+                return new DashboardMetricsDto(0, 0.0, 0.0, 0.0, List.of());
+            }
+
+            long total = hits.getTotalHits();
+            double avgExecTime = getAvgValue(aggs, "avg_exec_time");
+            long errorCount = getFilterDocCount(aggs, "error_count");
+            double errorRate = total > 0 ? (double) errorCount / total : 0.0;
+            double windowMinutes = effectiveHours * 60.0;
+            double decisionsPerMinute = windowMinutes > 0 ? total / windowMinutes : 0.0;
+
+            List<RuleStatsDto> topRules = new ArrayList<>();
+            var topRulesAgg = aggs.get("top_rules");
+            if (topRulesAgg != null) {
+                var buckets = topRulesAgg.aggregation().getAggregate().sterms().buckets().array();
+                for (StringTermsBucket bucket : buckets) {
+                    String ruleId = bucket.key().stringValue();
+                    long ruleTotal = bucket.docCount();
+                    double ruleAvg = bucket.aggregations().get("avg_latency").avg().value();
+                    long ruleErrors = bucket.aggregations().get("errors").filter().docCount();
+                    double ruleErrorRate = ruleTotal > 0 ? (double) ruleErrors / ruleTotal : 0.0;
+                    String maxTs = bucket.aggregations().get("last_exec").max().valueAsString();
+                    Instant lastExec = maxTs != null ? Instant.parse(maxTs) : null;
+                    // Extract ruleName from the nested terms aggregation on the keyword field
+                    String ruleName = ruleId;
+                    var ruleNameAgg = bucket.aggregations().get("rule_name");
+                    if (ruleNameAgg != null) {
+                        var nameBuckets = ruleNameAgg.sterms().buckets().array();
+                        if (!nameBuckets.isEmpty()) {
+                            ruleName = nameBuckets.get(0).key().stringValue();
+                        }
+                    }
+                    topRules.add(new RuleStatsDto(ruleId, ruleName, ruleTotal, ruleAvg, ruleErrorRate, lastExec));
+                }
+            }
+
+            return new DashboardMetricsDto(total, decisionsPerMinute, avgExecTime, errorRate, topRules);
+        } catch (Exception e) {
+            log.warn("Analytics getDashboardMetrics failed (Elasticsearch unavailable?): {}", e.getMessage());
             return new DashboardMetricsDto(0, 0.0, 0.0, 0.0, List.of());
         }
-
-        long total = hits.getTotalHits();
-        double avgExecTime = getAvgValue(aggs, "avg_exec_time");
-        long errorCount = getFilterDocCount(aggs, "error_count");
-        double errorRate = total > 0 ? (double) errorCount / total : 0.0;
-        double windowMinutes = effectiveHours * 60.0;
-        double decisionsPerMinute = windowMinutes > 0 ? total / windowMinutes : 0.0;
-
-        List<RuleStatsDto> topRules = new ArrayList<>();
-        var topRulesAgg = aggs.get("top_rules");
-        if (topRulesAgg != null) {
-            var buckets = topRulesAgg.aggregation().getAggregate().sterms().buckets().array();
-            for (StringTermsBucket bucket : buckets) {
-                String ruleId = bucket.key().stringValue();
-                long ruleTotal = bucket.docCount();
-                double ruleAvg = bucket.aggregations().get("avg_latency").avg().value();
-                long ruleErrors = bucket.aggregations().get("errors").filter().docCount();
-                double ruleErrorRate = ruleTotal > 0 ? (double) ruleErrors / ruleTotal : 0.0;
-                String maxTs = bucket.aggregations().get("last_exec").max().valueAsString();
-                Instant lastExec = maxTs != null ? Instant.parse(maxTs) : null;
-                topRules.add(new RuleStatsDto(ruleId, ruleId, ruleTotal, ruleAvg, ruleErrorRate, lastExec));
-            }
-        }
-
-        return new DashboardMetricsDto(total, decisionsPerMinute, avgExecTime, errorRate, topRules);
     }
 
     /**
@@ -176,30 +215,35 @@ public class AnalyticsService {
         Instant from = Instant.now().minus(effectiveHours, ChronoUnit.HOURS);
         CalendarInterval calendarInterval = parseCalendarInterval(interval);
 
-        Query baseQuery = buildOrgTimeRangeQuery(orgId, from);
+        try {
+            Query baseQuery = buildOrgTimeRangeQuery(orgId, from);
 
-        NativeQuery query = NativeQuery.builder()
-                .withQuery(baseQuery)
-                .withMaxResults(0)
-                .withAggregation("timeline", Aggregation.of(a -> a
-                        .dateHistogram(dh -> dh.field("timestamp").calendarInterval(calendarInterval))
-                        .aggregations("errors", Aggregation.of(sa -> sa
-                                .filter(f -> f.term(t -> t.field("status").value("ERROR")))))))
-                .build();
+            NativeQuery query = NativeQuery.builder()
+                    .withQuery(baseQuery)
+                    .withMaxResults(0)
+                    .withAggregation("timeline", Aggregation.of(a -> a
+                            .dateHistogram(dh -> dh.field("timestamp").calendarInterval(calendarInterval))
+                            .aggregations("errors", Aggregation.of(sa -> sa
+                                    .filter(f -> f.term(t -> t.field("status").value("ERROR")))))))
+                    .build();
 
-        SearchHits<DecisionLogDocument> hits = elasticsearchOperations.search(query, DecisionLogDocument.class);
-        ElasticsearchAggregations aggs = (ElasticsearchAggregations) hits.getAggregations();
-        if (aggs == null) return List.of();
+            SearchHits<DecisionLogDocument> hits = elasticsearchOperations.search(query, DecisionLogDocument.class);
+            ElasticsearchAggregations aggs = (ElasticsearchAggregations) hits.getAggregations();
+            if (aggs == null) return List.of();
 
-        List<TimelinePointDto> result = new ArrayList<>();
-        var buckets = aggs.get("timeline").aggregation().getAggregate().dateHistogram().buckets().array();
-        for (DateHistogramBucket bucket : buckets) {
-            Instant timestamp = Instant.ofEpochMilli(bucket.key());
-            long count = bucket.docCount();
-            long errorCount = bucket.aggregations().get("errors").filter().docCount();
-            result.add(new TimelinePointDto(timestamp, count, errorCount));
+            List<TimelinePointDto> result = new ArrayList<>();
+            var buckets = aggs.get("timeline").aggregation().getAggregate().dateHistogram().buckets().array();
+            for (DateHistogramBucket bucket : buckets) {
+                Instant timestamp = Instant.ofEpochMilli(bucket.key());
+                long count = bucket.docCount();
+                long errorCount = bucket.aggregations().get("errors").filter().docCount();
+                result.add(new TimelinePointDto(timestamp, count, errorCount));
+            }
+            return result;
+        } catch (Exception e) {
+            log.warn("Analytics getTimeline failed: {}", e.getMessage());
+            return List.of();
         }
-        return result;
     }
 
     /**
@@ -209,29 +253,34 @@ public class AnalyticsService {
         int effectiveHours = hours > 0 ? hours : 24;
         Instant from = Instant.now().minus(effectiveHours, ChronoUnit.HOURS);
 
-        Query baseQuery = buildOrgTimeRangeQuery(orgId, from);
+        try {
+            Query baseQuery = buildOrgTimeRangeQuery(orgId, from);
 
-        NativeQuery query = NativeQuery.builder()
-                .withQuery(baseQuery)
-                .withMaxResults(0)
-                .withAggregation("type_dist", Aggregation.of(a -> a
-                        .terms(t -> t.field("ruleType").size(50))))
-                .build();
+            NativeQuery query = NativeQuery.builder()
+                    .withQuery(baseQuery)
+                    .withMaxResults(0)
+                    .withAggregation("type_dist", Aggregation.of(a -> a
+                            .terms(t -> t.field("ruleType").size(50))))
+                    .build();
 
-        SearchHits<DecisionLogDocument> hits = elasticsearchOperations.search(query, DecisionLogDocument.class);
-        ElasticsearchAggregations aggs = (ElasticsearchAggregations) hits.getAggregations();
-        if (aggs == null) return List.of();
+            SearchHits<DecisionLogDocument> hits = elasticsearchOperations.search(query, DecisionLogDocument.class);
+            ElasticsearchAggregations aggs = (ElasticsearchAggregations) hits.getAggregations();
+            if (aggs == null) return List.of();
 
-        long totalHits = hits.getTotalHits();
-        List<TypeDistributionDto> result = new ArrayList<>();
-        var buckets = aggs.get("type_dist").aggregation().getAggregate().sterms().buckets().array();
-        for (StringTermsBucket bucket : buckets) {
-            String ruleType = bucket.key().stringValue();
-            long count = bucket.docCount();
-            double percentage = totalHits > 0 ? (double) count / totalHits * 100.0 : 0.0;
-            result.add(new TypeDistributionDto(ruleType, count, percentage));
+            long totalHits = hits.getTotalHits();
+            List<TypeDistributionDto> result = new ArrayList<>();
+            var buckets = aggs.get("type_dist").aggregation().getAggregate().sterms().buckets().array();
+            for (StringTermsBucket bucket : buckets) {
+                String ruleType = bucket.key().stringValue();
+                long count = bucket.docCount();
+                double percentage = totalHits > 0 ? (double) count / totalHits * 100.0 : 0.0;
+                result.add(new TypeDistributionDto(ruleType, count, percentage));
+            }
+            return result;
+        } catch (Exception e) {
+            log.warn("Analytics getTypeDistribution failed: {}", e.getMessage());
+            return List.of();
         }
-        return result;
     }
 
     /**
@@ -241,29 +290,34 @@ public class AnalyticsService {
         int effectiveHours = hours > 0 ? hours : 24;
         Instant from = Instant.now().minus(effectiveHours, ChronoUnit.HOURS);
 
-        Query baseQuery = buildOrgTimeRangeQuery(orgId, from);
+        try {
+            Query baseQuery = buildOrgTimeRangeQuery(orgId, from);
 
-        NativeQuery query = NativeQuery.builder()
-                .withQuery(baseQuery)
-                .withMaxResults(0)
-                .withAggregation("latency_pct", Aggregation.of(a -> a
-                        .percentiles(p -> p.field("executionTimeMs")
-                                .percents(50.0, 75.0, 90.0, 95.0, 99.0))))
-                .build();
+            NativeQuery query = NativeQuery.builder()
+                    .withQuery(baseQuery)
+                    .withMaxResults(0)
+                    .withAggregation("latency_pct", Aggregation.of(a -> a
+                            .percentiles(p -> p.field("executionTimeMs")
+                                    .percents(50.0, 75.0, 90.0, 95.0, 99.0))))
+                    .build();
 
-        SearchHits<DecisionLogDocument> hits = elasticsearchOperations.search(query, DecisionLogDocument.class);
-        ElasticsearchAggregations aggs = (ElasticsearchAggregations) hits.getAggregations();
-        if (aggs == null) return new LatencyPercentilesDto(0, 0, 0, 0, 0);
+            SearchHits<DecisionLogDocument> hits = elasticsearchOperations.search(query, DecisionLogDocument.class);
+            ElasticsearchAggregations aggs = (ElasticsearchAggregations) hits.getAggregations();
+            if (aggs == null) return new LatencyPercentilesDto(0, 0, 0, 0, 0);
 
-        var percentiles = aggs.get("latency_pct").aggregation().getAggregate()
-                .tdigestPercentiles().values().keyed();
-        return new LatencyPercentilesDto(
-                safePercentile(percentiles, "50.0"),
-                safePercentile(percentiles, "75.0"),
-                safePercentile(percentiles, "90.0"),
-                safePercentile(percentiles, "95.0"),
-                safePercentile(percentiles, "99.0")
-        );
+            var percentiles = aggs.get("latency_pct").aggregation().getAggregate()
+                    .tdigestPercentiles().values().keyed();
+            return new LatencyPercentilesDto(
+                    safePercentile(percentiles, "50.0"),
+                    safePercentile(percentiles, "75.0"),
+                    safePercentile(percentiles, "90.0"),
+                    safePercentile(percentiles, "95.0"),
+                    safePercentile(percentiles, "99.0")
+            );
+        } catch (Exception e) {
+            log.warn("Analytics getLatencyPercentiles failed: {}", e.getMessage());
+            return new LatencyPercentilesDto(0, 0, 0, 0, 0);
+        }
     }
 
     /**
@@ -274,81 +328,92 @@ public class AnalyticsService {
         Instant from = Instant.now().minus(effectiveHours, ChronoUnit.HOURS);
         CalendarInterval calendarInterval = parseCalendarInterval(interval);
 
-        Query baseQuery = buildOrgTimeRangeQuery(orgId, from);
+        try {
+            Query baseQuery = buildOrgTimeRangeQuery(orgId, from);
 
-        NativeQuery query = NativeQuery.builder()
-                .withQuery(baseQuery)
-                .withMaxResults(0)
-                .withAggregation("passfail", Aggregation.of(a -> a
-                        .dateHistogram(dh -> dh.field("timestamp").calendarInterval(calendarInterval))
-                        .aggregations("outcomes", Aggregation.of(sa -> sa
-                                .filters(f -> f.filters(fb -> fb.keyed(Map.of(
-                                        "pass", Query.of(q -> q.bool(b -> b.mustNot(
-                                                mn -> mn.term(t -> t.field("status").value("ERROR"))))),
-                                        "fail", Query.of(q -> q.term(t -> t.field("status").value("ERROR")))
-                                ))))))))
-                .build();
+            NativeQuery query = NativeQuery.builder()
+                    .withQuery(baseQuery)
+                    .withMaxResults(0)
+                    .withAggregation("passfail", Aggregation.of(a -> a
+                            .dateHistogram(dh -> dh.field("timestamp").calendarInterval(calendarInterval))
+                            .aggregations("outcomes", Aggregation.of(sa -> sa
+                                    .filters(f -> f.filters(fb -> fb.keyed(Map.of(
+                                            "pass", Query.of(q -> q.bool(b -> b.mustNot(
+                                                    mn -> mn.term(t -> t.field("status").value("ERROR"))))),
+                                            "fail", Query.of(q -> q.term(t -> t.field("status").value("ERROR")))
+                                    ))))))))
+                    .build();
 
-        SearchHits<DecisionLogDocument> hits = elasticsearchOperations.search(query, DecisionLogDocument.class);
-        ElasticsearchAggregations aggs = (ElasticsearchAggregations) hits.getAggregations();
-        if (aggs == null) return List.of();
+            SearchHits<DecisionLogDocument> hits = elasticsearchOperations.search(query, DecisionLogDocument.class);
+            ElasticsearchAggregations aggs = (ElasticsearchAggregations) hits.getAggregations();
+            if (aggs == null) return List.of();
 
-        List<PassFailPointDto> result = new ArrayList<>();
-        var buckets = aggs.get("passfail").aggregation().getAggregate().dateHistogram().buckets().array();
-        for (DateHistogramBucket bucket : buckets) {
-            Instant timestamp = Instant.ofEpochMilli(bucket.key());
-            Map<String, FiltersBucket> outcomes = bucket.aggregations().get("outcomes")
-                    .filters().buckets().keyed();
-            long passCount = outcomes.containsKey("pass") ? outcomes.get("pass").docCount() : 0;
-            long failCount = outcomes.containsKey("fail") ? outcomes.get("fail").docCount() : 0;
-            result.add(new PassFailPointDto(timestamp, passCount, failCount));
+            List<PassFailPointDto> result = new ArrayList<>();
+            var buckets = aggs.get("passfail").aggregation().getAggregate().dateHistogram().buckets().array();
+            for (DateHistogramBucket bucket : buckets) {
+                Instant timestamp = Instant.ofEpochMilli(bucket.key());
+                Map<String, FiltersBucket> outcomes = bucket.aggregations().get("outcomes")
+                        .filters().buckets().keyed();
+                long passCount = outcomes.containsKey("pass") ? outcomes.get("pass").docCount() : 0;
+                long failCount = outcomes.containsKey("fail") ? outcomes.get("fail").docCount() : 0;
+                result.add(new PassFailPointDto(timestamp, passCount, failCount));
+            }
+            return result;
+        } catch (Exception e) {
+            log.warn("Analytics getPassFailTimeline failed: {}", e.getMessage());
+            return List.of();
         }
-        return result;
     }
 
     /**
      * A/B test results: aggregate by abTestVersion for a given testId.
      */
     public AbTestResultsDto getAbTestResults(String testId) {
-        Query baseQuery = Query.of(q -> q.term(t -> t.field("abTestId").value(testId)));
+        try {
+            Query baseQuery = Query.of(q -> q.term(t -> t.field("abTestId").value(testId)));
 
-        NativeQuery query = NativeQuery.builder()
-                .withQuery(baseQuery)
-                .withMaxResults(0)
-                .withAggregation("variants", Aggregation.of(a -> a
-                        .terms(t -> t.field("abTestVersion").size(2))
-                        .aggregations("errors", Aggregation.of(sa -> sa
-                                .filter(f -> f.term(t -> t.field("status").value("ERROR")))))
-                        .aggregations("avg_latency", Aggregation.of(sa -> sa
-                                .avg(avg -> avg.field("executionTimeMs"))))
-                        .aggregations("p95_latency", Aggregation.of(sa -> sa
-                                .percentiles(p -> p.field("executionTimeMs").percents(95.0))))))
-                .build();
+            NativeQuery query = NativeQuery.builder()
+                    .withQuery(baseQuery)
+                    .withMaxResults(0)
+                    .withAggregation("variants", Aggregation.of(a -> a
+                            .terms(t -> t.field("abTestVersion").size(2))
+                            .aggregations("errors", Aggregation.of(sa -> sa
+                                    .filter(f -> f.term(t -> t.field("status").value("ERROR")))))
+                            .aggregations("avg_latency", Aggregation.of(sa -> sa
+                                    .avg(avg -> avg.field("executionTimeMs"))))
+                            .aggregations("p95_latency", Aggregation.of(sa -> sa
+                                    .percentiles(p -> p.field("executionTimeMs").percents(95.0))))))
+                    .build();
 
-        SearchHits<DecisionLogDocument> hits = elasticsearchOperations.search(query, DecisionLogDocument.class);
-        ElasticsearchAggregations aggs = (ElasticsearchAggregations) hits.getAggregations();
+            SearchHits<DecisionLogDocument> hits = elasticsearchOperations.search(query, DecisionLogDocument.class);
+            ElasticsearchAggregations aggs = (ElasticsearchAggregations) hits.getAggregations();
 
-        VariantStatsDto statsA = new VariantStatsDto("A", 0, 0, 0, 0, 0);
-        VariantStatsDto statsB = new VariantStatsDto("B", 0, 0, 0, 0, 0);
+            VariantStatsDto statsA = new VariantStatsDto("A", 0, 0, 0, 0, 0);
+            VariantStatsDto statsB = new VariantStatsDto("B", 0, 0, 0, 0, 0);
 
-        if (aggs != null) {
-            var buckets = aggs.get("variants").aggregation().getAggregate().sterms().buckets().array();
-            for (StringTermsBucket bucket : buckets) {
-                String variant = bucket.key().stringValue();
-                long executions = bucket.docCount();
-                long errors = bucket.aggregations().get("errors").filter().docCount();
-                double errorRate = executions > 0 ? (double) errors / executions : 0;
-                double avgLatency = bucket.aggregations().get("avg_latency").avg().value();
-                var p95map = bucket.aggregations().get("p95_latency").tdigestPercentiles().values().keyed();
-                double p95 = safePercentile(p95map, "95.0");
+            if (aggs != null) {
+                var buckets = aggs.get("variants").aggregation().getAggregate().sterms().buckets().array();
+                for (StringTermsBucket bucket : buckets) {
+                    String variant = bucket.key().stringValue();
+                    long executions = bucket.docCount();
+                    long errors = bucket.aggregations().get("errors").filter().docCount();
+                    double errorRate = executions > 0 ? (double) errors / executions : 0;
+                    double avgLatency = bucket.aggregations().get("avg_latency").avg().value();
+                    var p95map = bucket.aggregations().get("p95_latency").tdigestPercentiles().values().keyed();
+                    double p95 = safePercentile(p95map, "95.0");
 
-                VariantStatsDto stats = new VariantStatsDto(variant, executions, errors, errorRate, avgLatency, p95);
-                if ("A".equals(variant)) statsA = stats;
-                else if ("B".equals(variant)) statsB = stats;
+                    VariantStatsDto stats = new VariantStatsDto(variant, executions, errors, errorRate, avgLatency, p95);
+                    if ("A".equals(variant)) statsA = stats;
+                    else if ("B".equals(variant)) statsB = stats;
+                }
             }
-        }
 
-        return new AbTestResultsDto(testId, statsA, statsB, statsA.executions() + statsB.executions());
+            return new AbTestResultsDto(testId, statsA, statsB, statsA.executions() + statsB.executions());
+        } catch (Exception e) {
+            log.warn("Analytics getAbTestResults failed for testId={}: {}", testId, e.getMessage());
+            VariantStatsDto empty = new VariantStatsDto("A", 0, 0, 0, 0, 0);
+            return new AbTestResultsDto(testId, empty, new VariantStatsDto("B", 0, 0, 0, 0, 0), 0);
+        }
     }
 
     /**

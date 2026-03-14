@@ -22,7 +22,7 @@ public class DecisionLogDocument {
     @Field(type = FieldType.Keyword)
     private String ruleId;
 
-    @Field(type = FieldType.Text)
+    @Field(type = FieldType.Keyword)
     private String ruleName;
 
     @Field(type = FieldType.Keyword)

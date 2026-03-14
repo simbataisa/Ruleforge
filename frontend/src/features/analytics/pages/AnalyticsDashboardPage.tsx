@@ -315,13 +315,6 @@ export function AnalyticsDashboardPage() {
         </nav>
       </div>
 
-      {metricsError && (
-        <div className="flex items-center gap-3 rounded-lg border border-red-200 bg-red-50 p-4 text-sm text-red-700">
-          <AlertCircle className="h-5 w-5 flex-shrink-0" />
-          <span>Failed to load analytics data. Please try again later.</span>
-        </div>
-      )}
-
       {/* Dashboard Tab */}
       {activeTab === 'dashboard' && (
         <>
@@ -331,6 +324,11 @@ export function AnalyticsDashboardPage() {
               {Array.from({ length: 4 }).map((_, i) => (
                 <SkeletonCard key={i} />
               ))}
+            </div>
+          ) : metricsError ? (
+            <div className="flex items-center gap-3 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-700">
+              <AlertCircle className="h-5 w-5 flex-shrink-0" />
+              <span>Analytics data is temporarily unavailable. Execution history may not be indexed yet.</span>
             </div>
           ) : (
             <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -372,7 +370,7 @@ export function AnalyticsDashboardPage() {
           )}
 
           {/* Charts */}
-          {(metrics || chartTimeline.length > 0) && (
+          {!metricsError && (metrics || chartTimeline.length > 0) && (
             <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
               <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
                 <h3 className="mb-3 text-sm font-semibold text-gray-900">
@@ -406,17 +404,19 @@ export function AnalyticsDashboardPage() {
           )}
 
           {/* Top Rules */}
-          <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
-            <div className="border-b border-gray-200 px-6 py-4">
-              <h2 className="text-base font-semibold text-gray-900">
-                Top Rules by Execution Count
-              </h2>
+          {!metricsError && (
+            <div className="rounded-lg border border-gray-200 bg-white shadow-sm">
+              <div className="border-b border-gray-200 px-6 py-4">
+                <h2 className="text-base font-semibold text-gray-900">
+                  Top Rules by Execution Count
+                </h2>
+              </div>
+              <TopRulesTable
+                rules={metrics?.topRules ?? []}
+                loading={metricsLoading}
+              />
             </div>
-            <TopRulesTable
-              rules={metrics?.topRules ?? []}
-              loading={metricsLoading}
-            />
-          </div>
+          )}
         </>
       )}
 

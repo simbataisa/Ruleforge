@@ -25,35 +25,37 @@ public interface AuditEventRepository extends JpaRepository<AuditEventEntity, UU
     @Query(value = """
             SELECT * FROM audit_events
             WHERE org_id = :orgId
-              AND (:eventType IS NULL OR event_type LIKE :eventType)
-              AND (:resourceType IS NULL OR resource_type = :resourceType)
-              AND (:resourceId IS NULL OR resource_id = :resourceId)
-              AND (:actorId IS NULL OR actor_id = CAST(:actorId AS uuid))
-              AND (:search IS NULL OR (
-                   event_type ILIKE :search OR
-                   resource_type ILIKE :search OR
-                   COALESCE(resource_id, '') ILIKE :search OR
-                   COALESCE(actor_name, '') ILIKE :search
+              AND (CAST(:eventType AS TEXT) IS NULL OR event_type LIKE CAST(:eventType AS TEXT))
+              AND (CAST(:resourceType AS TEXT) IS NULL OR resource_type = CAST(:resourceType AS TEXT))
+              AND (CAST(:resourceId AS TEXT) IS NULL OR resource_id = CAST(:resourceId AS TEXT))
+              AND (CAST(:actorId AS TEXT) IS NULL OR actor_id = CAST(:actorId AS uuid))
+              AND (CAST(:search AS TEXT) IS NULL OR (
+                   event_type ILIKE CAST(:search AS TEXT) OR
+                   resource_type ILIKE CAST(:search AS TEXT) OR
+                   COALESCE(resource_id, '') ILIKE CAST(:search AS TEXT) OR
+                   COALESCE(actor_name, '') ILIKE CAST(:search AS TEXT) OR
+                   COALESCE(resource_name, '') ILIKE CAST(:search AS TEXT)
               ))
-              AND (:fromDate IS NULL OR created_at >= CAST(:fromDate AS timestamptz))
-              AND (:toDate IS NULL OR created_at <= CAST(:toDate AS timestamptz))
+              AND (CAST(:fromDate AS TEXT) IS NULL OR created_at >= CAST(:fromDate AS timestamptz))
+              AND (CAST(:toDate AS TEXT) IS NULL OR created_at <= CAST(:toDate AS timestamptz))
             ORDER BY created_at DESC
             """,
             countQuery = """
             SELECT count(*) FROM audit_events
             WHERE org_id = :orgId
-              AND (:eventType IS NULL OR event_type LIKE :eventType)
-              AND (:resourceType IS NULL OR resource_type = :resourceType)
-              AND (:resourceId IS NULL OR resource_id = :resourceId)
-              AND (:actorId IS NULL OR actor_id = CAST(:actorId AS uuid))
-              AND (:search IS NULL OR (
-                   event_type ILIKE :search OR
-                   resource_type ILIKE :search OR
-                   COALESCE(resource_id, '') ILIKE :search OR
-                   COALESCE(actor_name, '') ILIKE :search
+              AND (CAST(:eventType AS TEXT) IS NULL OR event_type LIKE CAST(:eventType AS TEXT))
+              AND (CAST(:resourceType AS TEXT) IS NULL OR resource_type = CAST(:resourceType AS TEXT))
+              AND (CAST(:resourceId AS TEXT) IS NULL OR resource_id = CAST(:resourceId AS TEXT))
+              AND (CAST(:actorId AS TEXT) IS NULL OR actor_id = CAST(:actorId AS uuid))
+              AND (CAST(:search AS TEXT) IS NULL OR (
+                   event_type ILIKE CAST(:search AS TEXT) OR
+                   resource_type ILIKE CAST(:search AS TEXT) OR
+                   COALESCE(resource_id, '') ILIKE CAST(:search AS TEXT) OR
+                   COALESCE(actor_name, '') ILIKE CAST(:search AS TEXT) OR
+                   COALESCE(resource_name, '') ILIKE CAST(:search AS TEXT)
               ))
-              AND (:fromDate IS NULL OR created_at >= CAST(:fromDate AS timestamptz))
-              AND (:toDate IS NULL OR created_at <= CAST(:toDate AS timestamptz))
+              AND (CAST(:fromDate AS TEXT) IS NULL OR created_at >= CAST(:fromDate AS timestamptz))
+              AND (CAST(:toDate AS TEXT) IS NULL OR created_at <= CAST(:toDate AS timestamptz))
             """,
             nativeQuery = true)
     Page<AuditEventEntity> findByAdvancedFilters(
@@ -61,9 +63,9 @@ public interface AuditEventRepository extends JpaRepository<AuditEventEntity, UU
             @Param("eventType") String eventType,
             @Param("resourceType") String resourceType,
             @Param("resourceId") String resourceId,
-            @Param("actorId") UUID actorId,
+            @Param("actorId") String actorId,
             @Param("search") String search,
-            @Param("fromDate") Instant fromDate,
-            @Param("toDate") Instant toDate,
+            @Param("fromDate") String fromDate,
+            @Param("toDate") String toDate,
             Pageable pageable);
 }

@@ -11,5 +11,9 @@ public record DecisionQueryRequest(
         Instant from,
         Instant to,
         int page,
-        int size
+        int size,
+        String status,
+        String search,
+        Long minLatency,
+        Long maxLatency
 ) {}

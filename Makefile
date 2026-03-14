@@ -1,4 +1,4 @@
-.PHONY: help infra-up infra-down build-engine build-platform test-engine test-platform test-frontend stack-up stack-down migrate dev-frontend dev-up dev-down dev-up-fast dev-status dev-logs
+.PHONY: help infra-up infra-down build-engine build-platform test-engine test-platform test-frontend stack-up stack-down migrate dev-frontend dev-up dev-down dev-up-fast dev-status dev-logs seed-analytics seed-audit smoke-test
 
 CYAN  := \033[0;36m
 GREEN := \033[0;32m
@@ -125,6 +125,18 @@ _check_infra:
 	else \
 		printf "  $(RED)✘$(NC)  %s\n" "$(NAME)"; \
 	fi
+
+seed-analytics: ## Seed Elasticsearch with 500 sample decision log documents
+	./scripts/seed-analytics.sh
+
+seed-analytics-clear: ## Clear and re-seed Elasticsearch analytics data
+	./scripts/seed-analytics.sh --clear
+
+seed-audit: ## Seed PostgreSQL with comprehensive audit event data (100+ events)
+	docker exec -i docker-postgres-1 psql -U ruleforge -d ruleforge < db/migrations/V046__seed_audit_events_comprehensive.sql
+
+smoke-test: ## Run smoke tests against local dev stack
+	./scripts/smoke-test.sh
 
 dev-logs: ## Tail logs for a service (usage: make dev-logs SVC=ruleforge-auth-service)
 	@if [ -z "$(SVC)" ]; then \

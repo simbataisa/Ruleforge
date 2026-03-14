@@ -27,16 +27,19 @@ public class JpaAuditEventStore implements AuditEventStore {
     public Page<AuditEventEntity> findByFilter(AuditQueryFilter filter, Pageable pageable) {
         String eventTypePattern = filter.eventType() != null ? filter.eventType() + "%" : null;
         String searchPattern = filter.search() != null ? "%" + filter.search() + "%" : null;
+        String actorIdStr = filter.actorId() != null ? filter.actorId().toString() : null;
+        String fromStr = filter.from() != null ? filter.from().toString() : null;
+        String toStr = filter.to() != null ? filter.to().toString() : null;
 
         return repository.findByAdvancedFilters(
                 filter.orgId(),
                 eventTypePattern,
                 filter.resourceType(),
                 filter.resourceId(),
-                filter.actorId(),
+                actorIdStr,
                 searchPattern,
-                filter.from(),
-                filter.to(),
+                fromStr,
+                toStr,
                 pageable
         );
     }
@@ -45,16 +48,19 @@ public class JpaAuditEventStore implements AuditEventStore {
     public long countByFilter(AuditQueryFilter filter) {
         String eventTypePattern = filter.eventType() != null ? filter.eventType() + "%" : null;
         String searchPattern = filter.search() != null ? "%" + filter.search() + "%" : null;
+        String actorIdStr = filter.actorId() != null ? filter.actorId().toString() : null;
+        String fromStr = filter.from() != null ? filter.from().toString() : null;
+        String toStr = filter.to() != null ? filter.to().toString() : null;
 
         return repository.findByAdvancedFilters(
                 filter.orgId(),
                 eventTypePattern,
                 filter.resourceType(),
                 filter.resourceId(),
-                filter.actorId(),
+                actorIdStr,
                 searchPattern,
-                filter.from(),
-                filter.to(),
+                fromStr,
+                toStr,
                 Pageable.unpaged()
         ).getTotalElements();
     }

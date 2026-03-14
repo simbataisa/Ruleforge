@@ -31,14 +31,14 @@ The Tech Lead must enforce these rules across all engineering outputs:
 
 ## 3. DESIGN SYSTEM & COLOR PALETTE
 
-Before building the UI, establish a comprehensive, web-ready color system heavily inspired by the branding of Techcombank (techcombank.com.vn).
-
 - **Palette Requirements:** Signature base/light/dark Reds, crisp Whites, professional dark grays/blacks for backgrounds and borders. Include semantic colors (Success, Warning, Error, Info) that harmonize with the brand red.
 - **Output:** Standard CSS Variables (`:root` block) and a Tailwind CSS configuration object (`tailwind.config.js`). Ensure text/button combinations meet WCAG AA contrast standards.
 
 ## 4. PHASED EXECUTION PLAN
 
 - **Analytics Page:** is not working with error `Failed to load analytics data. Please try again later.` in all tabs (Dashboard, Decision Log, Alerts)
+  - Add more seed data for analytics
+  - Fix the issue
 
 # 2. AGENT ROLES & RESPONSIBILITIES
 

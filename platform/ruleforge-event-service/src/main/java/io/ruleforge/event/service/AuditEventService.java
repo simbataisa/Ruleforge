@@ -78,7 +78,11 @@ public class AuditEventService {
 
     @Transactional(readOnly = true)
     public PageResponse<AuditEventDto> getEvents(AuditQueryFilter filter, Pageable pageable) {
-        Page<AuditEventEntity> page = auditEventStore.findByFilter(filter, pageable);
+        // Strip sort from pageable — the native query already has ORDER BY created_at DESC hardcoded.
+        // Passing a sorted Pageable causes Spring Data JPA to append ORDER BY "createdAt" (camelCase)
+        // which PostgreSQL rejects with "column createdAt does not exist".
+        Pageable unsorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        Page<AuditEventEntity> page = auditEventStore.findByFilter(filter, unsorted);
         return toPageResponse(page);
     }
 
@@ -87,7 +91,8 @@ public class AuditEventService {
         AuditQueryFilter filter = new AuditQueryFilter(
                 orgId, eventType, null, null, null, null, null, null
         );
-        Page<AuditEventEntity> result = auditEventStore.findByFilter(filter, pageable);
+        Pageable unsorted = PageRequest.of(pageable.getPageNumber(), pageable.getPageSize());
+        Page<AuditEventEntity> result = auditEventStore.findByFilter(filter, unsorted);
         return toPageResponse(result);
     }
 

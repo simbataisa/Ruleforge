@@ -37,10 +37,14 @@ public class AnalyticsController {
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant from,
             @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) Instant to,
             @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String status,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) Long minLatency,
+            @RequestParam(required = false) Long maxLatency) {
 
         String resolvedOrgId = (orgId != null) ? orgId : TenantContext.get().orgId().toString();
-        DecisionQueryRequest request = new DecisionQueryRequest(resolvedOrgId, ruleId, from, to, page, size);
+        DecisionQueryRequest request = new DecisionQueryRequest(resolvedOrgId, ruleId, from, to, page, size, status, search, minLatency, maxLatency);
         Page<DecisionLogDto> result = analyticsService.queryDecisions(request);
         return ResponseEntity.ok(result);
     }
