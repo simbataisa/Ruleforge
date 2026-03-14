@@ -91,16 +91,29 @@ export function useSchedule(id: string) {
   });
 }
 
-export function useScheduleRuns(scheduleId: string) {
+export interface ScheduleRunsPage {
+  content: ScheduleRun[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+}
+
+export function useScheduleRuns(scheduleId: string, params?: { page?: number; size?: number }) {
+  const page = params?.page ?? 0;
+  const size = params?.size ?? 10;
   return useQuery({
-    queryKey: ['schedules', scheduleId, 'runs'],
+    queryKey: ['schedules', scheduleId, 'runs', { page, size }],
     queryFn: async () => {
-      const res = await apiClient.get<ScheduleRun[] | { content: ScheduleRun[] }>(
+      const res = await apiClient.get<ScheduleRun[] | ScheduleRunsPage>(
         `/schedules/${scheduleId}/runs`,
+        { params: { page, size, sort: 'startedAt,desc' } },
       );
-      // Backend returns Spring Page object with content array
       const data = res.data;
-      return Array.isArray(data) ? data : (data as { content: ScheduleRun[] }).content ?? [];
+      if (Array.isArray(data)) {
+        return { content: data, totalElements: data.length, totalPages: 1, number: 0, size: data.length };
+      }
+      return data as ScheduleRunsPage;
     },
     enabled: !!scheduleId,
     refetchInterval: 30_000,

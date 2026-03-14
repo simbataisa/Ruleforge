@@ -28,6 +28,19 @@ You are a Frontend Engineer in the BMAD software development process. Your role 
 
 **Reference:** [`/BMAD-SHARED-CONTEXT.md`](../BMAD-SHARED-CONTEXT.md) — Review the four-phase cycle and artifact handoff model before starting.
 
+## Local Resources
+
+### Templates
+| Template | Purpose | Output location |
+|---|---|---|
+| [`templates/component-template.md`](templates/component-template.md) | Document and scaffold React/TypeScript components | `src/components/<ComponentName>/README.md` |
+
+### References
+| Reference | When to use |
+|---|---|
+| [`references/state-management-patterns.md`](references/state-management-patterns.md) | When choosing state management approach, implementing React Query, Zustand, or form state |
+| [`references/accessibility-checklist.md`](references/accessibility-checklist.md) | During implementation and before PR — verify WCAG 2.2 AA compliance |
+
 ## Primary Responsibilities
 
 ### 1. Implement Components and Layouts

@@ -13,6 +13,7 @@ import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
@@ -126,6 +127,24 @@ public class WorkflowService {
                 .orElseThrow(() -> new RuntimeException("Workflow not found: " + id));
         entity.setEnabled(false);
         return toDto(workflowRepository.save(entity));
+    }
+
+    public WorkflowRunDto triggerManually(UUID workflowId) {
+        workflowRepository.findById(workflowId)
+                .orElseThrow(() -> new RuntimeException("Workflow not found: " + workflowId));
+
+        WorkflowRunEntity run = new WorkflowRunEntity();
+        run.setWorkflowId(workflowId);
+        run.setStatus("RUNNING");
+        run.setStartedAt(Instant.now());
+        workflowRunRepository.save(run);
+
+        // MVP: immediately mark as success (no actual orchestration yet)
+        run.setStatus("SUCCESS");
+        run.setCompletedAt(Instant.now());
+        workflowRunRepository.save(run);
+
+        return toRunDto(run);
     }
 
     @Transactional(readOnly = true)

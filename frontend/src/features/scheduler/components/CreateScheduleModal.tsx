@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Modal } from '@/shared/components/Modal';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
@@ -10,39 +10,32 @@ import { useHolidayCalendars, type SkipOnHoliday } from '@/api/holiday-calendars
 import { JsonModelEditor } from '@/features/rules/components/JsonModelEditor';
 import { cn } from '@/shared/utils/cn';
 
+interface InitialScheduleData {
+  name?: string;
+  description?: string;
+  ruleId?: string;
+  ruleName?: string;
+  ruleType?: string;
+  workflowId?: string;
+  cronExpression?: string;
+  timezone?: string;
+  inputTemplate?: Record<string, unknown>;
+  holidayCalendarId?: string;
+  skipOnHoliday?: string;
+}
+
 interface CreateScheduleModalProps {
   isOpen: boolean;
   onClose: () => void;
+  initialData?: InitialScheduleData;
 }
 
-const CRON_PRESETS = [
-  { label: 'Every 5 min', cron: '*/5 * * * *' },
-  { label: 'Hourly', cron: '0 * * * *' },
-  { label: 'Daily', cron: '0 0 * * *' },
-  { label: 'Weekly', cron: '0 9 * * 1' },
-  { label: 'Monthly', cron: '0 0 1 * *' },
-] as const;
-
-function cronToHuman(cron: string): string {
-  const map: Record<string, string> = {
-    '*/5 * * * *': 'Every 5 minutes',
-    '*/10 * * * *': 'Every 10 minutes',
-    '*/15 * * * *': 'Every 15 minutes',
-    '*/30 * * * *': 'Every 30 minutes',
-    '0 * * * *': 'Every hour',
-    '0 */2 * * *': 'Every 2 hours',
-    '0 */6 * * *': 'Every 6 hours',
-    '0 0 * * *': 'Daily at midnight',
-    '0 9 * * *': 'Daily at 9:00 AM',
-    '0 9 * * 1': 'Weekly on Monday at 9 AM',
-    '0 0 1 * *': 'Monthly on the 1st',
-  };
-  return map[cron] ?? '';
-}
+import { CRON_PRESETS, cronToHuman, validateCron } from '../utils/cronHelpers';
+import { TimezoneSelect } from '@/shared/components/TimezoneSelect';
 
 type TargetType = 'rule' | 'workflow';
 
-export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProps) {
+export function CreateScheduleModal({ isOpen, onClose, initialData }: CreateScheduleModalProps) {
   const addToast = useToastStore((s) => s.addToast);
   const createSchedule = useCreateSchedule();
   const { data: rulesData } = useRules({ size: 100 });
@@ -56,7 +49,7 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
   const [ruleType, setRuleType] = useState('');
   const [selectedWorkflowId, setSelectedWorkflowId] = useState('');
   const [cronExpression, setCronExpression] = useState('');
-  const [timezone, setTimezone] = useState('UTC');
+  const [timezone, setTimezone] = useState(Intl.DateTimeFormat().resolvedOptions().timeZone);
   const [inputTemplate, setInputTemplate] = useState('{\n  \n}');
   const [holidayCalendarId, setHolidayCalendarId] = useState('');
   const [skipOnHoliday, setSkipOnHoliday] = useState<SkipOnHoliday>('SKIP');
@@ -65,6 +58,28 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
   const calendars = calendarsData ?? [];
   const rules = rulesData?.content ?? [];
   const workflows = workflowsData?.content ?? [];
+
+  // Pre-populate form when initialData is provided (e.g. cloning)
+  useEffect(() => {
+    if (initialData && isOpen) {
+      setName(initialData.name ?? '');
+      setDescription(initialData.description ?? '');
+      setRuleId(initialData.ruleId ?? '');
+      setRuleName(initialData.ruleName ?? '');
+      setRuleType(initialData.ruleType ?? '');
+      setSelectedWorkflowId(initialData.workflowId ?? '');
+      setCronExpression(initialData.cronExpression ?? '');
+      setTimezone(initialData.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone);
+      setInputTemplate(
+        initialData.inputTemplate
+          ? JSON.stringify(initialData.inputTemplate, null, 2)
+          : '{\\n  \\n}',
+      );
+      setTargetType(initialData.workflowId ? 'workflow' : 'rule');
+      setHolidayCalendarId(initialData.holidayCalendarId ?? '');
+      setSkipOnHoliday((initialData.skipOnHoliday as SkipOnHoliday) ?? 'SKIP');
+    }
+  }, [initialData, isOpen]);
 
   const handleClose = () => {
     setName('');
@@ -75,7 +90,7 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
     setRuleType('');
     setSelectedWorkflowId('');
     setCronExpression('');
-    setTimezone('UTC');
+    setTimezone(Intl.DateTimeFormat().resolvedOptions().timeZone);
     setInputTemplate('{\n  \n}');
     setHolidayCalendarId('');
     setSkipOnHoliday('SKIP');
@@ -99,6 +114,12 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
     if (!name.trim() || !cronExpression.trim()) return;
     if (targetType === 'rule' && !ruleId) return;
     if (targetType === 'workflow' && !selectedWorkflowId) return;
+
+    const cronError = validateCron(cronExpression);
+    if (cronError) {
+      addToast({ type: 'error', title: cronError });
+      return;
+    }
 
     let parsedPayload: Record<string, unknown> | undefined;
     try {
@@ -131,8 +152,6 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
       addToast({ type: 'error', title: 'Failed to create schedule' });
     }
   };
-
-  const humanCron = cronToHuman(cronExpression);
 
   return (
     <Modal open={isOpen} onClose={handleClose} title="Create Schedule">
@@ -266,20 +285,23 @@ export function CreateScheduleModal({ isOpen, onClose }: CreateScheduleModalProp
             placeholder="Custom cron: minute hour day month weekday"
             required
           />
-          {humanCron && (
-            <p className="text-xs text-indigo-600 mt-1">{humanCron}</p>
-          )}
+          {cronExpression && (() => {
+            const error = validateCron(cronExpression);
+            const human = cronToHuman(cronExpression);
+            if (error) return <p className="text-xs text-red-500 mt-1">{error}</p>;
+            if (human !== cronExpression) return <p className="text-xs text-indigo-600 mt-1">{human}</p>;
+            return <p className="text-xs text-green-600 mt-1">Valid cron expression</p>;
+          })()}
         </div>
 
         <div>
           <label htmlFor="sched-tz" className="block text-sm font-medium text-gray-700 mb-1">
             Timezone
           </label>
-          <Input
+          <TimezoneSelect
             id="sched-tz"
             value={timezone}
-            onChange={(e) => setTimezone(e.target.value)}
-            placeholder="UTC"
+            onChange={setTimezone}
           />
         </div>
 

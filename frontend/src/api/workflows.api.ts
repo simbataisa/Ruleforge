@@ -133,17 +133,45 @@ export function useDeleteWorkflow() {
   });
 }
 
-export function useWorkflowRuns(workflowId: string) {
+export interface WorkflowRunsPage {
+  content: WorkflowRun[];
+  totalElements: number;
+  totalPages: number;
+  number: number;
+  size: number;
+}
+
+export function useWorkflowRuns(workflowId: string, params?: { page?: number; size?: number }) {
+  const page = params?.page ?? 0;
+  const size = params?.size ?? 10;
   return useQuery({
-    queryKey: ['workflows', workflowId, 'runs'],
+    queryKey: ['workflows', workflowId, 'runs', { page, size }],
     queryFn: async () => {
-      const res = await apiClient.get<WorkflowRun[] | { content: WorkflowRun[] }>(
+      const res = await apiClient.get<WorkflowRun[] | WorkflowRunsPage>(
         `/workflows/${workflowId}/runs`,
+        { params: { page, size, sort: 'startedAt,desc' } },
       );
       const data = res.data;
-      return Array.isArray(data) ? data : (data as { content: WorkflowRun[] }).content ?? [];
+      if (Array.isArray(data)) {
+        return { content: data, totalElements: data.length, totalPages: 1, number: 0, size: data.length };
+      }
+      return data as WorkflowRunsPage;
     },
     enabled: !!workflowId,
     refetchInterval: 30_000,
+  });
+}
+
+export function useTriggerWorkflow() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiClient.post<WorkflowRun>(`/workflows/${id}/trigger`);
+      return res.data;
+    },
+    onSuccess: (_data, id) => {
+      queryClient.invalidateQueries({ queryKey: ['workflows', id, 'runs'] });
+    },
   });
 }

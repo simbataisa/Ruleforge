@@ -1,12 +1,11 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Calendar, Activity, CheckCircle, AlertCircle, Clock, Plus, Pause, Play, Trash2, GitBranch, Pencil } from 'lucide-react';
+import { Calendar, Activity, CheckCircle, AlertCircle, Clock, Plus, Pause, Play, Trash2, GitBranch, Pencil, Search, X, Copy } from 'lucide-react';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Button } from '@/shared/components/Button';
 import { Badge } from '@/shared/components/Badge';
 import { DataTable, type Column } from '@/shared/components/DataTable';
 import { EmptyState } from '@/shared/components/EmptyState';
-import { Spinner } from '@/shared/components/Spinner';
 import { useToastStore } from '@/stores/toast.store';
 import { cn } from '@/shared/utils/cn';
 import { formatRelativeTime } from '@/features/rules/utils/formatRelativeTime';
@@ -18,7 +17,7 @@ import {
   useResumeSchedule,
   type Schedule,
 } from '@/api/schedules.api';
-import { useWorkflows, type Workflow } from '@/api/workflows.api';
+import { useWorkflows, useDeleteWorkflow, type Workflow } from '@/api/workflows.api';
 import {
   useHolidayCalendars,
   useDeleteHolidayCalendar,
@@ -28,53 +27,10 @@ import { CreateScheduleModal } from '../components/CreateScheduleModal';
 import { EditScheduleModal } from '../components/EditScheduleModal';
 import { CreateCalendarModal } from '../components/CreateCalendarModal';
 import { EditCalendarModal } from '../components/EditCalendarModal';
+import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 
-type BadgeColor = 'gray' | 'green' | 'blue' | 'yellow' | 'red';
-
-const RULE_TYPE_COLORS: Record<string, { bg: string; text: string }> = {
-  TABLE: { bg: 'bg-blue-100', text: 'text-blue-700' },
-  TREE: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
-  SCRIPT: { bg: 'bg-orange-100', text: 'text-orange-700' },
-  FLOW: { bg: 'bg-violet-100', text: 'text-violet-700' },
-  SCORECARD: { bg: 'bg-teal-100', text: 'text-teal-700' },
-  DMN: { bg: 'bg-indigo-100', text: 'text-indigo-700' },
-  ENSEMBLE: { bg: 'bg-rose-100', text: 'text-rose-700' },
-  CEP: { bg: 'bg-amber-100', text: 'text-amber-700' },
-};
-
-function cronToHuman(cron: string): string {
-  const map: Record<string, string> = {
-    '*/5 * * * *': 'Every 5 minutes',
-    '*/10 * * * *': 'Every 10 minutes',
-    '*/15 * * * *': 'Every 15 minutes',
-    '*/30 * * * *': 'Every 30 minutes',
-    '0 * * * *': 'Every hour',
-    '0 */2 * * *': 'Every 2 hours',
-    '0 */6 * * *': 'Every 6 hours',
-    '0 0 * * *': 'Daily at midnight',
-    '0 9 * * *': 'Daily at 9:00 AM',
-    '0 9 * * 1': 'Weekly on Monday at 9 AM',
-    '0 0 1 * *': 'Monthly on the 1st',
-  };
-  return map[cron] ?? cron;
-}
-
-function statusColor(status: string): BadgeColor {
-  switch (status) {
-    case 'ACTIVE':
-      return 'green';
-    case 'PAUSED':
-      return 'yellow';
-    case 'COMPLETED':
-      return 'blue';
-    case 'DRAFT':
-      return 'gray';
-    case 'FAILED':
-      return 'red';
-    default:
-      return 'gray';
-  }
-}
+import { cronToHuman } from '../utils/cronHelpers';
+import { RULE_TYPE_COLORS, MARKET_FLAGS, statusColor } from '../utils/constants';
 
 type TabId = 'schedules' | 'workflows' | 'holidays';
 
@@ -86,6 +42,13 @@ export function SchedulerPage() {
   const [showCreateCalendar, setShowCreateCalendar] = useState(false);
   const [editingSchedule, setEditingSchedule] = useState<Schedule | null>(null);
   const [editingCalendar, setEditingCalendar] = useState<HolidayCalendar | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<{ type: 'schedule' | 'calendar' | 'workflow'; id: string; name: string } | null>(null);
+  const [cloningSchedule, setCloningSchedule] = useState<Schedule | null>(null);
+  const [scheduleSearch, setScheduleSearch] = useState('');
+  const [scheduleStatus, setScheduleStatus] = useState('');
+  const [workflowSearch, setWorkflowSearch] = useState('');
+  const [workflowStatus, setWorkflowStatus] = useState('');
+  const [calendarSearch, setCalendarSearch] = useState('');
   const { data, isLoading } = useSchedules();
   const { data: stats } = useScheduleStats();
   const deleteSchedule = useDeleteSchedule();
@@ -94,17 +57,52 @@ export function SchedulerPage() {
   const { data: workflowsData, isLoading: workflowsLoading } = useWorkflows();
   const { data: calendarsData, isLoading: calendarsLoading } = useHolidayCalendars();
   const deleteCalendar = useDeleteHolidayCalendar();
+  const deleteWorkflow = useDeleteWorkflow();
 
   const schedules = data?.content ?? [];
   const workflows = workflowsData?.content ?? [];
   const calendars = calendarsData ?? [];
 
-  const handleDelete = async (id: string) => {
+  const filteredSchedules = schedules.filter((s) => {
+    const matchesSearch = !scheduleSearch ||
+      s.name.toLowerCase().includes(scheduleSearch.toLowerCase()) ||
+      (s.description?.toLowerCase().includes(scheduleSearch.toLowerCase()));
+    const matchesStatus = !scheduleStatus || s.status === scheduleStatus;
+    return matchesSearch && matchesStatus;
+  });
+
+  const filteredWorkflows = workflows.filter((w) => {
+    const matchesSearch = !workflowSearch ||
+      w.name.toLowerCase().includes(workflowSearch.toLowerCase()) ||
+      (w.description?.toLowerCase().includes(workflowSearch.toLowerCase()));
+    const matchesStatus = !workflowStatus || w.status === workflowStatus;
+    return matchesSearch && matchesStatus;
+  });
+
+  const filteredCalendars = calendars.filter((c) => {
+    const matchesSearch = !calendarSearch ||
+      c.name.toLowerCase().includes(calendarSearch.toLowerCase()) ||
+      (c.description?.toLowerCase().includes(calendarSearch.toLowerCase())) ||
+      c.market.toLowerCase().includes(calendarSearch.toLowerCase());
+    return matchesSearch;
+  });
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
     try {
-      await deleteSchedule.mutateAsync(id);
-      addToast({ type: 'success', title: 'Schedule deleted' });
+      if (deleteTarget.type === 'schedule') {
+        await deleteSchedule.mutateAsync(deleteTarget.id);
+        addToast({ type: 'success', title: 'Schedule deleted' });
+      } else if (deleteTarget.type === 'workflow') {
+        await deleteWorkflow.mutateAsync(deleteTarget.id);
+        addToast({ type: 'success', title: 'Workflow deleted' });
+      } else {
+        await deleteCalendar.mutateAsync(deleteTarget.id);
+        addToast({ type: 'success', title: 'Calendar deleted' });
+      }
+      setDeleteTarget(null);
     } catch {
-      addToast({ type: 'error', title: 'Failed to delete schedule' });
+      addToast({ type: 'error', title: `Failed to delete ${deleteTarget.type}` });
     }
   };
 
@@ -126,14 +124,6 @@ export function SchedulerPage() {
     }
   };
 
-  const handleDeleteCalendar = async (calId: string) => {
-    try {
-      await deleteCalendar.mutateAsync(calId);
-      addToast({ type: 'success', title: 'Calendar deleted' });
-    } catch {
-      addToast({ type: 'error', title: 'Failed to delete calendar' });
-    }
-  };
 
   const calendarColumns: Column<HolidayCalendar>[] = [
     {
@@ -152,12 +142,6 @@ export function SchedulerPage() {
       key: 'market',
       header: 'Market',
       render: (c) => {
-        const MARKET_FLAGS: Record<string, string> = {
-          US: '\u{1F1FA}\u{1F1F8}', UK: '\u{1F1EC}\u{1F1E7}', SG: '\u{1F1F8}\u{1F1EC}', AU: '\u{1F1E6}\u{1F1FA}',
-          JP: '\u{1F1EF}\u{1F1F5}', DE: '\u{1F1E9}\u{1F1EA}', IN: '\u{1F1EE}\u{1F1F3}', GLOBAL: '\u{1F30C}',
-          GB: '\u{1F1EC}\u{1F1E7}', HK: '\u{1F1ED}\u{1F1F0}', FR: '\u{1F1EB}\u{1F1F7}', CN: '\u{1F1E8}\u{1F1F3}',
-          KR: '\u{1F1F0}\u{1F1F7}', CA: '\u{1F1E8}\u{1F1E6}', BR: '\u{1F1E7}\u{1F1F7}',
-        };
         const flag = MARKET_FLAGS[c.market.toUpperCase()] ?? '';
         return <span className="text-sm text-gray-900">{flag && <span className="mr-1">{flag}</span>}{c.market}</span>;
       },
@@ -203,7 +187,7 @@ export function SchedulerPage() {
             <Pencil className="h-4 w-4" />
           </button>
           <button
-            onClick={(e) => { e.stopPropagation(); handleDeleteCalendar(c.id); }}
+            onClick={(e) => { e.stopPropagation(); setDeleteTarget({ type: 'calendar', id: c.id, name: c.name }); }}
             className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-600"
             title="Delete"
           >
@@ -317,6 +301,13 @@ export function SchedulerPage() {
           >
             <Pencil className="h-4 w-4" />
           </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setCloningSchedule(s); }}
+            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-blue-600"
+            title="Clone"
+          >
+            <Copy className="h-4 w-4" />
+          </button>
           {s.status === 'ACTIVE' ? (
             <button
               onClick={(e) => { e.stopPropagation(); handlePause(s.id); }}
@@ -335,7 +326,7 @@ export function SchedulerPage() {
             </button>
           ) : null}
           <button
-            onClick={(e) => { e.stopPropagation(); handleDelete(s.id); }}
+            onClick={(e) => { e.stopPropagation(); setDeleteTarget({ type: 'schedule', id: s.id, name: s.name }); }}
             className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-600"
             title="Delete"
           >
@@ -396,18 +387,17 @@ export function SchedulerPage() {
           >
             <Pencil className="h-4 w-4" />
           </button>
+          <button
+            onClick={(e) => { e.stopPropagation(); setDeleteTarget({ type: 'workflow', id: w.id, name: w.name }); }}
+            className="rounded p-1 text-gray-400 hover:bg-gray-100 hover:text-red-600"
+            title="Delete"
+          >
+            <Trash2 className="h-4 w-4" />
+          </button>
         </div>
       ),
     },
   ];
-
-  if (isLoading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <Spinner size="lg" />
-      </div>
-    );
-  }
 
   const statCards = [
     { icon: Calendar, label: 'Total Schedules', value: stats?.total ?? 0, color: 'text-indigo-600' },
@@ -425,17 +415,33 @@ export function SchedulerPage() {
   return (
     <div>
       {/* Stats bar */}
-      <div className="grid grid-cols-4 gap-4 mb-6">
-        {statCards.map((card) => (
-          <div key={card.label} className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
-            <card.icon className={cn('h-8 w-8', card.color)} />
-            <div>
-              <p className="text-2xl font-bold text-gray-900">{card.value}</p>
-              <p className="text-xs text-gray-500">{card.label}</p>
+      {stats ? (
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          {statCards.map((card) => (
+            <div key={card.label} className="flex items-center gap-3 rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+              <card.icon className={cn('h-8 w-8', card.color)} />
+              <div>
+                <p className="text-2xl font-bold text-gray-900">{card.value}</p>
+                <p className="text-xs text-gray-500">{card.label}</p>
+              </div>
             </div>
-          </div>
-        ))}
-      </div>
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-4 gap-4 mb-6">
+          {[...Array(4)].map((_, i) => (
+            <div key={i} className="animate-pulse rounded-lg border border-gray-200 bg-white p-4">
+              <div className="flex items-center gap-3">
+                <div className="h-8 w-8 rounded bg-gray-200" />
+                <div className="space-y-2">
+                  <div className="h-6 w-12 rounded bg-gray-200" />
+                  <div className="h-3 w-20 rounded bg-gray-200" />
+                </div>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Tab navigation */}
       <div className="border-b border-gray-200 mb-6">
@@ -470,7 +476,18 @@ export function SchedulerPage() {
             }
           />
 
-          {schedules.length === 0 ? (
+          {isLoading ? (
+            <div className="animate-pulse space-y-3 rounded-lg border border-gray-200 bg-white p-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex items-center gap-4 px-4 py-3">
+                  <div className="h-4 w-32 rounded bg-gray-200" />
+                  <div className="h-4 w-24 rounded bg-gray-200" />
+                  <div className="h-4 w-20 rounded bg-gray-200" />
+                  <div className="h-4 w-16 rounded bg-gray-200" />
+                </div>
+              ))}
+            </div>
+          ) : schedules.length === 0 ? (
             <EmptyState
               icon={<Clock className="h-12 w-12" />}
               title="No schedules yet"
@@ -479,18 +496,59 @@ export function SchedulerPage() {
               onAction={() => setShowCreate(true)}
             />
           ) : (
-            <div className="rounded-lg border border-gray-200 bg-white">
-              <DataTable
-                columns={scheduleColumns}
-                data={schedules}
-                onRowClick={(s) => navigate(`/schedules/${s.id}`)}
-              />
-            </div>
+            <>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={scheduleSearch}
+                    onChange={(e) => setScheduleSearch(e.target.value)}
+                    placeholder="Search schedules..."
+                    className="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                  {scheduleSearch && (
+                    <button onClick={() => setScheduleSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                    </button>
+                  )}
+                </div>
+                <select
+                  value={scheduleStatus}
+                  onChange={(e) => setScheduleStatus(e.target.value)}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="PAUSED">Paused</option>
+                </select>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-white">
+                <DataTable
+                  columns={scheduleColumns}
+                  data={filteredSchedules}
+                  onRowClick={(s) => navigate(`/schedules/${s.id}`)}
+                />
+              </div>
+            </>
           )}
 
           <CreateScheduleModal
-            isOpen={showCreate}
-            onClose={() => setShowCreate(false)}
+            isOpen={showCreate || !!cloningSchedule}
+            onClose={() => { setShowCreate(false); setCloningSchedule(null); }}
+            initialData={cloningSchedule ? {
+              name: `${cloningSchedule.name} (Copy)`,
+              description: cloningSchedule.description,
+              ruleId: cloningSchedule.ruleId,
+              ruleName: cloningSchedule.ruleName,
+              ruleType: cloningSchedule.ruleType,
+              workflowId: cloningSchedule.workflowId,
+              cronExpression: cloningSchedule.cronExpression,
+              timezone: cloningSchedule.timezone,
+              inputTemplate: cloningSchedule.inputTemplate,
+              holidayCalendarId: cloningSchedule.holidayCalendarId,
+              skipOnHoliday: cloningSchedule.skipOnHoliday,
+            } : undefined}
           />
 
           {editingSchedule && (
@@ -517,8 +575,15 @@ export function SchedulerPage() {
           />
 
           {workflowsLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Spinner size="lg" />
+            <div className="animate-pulse space-y-3 rounded-lg border border-gray-200 bg-white p-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex items-center gap-4 px-4 py-3">
+                  <div className="h-4 w-32 rounded bg-gray-200" />
+                  <div className="h-4 w-24 rounded bg-gray-200" />
+                  <div className="h-4 w-20 rounded bg-gray-200" />
+                  <div className="h-4 w-16 rounded bg-gray-200" />
+                </div>
+              ))}
             </div>
           ) : workflows.length === 0 ? (
             <EmptyState
@@ -529,16 +594,53 @@ export function SchedulerPage() {
               onAction={() => navigate('/workflows/new')}
             />
           ) : (
-            <div className="rounded-lg border border-gray-200 bg-white">
-              <DataTable
-                columns={workflowColumns}
-                data={workflows}
-                onRowClick={(w) => navigate(`/workflows/${w.id}`)}
-              />
-            </div>
+            <>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={workflowSearch}
+                    onChange={(e) => setWorkflowSearch(e.target.value)}
+                    placeholder="Search workflows..."
+                    className="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                  {workflowSearch && (
+                    <button onClick={() => setWorkflowSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                    </button>
+                  )}
+                </div>
+                <select
+                  value={workflowStatus}
+                  onChange={(e) => setWorkflowStatus(e.target.value)}
+                  className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                >
+                  <option value="">All Statuses</option>
+                  <option value="ACTIVE">Active</option>
+                  <option value="DRAFT">Draft</option>
+                </select>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-white">
+                <DataTable
+                  columns={workflowColumns}
+                  data={filteredWorkflows}
+                  onRowClick={(w) => navigate(`/workflows/${w.id}`)}
+                />
+              </div>
+            </>
           )}
         </>
       )}
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={handleConfirmDelete}
+        title={`Delete ${deleteTarget?.type === 'calendar' ? 'Calendar' : deleteTarget?.type === 'workflow' ? 'Workflow' : 'Schedule'}`}
+        message={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
+        isLoading={deleteSchedule.isPending || deleteCalendar.isPending || deleteWorkflow.isPending}
+      />
 
       {activeTab === 'holidays' && (
         <>
@@ -554,8 +656,15 @@ export function SchedulerPage() {
           />
 
           {calendarsLoading ? (
-            <div className="flex items-center justify-center py-12">
-              <Spinner size="lg" />
+            <div className="animate-pulse space-y-3 rounded-lg border border-gray-200 bg-white p-4">
+              {[...Array(5)].map((_, i) => (
+                <div key={i} className="flex items-center gap-4 px-4 py-3">
+                  <div className="h-4 w-32 rounded bg-gray-200" />
+                  <div className="h-4 w-24 rounded bg-gray-200" />
+                  <div className="h-4 w-20 rounded bg-gray-200" />
+                  <div className="h-4 w-16 rounded bg-gray-200" />
+                </div>
+              ))}
             </div>
           ) : calendars.length === 0 ? (
             <EmptyState
@@ -566,13 +675,32 @@ export function SchedulerPage() {
               onAction={() => setShowCreateCalendar(true)}
             />
           ) : (
-            <div className="rounded-lg border border-gray-200 bg-white">
-              <DataTable
-                columns={calendarColumns}
-                data={calendars}
-                onRowClick={(c) => navigate(`/holiday-calendars/${c.id}`)}
-              />
-            </div>
+            <>
+              <div className="flex items-center gap-3 mb-4">
+                <div className="relative flex-1 max-w-sm">
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={calendarSearch}
+                    onChange={(e) => setCalendarSearch(e.target.value)}
+                    placeholder="Search calendars..."
+                    className="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                  />
+                  {calendarSearch && (
+                    <button onClick={() => setCalendarSearch('')} className="absolute right-3 top-1/2 -translate-y-1/2">
+                      <X className="h-4 w-4 text-gray-400 hover:text-gray-600" />
+                    </button>
+                  )}
+                </div>
+              </div>
+              <div className="rounded-lg border border-gray-200 bg-white">
+                <DataTable
+                  columns={calendarColumns}
+                  data={filteredCalendars}
+                  onRowClick={(c) => navigate(`/holiday-calendars/${c.id}`)}
+                />
+              </div>
+            </>
           )}
 
           <CreateCalendarModal

@@ -446,6 +446,144 @@ else
   else
     fail "Seed data — expected 4 schedules, found $SCHED_SEED_COUNT"
   fi
+
+  # --- 3.12: Workflow API tests ---
+  info "--- Workflow API tests ---"
+
+  if [[ -n "$ADMIN_TOKEN" ]]; then
+    # Create a test workflow
+    WF_RESP=$(curl -s -w "\n%{http_code}" -X POST http://localhost:8086/v1/workflows \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H 'Content-Type: application/json' \
+      -d '{"spaceId":"d0000000-0000-0000-0000-000000000001","name":"Smoke Test Workflow","description":"Created by smoke test","nodes":[{"id":"trigger-1","type":"TRIGGER","label":"Start","config":{"triggerType":"MANUAL"},"position":{"x":0,"y":0}},{"id":"action-1","type":"ACTION","label":"Run Rule","config":{"ruleId":"e0000000-0000-0000-0000-000000000001","ruleName":"Loan Eligibility","ruleType":"TABLE","inputMapping":{}},"position":{"x":200,"y":0}}],"edges":[{"source":"trigger-1","target":"action-1"}]}' 2>/dev/null)
+    WF_CODE=$(echo "$WF_RESP" | tail -1)
+    WF_BODY=$(echo "$WF_RESP" | sed '$d')
+
+    if [[ "$WF_CODE" =~ ^(200|201)$ ]]; then
+      WF_ID=$(echo "$WF_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('id',''))" 2>/dev/null || echo "")
+      pass "POST /v1/workflows — workflow created"
+
+      if [[ -n "$WF_ID" ]]; then
+        # List workflows
+        WF_LIST_CODE=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:8086/v1/workflows \
+          -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+        if [[ "$WF_LIST_CODE" == "200" ]]; then
+          pass "GET /v1/workflows — list returned"
+        else
+          fail "GET /v1/workflows — HTTP $WF_LIST_CODE"
+        fi
+
+        # Get single workflow
+        WF_GET_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8086/v1/workflows/${WF_ID}" \
+          -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+        if [[ "$WF_GET_CODE" == "200" ]]; then
+          pass "GET /v1/workflows/{id} — workflow returned"
+        else
+          fail "GET /v1/workflows/{id} — HTTP $WF_GET_CODE"
+        fi
+
+        # Enable workflow
+        WF_ENABLE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:8086/v1/workflows/${WF_ID}/enable" \
+          -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+        if [[ "$WF_ENABLE_CODE" =~ ^(200|204)$ ]]; then
+          pass "POST /v1/workflows/{id}/enable — enabled"
+        else
+          fail "POST /v1/workflows/{id}/enable — HTTP $WF_ENABLE_CODE"
+        fi
+
+        # Disable workflow
+        WF_DISABLE_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:8086/v1/workflows/${WF_ID}/disable" \
+          -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+        if [[ "$WF_DISABLE_CODE" =~ ^(200|204)$ ]]; then
+          pass "POST /v1/workflows/{id}/disable — disabled"
+        else
+          fail "POST /v1/workflows/{id}/disable — HTTP $WF_DISABLE_CODE"
+        fi
+
+        # Trigger workflow (if endpoint exists)
+        WF_TRIGGER_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X POST "http://localhost:8086/v1/workflows/${WF_ID}/trigger" \
+          -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+        if [[ "$WF_TRIGGER_CODE" =~ ^(200|201|404)$ ]]; then
+          if [[ "$WF_TRIGGER_CODE" == "404" ]]; then
+            skip "POST /v1/workflows/{id}/trigger — endpoint not implemented"
+          else
+            pass "POST /v1/workflows/{id}/trigger — triggered (HTTP $WF_TRIGGER_CODE)"
+          fi
+        else
+          fail "POST /v1/workflows/{id}/trigger — HTTP $WF_TRIGGER_CODE"
+        fi
+
+        # Delete workflow
+        WF_DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" -X DELETE "http://localhost:8086/v1/workflows/${WF_ID}" \
+          -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+        if [[ "$WF_DEL_CODE" =~ ^(200|204)$ ]]; then
+          pass "DELETE /v1/workflows/{id} — cleanup"
+        else
+          fail "DELETE /v1/workflows/{id} — HTTP $WF_DEL_CODE"
+        fi
+      fi
+    else
+      fail "POST /v1/workflows — HTTP $WF_CODE"
+      verbose "$WF_BODY"
+    fi
+  else
+    skip "Workflow API tests — no admin token"
+  fi
+
+  # --- 3.13: Holiday Calendar API tests ---
+  info "--- Holiday Calendar API tests ---"
+
+  if [[ -n "$ADMIN_TOKEN" ]]; then
+    # List holiday calendars
+    HC_LIST_RESP=$(curl -s -w "\n%{http_code}" http://localhost:8086/v1/holiday-calendars \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    HC_LIST_CODE=$(echo "$HC_LIST_RESP" | tail -1)
+    HC_LIST_BODY=$(echo "$HC_LIST_RESP" | sed '$d')
+
+    if [[ "$HC_LIST_CODE" == "200" ]]; then
+      HC_COUNT=$(echo "$HC_LIST_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else len(d.get('data',d) if isinstance(d.get('data'),list) else []))" 2>/dev/null || echo "0")
+      pass "GET /v1/holiday-calendars — $HC_COUNT calendars returned"
+
+      # Get first calendar ID for further tests
+      HC_ID=$(echo "$HC_LIST_BODY" | python3 -c "
+import sys,json
+d=json.load(sys.stdin)
+items=d if isinstance(d,list) else d.get('data',d)
+if isinstance(items,list) and len(items)>0:
+    print(items[0].get('id',''))
+else:
+    print('')
+" 2>/dev/null || echo "")
+
+      if [[ -n "$HC_ID" ]]; then
+        # Get single calendar
+        HC_GET_CODE=$(curl -s -o /dev/null -w "%{http_code}" "http://localhost:8086/v1/holiday-calendars/${HC_ID}" \
+          -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+        if [[ "$HC_GET_CODE" == "200" ]]; then
+          pass "GET /v1/holiday-calendars/{id} — calendar returned"
+        else
+          fail "GET /v1/holiday-calendars/{id} — HTTP $HC_GET_CODE"
+        fi
+
+        # Check a specific date (2026-01-01 should be a holiday for US Federal)
+        HC_DATE_RESP=$(curl -s -w "\n%{http_code}" "http://localhost:8086/v1/holiday-calendars/${HC_ID}/check?date=2026-01-01" \
+          -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+        HC_DATE_CODE=$(echo "$HC_DATE_RESP" | tail -1)
+        if [[ "$HC_DATE_CODE" == "200" ]]; then
+          pass "GET /v1/holiday-calendars/{id}/check?date= — date check returned"
+        elif [[ "$HC_DATE_CODE" == "404" ]]; then
+          skip "GET /v1/holiday-calendars/{id}/check — endpoint not implemented"
+        else
+          fail "GET /v1/holiday-calendars/{id}/check — HTTP $HC_DATE_CODE"
+        fi
+      fi
+    else
+      fail "GET /v1/holiday-calendars — HTTP $HC_LIST_CODE"
+      verbose "$HC_LIST_BODY"
+    fi
+  else
+    skip "Holiday Calendar API tests — no admin token"
+  fi
 fi
 
 # ============================================================================

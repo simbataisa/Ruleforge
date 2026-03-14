@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Play, Pause, Trash2, Zap, Pencil } from 'lucide-react';
+import { ArrowLeft, Play, Pause, Trash2, Zap, Pencil, ChevronDown, ChevronRight, ChevronLeft } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Badge } from '@/shared/components/Badge';
 import { Spinner } from '@/shared/components/Spinner';
@@ -16,71 +16,12 @@ import {
   useResumeSchedule,
   useDeleteSchedule,
   type Schedule,
-  type ScheduleRun,
 } from '@/api/schedules.api';
 import { EditScheduleModal } from '../components/EditScheduleModal';
+import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 
-type BadgeColor = 'gray' | 'green' | 'blue' | 'yellow' | 'red';
-
-const RULE_TYPE_COLORS: Record<string, { bg: string; text: string }> = {
-  TABLE: { bg: 'bg-blue-100', text: 'text-blue-700' },
-  TREE: { bg: 'bg-emerald-100', text: 'text-emerald-700' },
-  SCRIPT: { bg: 'bg-orange-100', text: 'text-orange-700' },
-  FLOW: { bg: 'bg-violet-100', text: 'text-violet-700' },
-  SCORECARD: { bg: 'bg-teal-100', text: 'text-teal-700' },
-  DMN: { bg: 'bg-indigo-100', text: 'text-indigo-700' },
-  ENSEMBLE: { bg: 'bg-rose-100', text: 'text-rose-700' },
-  CEP: { bg: 'bg-amber-100', text: 'text-amber-700' },
-};
-
-function cronToHuman(cron: string): string {
-  const map: Record<string, string> = {
-    '*/5 * * * *': 'Every 5 minutes',
-    '*/10 * * * *': 'Every 10 minutes',
-    '*/15 * * * *': 'Every 15 minutes',
-    '*/30 * * * *': 'Every 30 minutes',
-    '0 * * * *': 'Every hour',
-    '0 */2 * * *': 'Every 2 hours',
-    '0 */6 * * *': 'Every 6 hours',
-    '0 0 * * *': 'Daily at midnight',
-    '0 9 * * *': 'Daily at 9:00 AM',
-    '0 9 * * 1': 'Weekly on Monday at 9 AM',
-    '0 0 1 * *': 'Monthly on the 1st',
-  };
-  return map[cron] ?? cron;
-}
-
-function runStatusColor(status: string): BadgeColor {
-  switch (status) {
-    case 'SUCCESS':
-      return 'green';
-    case 'FAILED':
-      return 'red';
-    case 'RUNNING':
-      return 'blue';
-    case 'CANCELLED':
-      return 'gray';
-    default:
-      return 'gray';
-  }
-}
-
-function formatDuration(run: ScheduleRun): string {
-  if (!run.completedAt || !run.startedAt) return '-';
-  const ms = new Date(run.completedAt).getTime() - new Date(run.startedAt).getTime();
-  if (ms < 1000) return `${ms}ms`;
-  return `${(ms / 1000).toFixed(1)}s`;
-}
-
-function formatDateTime(dateStr: string): string {
-  return new Date(dateStr).toLocaleString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit',
-  });
-}
+import { cronToHuman } from '../utils/cronHelpers';
+import { RULE_TYPE_COLORS, runStatusColor, formatDuration, formatDateTime } from '../utils/constants';
 
 export function ScheduleDetailPage() {
   const { id } = useParams<{ id: string }>();
@@ -88,9 +29,13 @@ export function ScheduleDetailPage() {
   const addToast = useToastStore((s) => s.addToast);
   const [activeTab, setActiveTab] = useState<'history' | 'config'>('history');
   const [showEdit, setShowEdit] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [runsPage, setRunsPage] = useState(0);
+  const [expandedRunId, setExpandedRunId] = useState<string | null>(null);
+  const runsPageSize = 10;
 
   const { data: schedule, isLoading } = useSchedule(id ?? '');
-  const { data: runs } = useScheduleRuns(id ?? '');
+  const { data: runsData } = useScheduleRuns(id ?? '', { page: runsPage, size: runsPageSize });
   const triggerSchedule = useTriggerSchedule();
   const pauseSchedule = usePauseSchedule();
   const resumeSchedule = useResumeSchedule();
@@ -132,17 +77,19 @@ export function ScheduleDetailPage() {
   };
 
   const handleDelete = async () => {
-    if (!confirm(`Delete schedule "${schedule.name}"?`)) return;
     try {
       await deleteSchedule.mutateAsync(schedule.id);
       addToast({ type: 'success', title: 'Schedule deleted' });
       navigate('/schedules');
     } catch {
       addToast({ type: 'error', title: 'Failed to delete schedule' });
+      setShowDeleteConfirm(false);
     }
   };
 
-  const runList = runs ?? [];
+  const runList = runsData?.content ?? [];
+  const totalRuns = runsData?.totalElements ?? 0;
+  const totalPages = runsData?.totalPages ?? 1;
 
   return (
     <div>
@@ -221,7 +168,7 @@ export function ScheduleDetailPage() {
             )}
           </Button>
         )}
-        <Button variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={handleDelete}>
+        <Button variant="outline" className="border-red-300 text-red-600 hover:bg-red-50" onClick={() => setShowDeleteConfirm(true)}>
           <Trash2 className="h-4 w-4" />
           Delete
         </Button>
@@ -247,40 +194,113 @@ export function ScheduleDetailPage() {
 
       {/* Tab content */}
       {activeTab === 'history' ? (
-        runList.length === 0 ? (
+        runList.length === 0 && runsPage === 0 ? (
           <EmptyState
             title="No executions yet"
             description="Trigger this schedule or wait for the next scheduled run."
           />
         ) : (
-          <div className="rounded-lg border border-gray-200 bg-white overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <thead>
-                <tr className="border-b border-gray-200">
-                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
-                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-gray-500">Started At</th>
-                  <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-gray-500">Duration</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {runList.map((run) => (
-                  <tr key={run.id}>
-                    <td className="px-4 py-3">
-                      <Badge color={runStatusColor(run.status)}>{run.status}</Badge>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{formatDateTime(run.startedAt)}</td>
-                    <td className="px-4 py-3 text-gray-600">{formatDuration(run)}</td>
-                    {run.status === 'FAILED' && run.error && (
-                      <td colSpan={3} className="px-4 pb-3">
-                        <div className="rounded bg-red-50 border border-red-200 p-2 text-xs text-red-700 mt-1">
-                          {run.error}
-                        </div>
-                      </td>
-                    )}
+          <div className="space-y-3">
+            <div className="rounded-lg border border-gray-200 bg-white overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="w-8 px-2 py-3" />
+                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-gray-500">Status</th>
+                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-gray-500">Started At</th>
+                    <th className="px-4 py-3 text-xs font-medium uppercase tracking-wider text-gray-500">Duration</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody className="divide-y divide-gray-100">
+                  {runList.map((run) => (
+                    <tr
+                      key={run.id}
+                      className="cursor-pointer hover:bg-gray-50"
+                      onClick={() => setExpandedRunId(expandedRunId === run.id ? null : run.id)}
+                    >
+                      <td className="px-2 py-3 text-gray-400">
+                        {expandedRunId === run.id ? (
+                          <ChevronDown className="h-4 w-4" />
+                        ) : (
+                          <ChevronRight className="h-4 w-4" />
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        <Badge color={runStatusColor(run.status)}>{run.status}</Badge>
+                      </td>
+                      <td className="px-4 py-3 text-gray-600">{formatDateTime(run.startedAt)}</td>
+                      <td className="px-4 py-3 text-gray-600">{formatDuration(run.startedAt, run.completedAt)}</td>
+                    </tr>
+                  ))}
+                  {runList.map((run) =>
+                    expandedRunId === run.id ? (
+                      <tr key={`${run.id}-detail`}>
+                        <td colSpan={4} className="px-4 pb-4 pt-0 bg-gray-50">
+                          <div className="space-y-2">
+                            {run.status === 'FAILED' && run.error && (
+                              <div className="rounded bg-red-50 border border-red-200 p-3 text-xs text-red-700">
+                                <p className="font-medium mb-1">Error</p>
+                                {run.error}
+                              </div>
+                            )}
+                            {run.result && (
+                              <div>
+                                <p className="text-xs font-medium text-gray-500 mb-1">Result</p>
+                                <pre className="rounded bg-white border border-gray-200 p-3 text-xs text-gray-700 overflow-auto max-h-48">
+                                  {typeof run.result === 'string' ? run.result : JSON.stringify(run.result, null, 2)}
+                                </pre>
+                              </div>
+                            )}
+                            <div className="grid grid-cols-3 gap-4 text-xs">
+                              <div>
+                                <p className="text-gray-500">Run ID</p>
+                                <p className="font-mono text-gray-700">{run.id}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Started</p>
+                                <p className="text-gray-700">{run.startedAt ? formatDateTime(run.startedAt) : '-'}</p>
+                              </div>
+                              <div>
+                                <p className="text-gray-500">Completed</p>
+                                <p className="text-gray-700">{run.completedAt ? formatDateTime(run.completedAt) : '-'}</p>
+                              </div>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    ) : null,
+                  )}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Pagination */}
+            {totalPages > 1 && (
+              <div className="flex items-center justify-between text-sm text-gray-600">
+                <span>
+                  Showing {runsPage * runsPageSize + 1}-{Math.min((runsPage + 1) * runsPageSize, totalRuns)} of {totalRuns} runs
+                </span>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={() => setRunsPage(p => Math.max(0, p - 1))}
+                    disabled={runsPage === 0}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                    Previous
+                  </button>
+                  <span className="text-gray-500">Page {runsPage + 1} of {totalPages}</span>
+                  <button
+                    onClick={() => setRunsPage(p => Math.min(totalPages - 1, p + 1))}
+                    disabled={runsPage >= totalPages - 1}
+                    className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm hover:bg-gray-50 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-1"
+                  >
+                    Next
+                    <ChevronRight className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         )
       ) : (
@@ -352,6 +372,15 @@ export function ScheduleDetailPage() {
           schedule={schedule as Schedule}
         />
       )}
+
+      <ConfirmDialog
+        open={showDeleteConfirm}
+        onClose={() => setShowDeleteConfirm(false)}
+        onConfirm={handleDelete}
+        title="Delete Schedule"
+        message={`Are you sure you want to delete "${schedule.name}"? This action cannot be undone.`}
+        isLoading={deleteSchedule.isPending}
+      />
     </div>
   );
 }

@@ -196,3 +196,22 @@ are in `.bmad-agents/`. When working on:
 
 Always read `BMAD-SHARED-CONTEXT.md` first for the overall workflow and artifact structure.
 All artifacts go in `docs/` per the BMAD directory convention.
+
+## BMAD Agent Skills
+
+This project uses BMAD method agents for structured SDLC. Agent skill definitions
+are in `.bmad-agents/`. When working on:
+
+- Requirements or analysis: read `.bmad-agents/bmad-business-analyst/SKILL.md`
+- Product planning or PRD: read `.bmad-agents/bmad-product-owner/SKILL.md`
+- System architecture: read `.bmad-agents/bmad-solution-architect/SKILL.md`
+- Enterprise/cloud architecture: read `.bmad-agents/bmad-enterprise-architect/SKILL.md`
+- UX/UI design: read `.bmad-agents/bmad-ux-ui-designer/SKILL.md`
+- Technical leadership or code review: read `.bmad-agents/bmad-tech-lead/SKILL.md`
+- Testing or QA: read `.bmad-agents/bmad-tester-qe/SKILL.md`
+- Backend development: read `.bmad-agents/bmad-backend-engineer/SKILL.md`
+- Frontend development: read `.bmad-agents/bmad-frontend-engineer/SKILL.md`
+- Mobile development: read `.bmad-agents/bmad-mobile-engineer/SKILL.md`
+
+Always read `.bmad-agents/BMAD-SHARED-CONTEXT.md` first for the overall workflow
+and artifact structure. All artifacts go in `docs/` per the BMAD directory convention.

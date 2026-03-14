@@ -16,30 +16,8 @@ interface EditScheduleModalProps {
   schedule: Schedule;
 }
 
-const CRON_PRESETS = [
-  { label: 'Every 5 min', cron: '*/5 * * * *' },
-  { label: 'Hourly', cron: '0 * * * *' },
-  { label: 'Daily', cron: '0 0 * * *' },
-  { label: 'Weekly', cron: '0 9 * * 1' },
-  { label: 'Monthly', cron: '0 0 1 * *' },
-] as const;
-
-function cronToHuman(cron: string): string {
-  const map: Record<string, string> = {
-    '*/5 * * * *': 'Every 5 minutes',
-    '*/10 * * * *': 'Every 10 minutes',
-    '*/15 * * * *': 'Every 15 minutes',
-    '*/30 * * * *': 'Every 30 minutes',
-    '0 * * * *': 'Every hour',
-    '0 */2 * * *': 'Every 2 hours',
-    '0 */6 * * *': 'Every 6 hours',
-    '0 0 * * *': 'Daily at midnight',
-    '0 9 * * *': 'Daily at 9:00 AM',
-    '0 9 * * 1': 'Weekly on Monday at 9 AM',
-    '0 0 1 * *': 'Monthly on the 1st',
-  };
-  return map[cron] ?? '';
-}
+import { CRON_PRESETS, cronToHuman, validateCron } from '../utils/cronHelpers';
+import { TimezoneSelect } from '@/shared/components/TimezoneSelect';
 
 type TargetType = 'rule' | 'workflow';
 
@@ -107,6 +85,12 @@ export function EditScheduleModal({ isOpen, onClose, schedule }: EditScheduleMod
     if (targetType === 'rule' && !ruleId) return;
     if (targetType === 'workflow' && !workflowId) return;
 
+    const cronError = validateCron(cronExpression);
+    if (cronError) {
+      addToast({ type: 'error', title: cronError });
+      return;
+    }
+
     let parsedPayload: Record<string, unknown> | undefined;
     try {
       const trimmed = inputTemplate.trim();
@@ -141,8 +125,6 @@ export function EditScheduleModal({ isOpen, onClose, schedule }: EditScheduleMod
       addToast({ type: 'error', title: 'Failed to update schedule' });
     }
   };
-
-  const humanCron = cronToHuman(cronExpression);
 
   return (
     <Modal open={isOpen} onClose={onClose} title="Edit Schedule">
@@ -262,20 +244,23 @@ export function EditScheduleModal({ isOpen, onClose, schedule }: EditScheduleMod
             placeholder="Custom cron: minute hour day month weekday"
             required
           />
-          {humanCron && (
-            <p className="text-xs text-indigo-600 mt-1">{humanCron}</p>
-          )}
+          {cronExpression && (() => {
+            const error = validateCron(cronExpression);
+            const human = cronToHuman(cronExpression);
+            if (error) return <p className="text-xs text-red-500 mt-1">{error}</p>;
+            if (human !== cronExpression) return <p className="text-xs text-indigo-600 mt-1">{human}</p>;
+            return <p className="text-xs text-green-600 mt-1">Valid cron expression</p>;
+          })()}
         </div>
 
         <div>
           <label htmlFor="edit-sched-tz" className="block text-sm font-medium text-gray-700 mb-1">
             Timezone
           </label>
-          <Input
+          <TimezoneSelect
             id="edit-sched-tz"
             value={timezone}
-            onChange={(e) => setTimezone(e.target.value)}
-            placeholder="UTC"
+            onChange={setTimezone}
           />
         </div>
 

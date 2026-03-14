@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { type Node } from '@xyflow/react';
-import { X, Clock, MousePointerClick, Webhook, Radio, ArrowRightCircle, GitBranch, Copy, Check, CalendarDays } from 'lucide-react';
+import { X, Clock, MousePointerClick, Webhook, Radio, ArrowRightCircle, GitBranch, Copy, Check, CalendarDays, Trash2 } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
 import { Badge } from '@/shared/components/Badge';
@@ -12,6 +12,7 @@ interface NodeEditPanelProps {
   node: Node;
   onClose: () => void;
   onNodeUpdate: (nodeId: string, data: Record<string, unknown>) => void;
+  onDeleteNode?: (nodeId: string) => void;
   workflowId?: string;
 }
 
@@ -44,7 +45,7 @@ function getTriggerIcon(type: TriggerTypeValue) {
   }
 }
 
-export function NodeEditPanel({ node, onClose, onNodeUpdate, workflowId }: NodeEditPanelProps) {
+export function NodeEditPanel({ node, onClose, onNodeUpdate, onDeleteNode, workflowId }: NodeEditPanelProps) {
   const nodeType = node.type ?? 'trigger';
   const data = node.data as Record<string, unknown>;
   const config = (data.config as Record<string, unknown>) ?? {};
@@ -428,6 +429,15 @@ export function NodeEditPanel({ node, onClose, onNodeUpdate, workflowId }: NodeE
         <Button onClick={handleApply} className="w-full">
           Apply Changes
         </Button>
+        {onDeleteNode && (
+          <button
+            onClick={() => onDeleteNode(node.id)}
+            className="w-full mt-2 rounded-lg border border-red-300 px-4 py-2 text-sm font-medium text-red-600 hover:bg-red-50 transition-colors flex items-center justify-center gap-2"
+          >
+            <Trash2 className="h-4 w-4" />
+            Delete Node
+          </button>
+        )}
       </div>
     </div>
   );

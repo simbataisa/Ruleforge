@@ -28,6 +28,24 @@ You are a Backend Engineer in the BMAD software development process. Your role i
 
 **Reference:** [`/BMAD-SHARED-CONTEXT.md`](../BMAD-SHARED-CONTEXT.md) — Review the four-phase cycle and artifact handoff model before starting.
 
+## Local Resources
+
+### Templates
+Use these when producing your deliverables — fill them in and save outputs to the appropriate `docs/` subdirectory.
+
+| Template | Purpose | Output location |
+|---|---|---|
+| [`templates/api-contract-template.md`](templates/api-contract-template.md) | Document REST/gRPC API contracts for each service | `docs/tech-specs/api-contracts/` |
+| [`templates/service-readme-template.md`](templates/service-readme-template.md) | Service-level README for each microservice repo | `<service-repo>/README.md` |
+
+### References
+Read these before implementing — they define standards you must follow.
+
+| Reference | When to use |
+|---|---|
+| [`references/coding-standards.md`](references/coding-standards.md) | Always — governs naming, structure, API design, testing, logging |
+| [`references/error-handling-patterns.md`](references/error-handling-patterns.md) | When implementing error handling, retries, circuit breakers, DLQs |
+
 ## Primary Responsibilities
 
 ### 1. Implement Services and APIs

@@ -1,0 +1,421 @@
+./scripts/start-local.sh
+
+[0;36m========================================[0m
+[0;36m   RuleForge Local Development Stack[0m
+[0;36m========================================[0m
+
+[0;36m[INFO][0m  Checking prerequisites...
+[0;32m[OK][0m    Java 21
+[0;32m[OK][0m    Node.js v25.4.0
+[0;32m[OK][0m    Docker 28.5.1
+[0;36m[INFO][0m  Starting infrastructure containers...
+time="2026-02-28T11:02:49+07:00" level=warning msg="Found orphan containers ([docker-jaeger-1 local-ahss-postgres]) for this project. If you removed or renamed this service in your compose file, you can run this command with the --remove-orphans flag to clean it up."
+ Container docker-redis-1  Running
+ Container docker-postgres-1  Running
+ Container docker-minio-1  Running
+ Container docker-kafka-1  Running
+ Container docker-elasticsearch-1  Running
+[0;36m[INFO][0m  Waiting for PostgreSQL...
+[0;32m[OK][0m    PostgreSQL is ready
+[0;36m[INFO][0m  Waiting for Redis...
+[0;32m[OK][0m    Redis is ready
+[0;36m[INFO][0m  Waiting for Kafka...
+[0;32m[OK][0m    Kafka is ready
+[0;36m[INFO][0m  Waiting for Elasticsearch...
+[0;32m[OK][0m    Elasticsearch is ready
+[0;36m[INFO][0m  Waiting for MinIO...
+[0;32m[OK][0m    MinIO is ready
+[0;36m[INFO][0m  Running database migrations...
+[0;32m[OK][0m    Applied 33 migration(s) via psql
+[0;36m[INFO][0m  Building engine...
+> Task :buildSrc:checkKotlinGradlePluginConfigurationErrors
+> Task :buildSrc:generateExternalPluginSpecBuilders FROM-CACHE
+> Task :buildSrc:extractPrecompiledScriptPluginPlugins FROM-CACHE
+> Task :buildSrc:compilePluginsBlocks FROM-CACHE
+> Task :buildSrc:generatePrecompiledScriptPluginAccessors FROM-CACHE
+> Task :buildSrc:generateScriptPluginAdapters FROM-CACHE
+> Task :buildSrc:compileKotlin FROM-CACHE
+> Task :buildSrc:compileJava NO-SOURCE
+> Task :buildSrc:compileGroovy NO-SOURCE
+> Task :buildSrc:pluginDescriptors
+> Task :buildSrc:processResources
+> Task :buildSrc:classes
+> Task :buildSrc:jar
+> Task :ruleforge-all:processResources NO-SOURCE
+> Task :ruleforge-ensemble:processResources NO-SOURCE
+> Task :ruleforge-script:processResources NO-SOURCE
+> Task :ruleforge-hierarchy:processResources NO-SOURCE
+> Task :ruleforge-scorecard:processResources NO-SOURCE
+> Task :ruleforge-cep:processResources NO-SOURCE
+> Task :ruleforge-dmn:processResources NO-SOURCE
+> Task :ruleforge-flow:processResources NO-SOURCE
+> Task :compileJava NO-SOURCE
+> Task :processResources NO-SOURCE
+> Task :classes UP-TO-DATE
+> Task :ruleforge-all:sourcesJar
+> Task :ruleforge-all:check
+> Task :ruleforge-script:sourcesJar
+> Task :ruleforge-script:check
+> Task :jar
+> Task :assemble
+> Task :check
+> Task :build
+> Task :ruleforge-hierarchy:sourcesJar
+> Task :ruleforge-hierarchy:check
+> Task :ruleforge-ensemble:sourcesJar
+> Task :ruleforge-cep:sourcesJar
+> Task :ruleforge-scorecard:sourcesJar
+> Task :ruleforge-flow:sourcesJar
+> Task :ruleforge-cep:check
+> Task :ruleforge-flow:check
+> Task :ruleforge-ensemble:check
+> Task :ruleforge-scorecard:check
+> Task :ruleforge-dmn:sourcesJar
+> Task :ruleforge-dmn:check
+> Task :ruleforge-tree:processResources NO-SOURCE
+> Task :ruleforge-table:processResources NO-SOURCE
+> Task :ruleforge-spring-boot-starter:processResources
+> Task :ruleforge-spring-boot-starter:sourcesJar
+> Task :ruleforge-spring-boot-starter:check
+> Task :ruleforge-tree:sourcesJar
+> Task :ruleforge-tree:check
+> Task :ruleforge-table:sourcesJar
+> Task :ruleforge-table:check
+> Task :ruleforge-core:compileJava FROM-CACHE
+> Task :ruleforge-core:processResources NO-SOURCE
+> Task :ruleforge-core:classes UP-TO-DATE
+> Task :ruleforge-scorecard:compileJava FROM-CACHE
+> Task :ruleforge-scorecard:classes UP-TO-DATE
+> Task :ruleforge-tree:compileJava FROM-CACHE
+> Task :ruleforge-flow:compileJava FROM-CACHE
+> Task :ruleforge-hierarchy:compileJava FROM-CACHE
+> Task :ruleforge-tree:classes UP-TO-DATE
+> Task :ruleforge-flow:classes UP-TO-DATE
+> Task :ruleforge-cep:compileJava FROM-CACHE
+> Task :ruleforge-hierarchy:classes UP-TO-DATE
+> Task :ruleforge-cep:classes UP-TO-DATE
+> Task :ruleforge-dmn:compileJava FROM-CACHE
+> Task :ruleforge-scorecard:jar
+> Task :ruleforge-dmn:classes UP-TO-DATE
+> Task :ruleforge-script:compileJava FROM-CACHE
+> Task :ruleforge-script:classes UP-TO-DATE
+> Task :ruleforge-table:compileJava FROM-CACHE
+> Task :ruleforge-script:jar
+> Task :ruleforge-table:classes UP-TO-DATE
+> Task :ruleforge-cep:jar
+> Task :ruleforge-hierarchy:jar
+> Task :ruleforge-flow:jar
+> Task :ruleforge-core:jar
+> Task :ruleforge-tree:jar
+> Task :ruleforge-dmn:jar
+> Task :ruleforge-ensemble:compileJava FROM-CACHE
+> Task :ruleforge-table:jar
+> Task :ruleforge-ensemble:classes UP-TO-DATE
+> Task :ruleforge-ensemble:jar
+> Task :ruleforge-all:compileJava FROM-CACHE
+> Task :ruleforge-all:classes UP-TO-DATE
+> Task :ruleforge-hierarchy:javadoc FROM-CACHE
+> Task :ruleforge-all:jar
+> Task :ruleforge-flow:javadoc FROM-CACHE
+> Task :ruleforge-scorecard:javadoc FROM-CACHE
+> Task :ruleforge-cep:javadoc FROM-CACHE
+> Task :ruleforge-script:javadoc FROM-CACHE
+> Task :ruleforge-tree:javadoc FROM-CACHE
+> Task :ruleforge-flow:javadocJar
+> Task :ruleforge-flow:assemble
+> Task :ruleforge-flow:build
+> Task :ruleforge-cep:javadocJar
+> Task :ruleforge-cep:assemble
+> Task :ruleforge-cep:build
+> Task :ruleforge-hierarchy:javadocJar
+> Task :ruleforge-hierarchy:assemble
+> Task :ruleforge-hierarchy:build
+> Task :ruleforge-ensemble:javadoc FROM-CACHE
+> Task :ruleforge-spring-boot-starter:compileJava FROM-CACHE
+> Task :ruleforge-spring-boot-starter:classes
+> Task :ruleforge-all:javadoc FROM-CACHE
+> Task :ruleforge-script:javadocJar
+> Task :ruleforge-script:assemble
+> Task :ruleforge-script:build
+> Task :ruleforge-dmn:javadoc FROM-CACHE
+> Task :ruleforge-scorecard:javadocJar
+> Task :ruleforge-scorecard:assemble
+> Task :ruleforge-scorecard:build
+> Task :ruleforge-spring-boot-starter:jar
+> Task :ruleforge-all:javadocJar
+> Task :ruleforge-all:assemble
+> Task :ruleforge-all:build
+> Task :ruleforge-ensemble:javadocJar
+> Task :ruleforge-ensemble:assemble
+> Task :ruleforge-ensemble:build
+> Task :ruleforge-spring-boot-starter:javadoc FROM-CACHE
+> Task :ruleforge-table:javadoc FROM-CACHE
+> Task :ruleforge-tree:javadocJar
+> Task :ruleforge-tree:assemble
+> Task :ruleforge-tree:build
+> Task :ruleforge-dmn:javadocJar
+> Task :ruleforge-dmn:assemble
+> Task :ruleforge-dmn:build
+> Task :ruleforge-core:javadoc FROM-CACHE
+> Task :ruleforge-spring-boot-starter:javadocJar
+> Task :ruleforge-spring-boot-starter:assemble
+> Task :ruleforge-spring-boot-starter:build
+> Task :ruleforge-table:javadocJar
+> Task :ruleforge-table:assemble
+> Task :ruleforge-table:build
+> Task :ruleforge-core:javadocJar
+> Task :ruleforge-core:sourcesJar
+> Task :ruleforge-core:assemble
+> Task :ruleforge-core:check
+> Task :ruleforge-core:build
+
+BUILD SUCCESSFUL in 1s
+72 actionable tasks: 42 executed, 30 from cache
+[0;32m[OK][0m    Engine build complete
+[0;36m[INFO][0m  Building platform...
+> Task :engine:buildSrc:checkKotlinGradlePluginConfigurationErrors
+> Task :engine:buildSrc:generateExternalPluginSpecBuilders FROM-CACHE
+> Task :engine:buildSrc:extractPrecompiledScriptPluginPlugins FROM-CACHE
+> Task :engine:buildSrc:compilePluginsBlocks FROM-CACHE
+> Task :engine:buildSrc:generatePrecompiledScriptPluginAccessors FROM-CACHE
+> Task :engine:buildSrc:generateScriptPluginAdapters FROM-CACHE
+> Task :engine:buildSrc:compileKotlin FROM-CACHE
+> Task :engine:buildSrc:compileJava NO-SOURCE
+> Task :engine:buildSrc:compileGroovy NO-SOURCE
+> Task :engine:buildSrc:pluginDescriptors
+> Task :engine:buildSrc:processResources
+> Task :engine:buildSrc:classes
+> Task :engine:buildSrc:jar
+> Task :compileJava NO-SOURCE
+> Task :ruleforge-auth-service:processResources UP-TO-DATE
+> Task :ruleforge-connector-service:processResources UP-TO-DATE
+> Task :ruleforge-scheduler-service:processResources UP-TO-DATE
+> Task :ruleforge-event-service:processResources UP-TO-DATE
+> Task :ruleforge-management-service:processResources UP-TO-DATE
+> Task :ruleforge-analytics-service:processResources UP-TO-DATE
+> Task :ruleforge-auth-service:check
+> Task :ruleforge-analytics-service:check
+> Task :engine:ruleforge-hierarchy:processResources NO-SOURCE
+> Task :processResources NO-SOURCE
+> Task :classes UP-TO-DATE
+> Task :engine:ruleforge-cep:processResources NO-SOURCE
+> Task :engine:ruleforge-ensemble:processResources NO-SOURCE
+> Task :engine:ruleforge-script:processResources NO-SOURCE
+> Task :engine:ruleforge-flow:processResources NO-SOURCE
+> Task :engine:ruleforge-dmn:processResources NO-SOURCE
+> Task :ruleforge-connector-service:check
+> Task :ruleforge-event-service:check
+> Task :engine:ruleforge-scorecard:processResources NO-SOURCE
+> Task :ruleforge-management-service:check
+> Task :engine:ruleforge-tree:processResources NO-SOURCE
+> Task :engine:ruleforge-table:processResources NO-SOURCE
+> Task :ruleforge-scheduler-service:check
+> Task :jar UP-TO-DATE
+> Task :ruleforge-solver-service:processResources UP-TO-DATE
+> Task :assemble UP-TO-DATE
+> Task :ruleforge-solver-service:check
+> Task :check
+> Task :build
+> Task :ruleforge-common:compileJava UP-TO-DATE
+> Task :ruleforge-common:processResources NO-SOURCE
+> Task :ruleforge-common:classes UP-TO-DATE
+> Task :ruleforge-common:jar UP-TO-DATE
+> Task :ruleforge-common:assemble UP-TO-DATE
+> Task :ruleforge-common:check
+> Task :ruleforge-common:build
+> Task :ruleforge-analytics-service:compileJava UP-TO-DATE
+> Task :ruleforge-scheduler-service:compileJava UP-TO-DATE
+> Task :ruleforge-event-service:compileJava UP-TO-DATE
+> Task :ruleforge-auth-service:compileJava UP-TO-DATE
+> Task :ruleforge-connector-service:compileJava UP-TO-DATE
+> Task :ruleforge-connector-service:classes UP-TO-DATE
+> Task :ruleforge-analytics-service:classes UP-TO-DATE
+> Task :ruleforge-auth-service:classes UP-TO-DATE
+> Task :ruleforge-event-service:classes UP-TO-DATE
+> Task :ruleforge-scheduler-service:classes UP-TO-DATE
+> Task :ruleforge-scheduler-service:resolveMainClassName UP-TO-DATE
+> Task :ruleforge-auth-service:resolveMainClassName UP-TO-DATE
+> Task :ruleforge-event-service:resolveMainClassName UP-TO-DATE
+> Task :ruleforge-analytics-service:resolveMainClassName UP-TO-DATE
+> Task :ruleforge-connector-service:resolveMainClassName UP-TO-DATE
+> Task :engine:ruleforge-core:compileJava FROM-CACHE
+> Task :engine:ruleforge-hierarchy:compileJava FROM-CACHE
+> Task :engine:ruleforge-flow:compileJava FROM-CACHE
+> Task :engine:ruleforge-script:compileJava FROM-CACHE
+> Task :engine:ruleforge-cep:compileJava FROM-CACHE
+> Task :engine:ruleforge-dmn:compileJava FROM-CACHE
+> Task :engine:ruleforge-core:processResources NO-SOURCE
+> Task :engine:ruleforge-core:classes UP-TO-DATE
+> Task :engine:ruleforge-scorecard:compileJava FROM-CACHE
+> Task :engine:ruleforge-hierarchy:classes UP-TO-DATE
+> Task :engine:ruleforge-ensemble:compileJava FROM-CACHE
+> Task :engine:ruleforge-tree:compileJava FROM-CACHE
+> Task :engine:ruleforge-cep:classes UP-TO-DATE
+> Task :engine:ruleforge-script:classes UP-TO-DATE
+> Task :engine:ruleforge-table:compileJava FROM-CACHE
+> Task :engine:ruleforge-dmn:classes UP-TO-DATE
+> Task :engine:ruleforge-core:jar
+> Task :engine:ruleforge-flow:classes UP-TO-DATE
+> Task :engine:ruleforge-hierarchy:jar
+> Task :engine:ruleforge-ensemble:classes UP-TO-DATE
+> Task :engine:ruleforge-cep:jar
+> Task :engine:ruleforge-scorecard:classes UP-TO-DATE
+> Task :engine:ruleforge-script:jar
+> Task :engine:ruleforge-tree:classes UP-TO-DATE
+> Task :engine:ruleforge-flow:jar
+> Task :engine:ruleforge-table:classes UP-TO-DATE
+> Task :engine:ruleforge-dmn:jar
+> Task :engine:ruleforge-scorecard:jar
+> Task :engine:ruleforge-tree:jar
+> Task :engine:ruleforge-ensemble:jar
+> Task :engine:ruleforge-table:jar
+> Task :ruleforge-solver-service:compileJava UP-TO-DATE
+> Task :ruleforge-management-service:compileJava UP-TO-DATE
+> Task :ruleforge-solver-service:classes UP-TO-DATE
+> Task :ruleforge-management-service:classes UP-TO-DATE
+> Task :ruleforge-solver-service:resolveMainClassName UP-TO-DATE
+> Task :ruleforge-management-service:resolveMainClassName UP-TO-DATE
+> Task :ruleforge-scheduler-service:bootJar UP-TO-DATE
+> Task :ruleforge-scheduler-service:jar UP-TO-DATE
+> Task :ruleforge-scheduler-service:assemble UP-TO-DATE
+> Task :ruleforge-scheduler-service:build
+> Task :ruleforge-event-service:bootJar UP-TO-DATE
+> Task :ruleforge-event-service:jar UP-TO-DATE
+> Task :ruleforge-event-service:assemble UP-TO-DATE
+> Task :ruleforge-event-service:build
+> Task :ruleforge-connector-service:bootJar UP-TO-DATE
+> Task :ruleforge-connector-service:jar UP-TO-DATE
+> Task :ruleforge-connector-service:assemble UP-TO-DATE
+> Task :ruleforge-connector-service:build
+> Task :ruleforge-analytics-service:bootJar UP-TO-DATE
+> Task :ruleforge-analytics-service:jar UP-TO-DATE
+> Task :ruleforge-analytics-service:assemble UP-TO-DATE
+> Task :ruleforge-analytics-service:build
+> Task :ruleforge-auth-service:bootJar UP-TO-DATE
+> Task :ruleforge-auth-service:jar UP-TO-DATE
+> Task :ruleforge-auth-service:assemble UP-TO-DATE
+> Task :ruleforge-auth-service:build
+> Task :ruleforge-solver-service:bootJar
+> Task :ruleforge-solver-service:jar UP-TO-DATE
+> Task :ruleforge-solver-service:assemble
+> Task :ruleforge-solver-service:build
+> Task :ruleforge-management-service:bootJar
+> Task :ruleforge-management-service:jar UP-TO-DATE
+> Task :ruleforge-management-service:assemble
+> Task :ruleforge-management-service:build
+
+BUILD SUCCESSFUL in 7s
+68 actionable tasks: 16 executed, 16 from cache, 36 up-to-date
+[0;32m[OK][0m    Platform build complete
+[0;36m[INFO][0m  Installing frontend dependencies...
+
+up to date, audited 414 packages in 1s
+
+91 packages are looking for funding
+  run `npm fund` for details
+
+8 vulnerabilities (6 moderate, 2 high)
+
+To address issues that do not require attention, run:
+  npm audit fix
+
+To address all issues (including breaking changes), run:
+  npm audit fix --force
+
+Run `npm audit` for details.
+[0;32m[OK][0m    Frontend dependencies installed
+[0;36m[INFO][0m  Starting platform services...
+[0;36m[INFO][0m  Starting ruleforge-auth-service (port 8081)...
+[0;36m[INFO][0m  Waiting for ruleforge-auth-service on port 8081...
+[0;32m[OK][0m    ruleforge-auth-service is healthy
+[0;36m[INFO][0m  Starting ruleforge-management-service (port 8082)...
+[0;36m[INFO][0m  Starting ruleforge-event-service (port 8084)...
+[0;36m[INFO][0m  Starting ruleforge-connector-service (port 8087)...
+[0;36m[INFO][0m  Starting ruleforge-solver-service (port 8083)...
+[0;36m[INFO][0m  Waiting for ruleforge-management-service on port 8082...
+[0;32m[OK][0m    ruleforge-management-service is healthy
+[0;36m[INFO][0m  Waiting for ruleforge-event-service on port 8084...
+[0;32m[OK][0m    ruleforge-event-service is healthy
+[0;36m[INFO][0m  Waiting for ruleforge-connector-service on port 8087...
+[0;32m[OK][0m    ruleforge-connector-service is healthy
+[0;36m[INFO][0m  Waiting for ruleforge-solver-service on port 8083...
+[0;32m[OK][0m    ruleforge-solver-service is healthy
+[0;36m[INFO][0m  Starting ruleforge-analytics-service (port 8085)...
+[0;36m[INFO][0m  Waiting for ruleforge-analytics-service on port 8085...
+[0;32m[OK][0m    ruleforge-analytics-service is healthy
+[0;36m[INFO][0m  Starting ruleforge-scheduler-service (port 8086)...
+[0;36m[INFO][0m  Waiting for ruleforge-scheduler-service on port 8086...
+[0;32m[OK][0m    ruleforge-scheduler-service is healthy
+[0;36m[INFO][0m  Starting AI service...
+[0;36m[INFO][0m  Waiting for ai-service on port 8000...
+
+[1;33m[WARN][0m  Shutting down all services...
+make: *** [dev-up] Hangup: 1
+
+  .   ____          _            __ _ _
+ /\\ / ___'_ __ _ _(_)_ __  __ _ \ \ \ \
+( ( )\___ | '_ | '_| | '_ \/ _` | \ \ \ \
+ \\/  ___)| |_)| | | | | || (_| |  ) ) ) )
+  '  |____| .__|_| |_|_| |_\__, | / / / /
+ =========|_|==============|___/=/_/_/_/
+
+ :: Spring Boot ::                (v3.3.5)
+
+2026-02-28T19:55:34.307+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] i.ruleforge.auth.AuthServiceApplication  : Starting AuthServiceApplication v0.1.0-SNAPSHOT using Java 21.0.8 with PID 72610 (/Users/dennis.dao/workspace/repo/sample/Ruleforge/platform/ruleforge-auth-service/build/libs/ruleforge-auth-service-0.1.0-SNAPSHOT.jar started by dennis.dao in /Users/dennis.dao/workspace/repo/sample/Ruleforge)
+2026-02-28T19:55:34.308+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] i.ruleforge.auth.AuthServiceApplication  : No active profile set, falling back to 1 default profile: "default"
+2026-02-28T19:55:34.667+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Bootstrapping Spring Data JPA repositories in DEFAULT mode.
+2026-02-28T19:55:34.688+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] .s.d.r.c.RepositoryConfigurationDelegate : Finished Spring Data repository scanning in 19 ms. Found 6 JPA repository interfaces.
+2026-02-28T19:55:34.986+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat initialized with port 8081 (http)
+2026-02-28T19:55:34.990+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] o.apache.catalina.core.StandardService   : Starting service [Tomcat]
+2026-02-28T19:55:34.991+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] o.apache.catalina.core.StandardEngine    : Starting Servlet engine: [Apache Tomcat/10.1.31]
+2026-02-28T19:55:35.001+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring embedded WebApplicationContext
+2026-02-28T19:55:35.002+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] w.s.c.ServletWebServerApplicationContext : Root WebApplicationContext: initialization completed in 676 ms
+2026-02-28T19:55:35.119+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] o.hibernate.jpa.internal.util.LogHelper  : HHH000204: Processing PersistenceUnitInfo [name: default]
+2026-02-28T19:55:35.135+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] org.hibernate.Version                    : HHH000412: Hibernate ORM core version 6.5.3.Final
+2026-02-28T19:55:35.147+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] o.h.c.internal.RegionFactoryInitiator    : HHH000026: Second-level cache disabled
+2026-02-28T19:55:35.247+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] o.s.o.j.p.SpringPersistenceUnitInfo      : No LoadTimeWeaver setup: ignoring JPA class transformer
+2026-02-28T19:55:35.256+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Starting...
+2026-02-28T19:55:35.325+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Added connection org.postgresql.jdbc.PgConnection@5fafa76d
+2026-02-28T19:55:35.325+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] com.zaxxer.hikari.HikariDataSource       : HikariPool-1 - Start completed.
+2026-02-28T19:55:35.673+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] o.h.e.t.j.p.i.JtaPlatformInitiator       : HHH000489: No JTA platform available (set 'hibernate.transaction.jta.platform' to enable JTA platform integration)
+2026-02-28T19:55:35.698+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] j.LocalContainerEntityManagerFactoryBean : Initialized JPA EntityManagerFactory for persistence unit 'default'
+2026-02-28T19:55:36.098+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] o.s.b.a.e.web.EndpointLinksResolver      : Exposing 2 endpoints beneath base path '/actuator'
+2026-02-28T19:55:36.335+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] o.s.b.w.embedded.tomcat.TomcatWebServer  : Tomcat started on port 8081 (http) with context path '/'
+2026-02-28T19:55:36.344+07:00  INFO 72610 --- [ruleforge-auth-service] [           main] i.ruleforge.auth.AuthServiceApplication  : Started AuthServiceApplication in 2.201 seconds (process running for 2.496)
+2026-02-28T19:55:48.355+07:00  INFO 72610 --- [ruleforge-auth-service] [nio-8081-exec-1] o.a.c.c.C.[Tomcat].[localhost].[/]       : Initializing Spring DispatcherServlet 'dispatcherServlet'
+2026-02-28T19:55:48.358+07:00  INFO 72610 --- [ruleforge-auth-service] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Initializing Servlet 'dispatcherServlet'
+2026-02-28T19:55:48.366+07:00  INFO 72610 --- [ruleforge-auth-service] [nio-8081-exec-1] o.s.web.servlet.DispatcherServlet        : Completed initialization in 7 ms
+2026-02-28T19:55:52.050+07:00  INFO 72610 --- [ruleforge-auth-service] [nio-8081-exec-3] io.ruleforge.auth.service.AuthService    : User logged in: admin@ruleforge.io
+2026-02-28T19:57:15.241+07:00  INFO 72610 --- [ruleforge-auth-service] [nio-8081-exec-5] io.ruleforge.auth.service.AuthService    : User logged in: admin@ruleforge.io
+2026-02-28T20:10:41.704+07:00  INFO 72610 --- [ruleforge-auth-service] [nio-8081-exec-2] io.ruleforge.auth.service.AuthService    : User logged in: admin@ruleforge.io
+2026-02-28T21:30:54.833+07:00  INFO 72610 --- [ruleforge-auth-service] [nio-8081-exec-8] io.ruleforge.auth.service.AuthService    : User logged in: admin@ruleforge.io
+2026-02-28T23:11:00.286+07:00  INFO 72610 --- [ruleforge-auth-service] [nio-8081-exec-2] io.ruleforge.auth.service.AuthService    : User logged in: admin@ruleforge.io
+2026-02-28T23:27:05.066+07:00  INFO 72610 --- [ruleforge-auth-service] [nio-8081-exec-6] io.ruleforge.auth.service.AuthService    : User logged in: admin@ruleforge.io
+2026-02-28T23:29:10.861+07:00  INFO 72610 --- [ruleforge-auth-service] [nio-8081-exec-8] io.ruleforge.auth.service.AuthService    : User logged in: admin@ruleforge.io
+2026-02-28T23:31:15.610+07:00  INFO 72610 --- [ruleforge-auth-service] [io-8081-exec-10] io.ruleforge.auth.service.AuthService    : User logged in: admin@ruleforge.io
+2026-02-28T23:31:29.464+07:00  INFO 72610 --- [ruleforge-auth-service] [nio-8081-exec-2] io.ruleforge.auth.service.AuthService    : User logged in: admin@ruleforge.io
+2026-03-01T01:19:43.690+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=1h29m6s340ms).
+2026-03-01T01:52:13.017+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=31m59s330ms).
+2026-03-01T03:21:07.348+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=1h28m54s331ms).
+2026-03-01T04:27:15.878+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=1h5m38s523ms).
+2026-03-01T05:49:14.865+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=1h21m58s987ms).
+2026-03-01T06:07:52.582+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=18m7s719ms).
+2026-03-01T06:52:28.739+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=44m6s143ms).
+2026-03-01T07:50:23.721+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=57m54s982ms).
+2026-03-01T08:00:44.653+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=9m50s927ms).
+2026-03-01T08:51:19.557+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=50m34s905ms).
+2026-03-01T09:52:32.523+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=1h42s956ms).
+2026-03-01T10:53:15.440+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=1h42s917ms).
+2026-03-01T11:54:28.367+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=1h42s914ms).
+2026-03-01T12:55:36.009+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=1h37s635ms).
+2026-03-01T13:45:00.939+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=49m24s930ms).
+2026-03-01T13:56:44.587+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=11m43s648ms).
+2026-03-01T14:57:22.837+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=1h38s250ms).
+2026-03-01T15:58:36.762+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=1h43s914ms).
+2026-03-01T16:13:25.706+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=14m48s944ms).
+2026-03-01T16:16:56.942+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=3m1s226ms).
+2026-03-01T16:18:14.311+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=47s356ms).
+2026-03-01T16:26:16.776+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=8m2s464ms).
+2026-03-01T17:08:08.986+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=51s868ms).
+2026-03-01T17:12:32.531+07:00  WARN 72610 --- [ruleforge-auth-service] [l-1 housekeeper] com.zaxxer.hikari.pool.HikariPool        : HikariPool-1 - Thread starvation or clock leap detected (housekeeper delta=4m23s546ms).
+2026-03-01T17:15:56.169+07:00  INFO 72610 --- [ruleforge-auth-service] [nio-8081-exec-6] io.ruleforge.auth.service.AuthService    : User logged in: admin@ruleforge.io

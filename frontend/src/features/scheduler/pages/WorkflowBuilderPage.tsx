@@ -17,7 +17,7 @@ import {
   type NodeProps,
 } from '@xyflow/react';
 import '@xyflow/react/dist/style.css';
-import { ArrowLeft, Save, ToggleLeft, ToggleRight, Clock, ArrowRightCircle, Webhook, MousePointerClick, Radio } from 'lucide-react';
+import { ArrowLeft, Save, ToggleLeft, ToggleRight, Clock, ArrowRightCircle, Webhook, MousePointerClick, Radio, Undo2, Redo2 } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Spinner } from '@/shared/components/Spinner';
 import { useToastStore } from '@/stores/toast.store';
@@ -26,6 +26,8 @@ import { useWorkflow, useUpdateWorkflow, useCreateWorkflow, type WorkflowNode, t
 import { RuleNode } from '../components/RuleNode';
 import { NodePalette } from '../components/NodePalette';
 import { NodeEditPanel } from '../components/NodeEditPanel';
+import { validateWorkflow, type ValidationIssue } from '../utils/validateWorkflow';
+import { useUndoRedo } from '../hooks/useUndoRedo';
 
 // --- Custom Node: Trigger ---
 
@@ -235,6 +237,10 @@ export function WorkflowBuilderPage() {
   const [editingNode, setEditingNode] = useState<Node | null>(null);
   const [isEditingName, setIsEditingName] = useState(false);
   const [editName, setEditName] = useState('');
+  const [validationIssues, setValidationIssues] = useState<ValidationIssue[]>([]);
+
+  const { pushState, undo, redo, canUndo, canRedo } = useUndoRedo();
+  const dragTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Sync when workflow loads
   useMemo(() => {
@@ -245,15 +251,86 @@ export function WorkflowBuilderPage() {
     if (initialEdges.length > 0) setEdges(initialEdges);
   }, [initialEdges, setEdges]);
 
+  // Push initial state once workflow loads
+  useEffect(() => {
+    if (initialNodes.length > 0 || initialEdges.length > 0) {
+      pushState(initialNodes, initialEdges);
+    }
+  }, [initialNodes, initialEdges, pushState]);
+
+  const handleUndo = useCallback(() => {
+    const snapshot = undo();
+    if (snapshot) {
+      setNodes(snapshot.nodes);
+      setEdges(snapshot.edges);
+      setEditingNode(null);
+    }
+  }, [undo, setNodes, setEdges]);
+
+  const handleRedo = useCallback(() => {
+    const snapshot = redo();
+    if (snapshot) {
+      setNodes(snapshot.nodes);
+      setEdges(snapshot.edges);
+      setEditingNode(null);
+    }
+  }, [redo, setNodes, setEdges]);
+
+  // Keyboard shortcuts for undo/redo
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === 'z') {
+        e.preventDefault();
+        if (e.shiftKey) {
+          handleRedo();
+        } else {
+          handleUndo();
+        }
+      }
+    };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [handleUndo, handleRedo]);
+
+  // Helper to push state to undo history (used after meaningful changes)
+  const pushCurrentState = useCallback(() => {
+    // We need the latest nodes/edges, so we read from the setter callbacks
+    setNodes((currentNodes) => {
+      setEdges((currentEdges) => {
+        pushState(currentNodes, currentEdges);
+        return currentEdges;
+      });
+      return currentNodes;
+    });
+  }, [setNodes, setEdges, pushState]);
+
+  // Debounced push for node position changes (drag)
+  const debouncedPushState = useCallback(() => {
+    if (dragTimerRef.current) clearTimeout(dragTimerRef.current);
+    dragTimerRef.current = setTimeout(() => {
+      pushCurrentState();
+    }, 500);
+  }, [pushCurrentState]);
+
 
   const onConnect: OnConnect = useCallback(
-    (params) => setEdges((eds) => addEdge({ ...params, animated: true }, eds)),
-    [setEdges],
+    (params) => {
+      setEdges((eds) => addEdge({ ...params, animated: true }, eds));
+      setTimeout(() => pushCurrentState(), 0);
+    },
+    [setEdges, pushCurrentState],
   );
 
   const onNodeDoubleClick = useCallback((_event: React.MouseEvent, node: Node) => {
     setEditingNode(node);
   }, []);
+
+  const handleDeleteNode = useCallback((nodeId: string) => {
+    setNodes(prev => prev.filter(n => n.id !== nodeId));
+    setEdges(prev => prev.filter(e => e.source !== nodeId && e.target !== nodeId));
+    setEditingNode(null);
+    setTimeout(() => pushCurrentState(), 0);
+  }, [setNodes, setEdges, pushCurrentState]);
 
   const handleNodeUpdate = useCallback((nodeId: string, newData: Record<string, unknown>) => {
     setNodes((nds) => nds.map((n) =>
@@ -263,7 +340,8 @@ export function WorkflowBuilderPage() {
     setEditingNode((prev) =>
       prev && prev.id === nodeId ? { ...prev, data: { ...prev.data, ...newData } } : prev,
     );
-  }, [setNodes]);
+    setTimeout(() => pushCurrentState(), 0);
+  }, [setNodes, pushCurrentState]);
 
   const onDragOver = useCallback((event: DragEvent) => {
     event.preventDefault();
@@ -292,8 +370,9 @@ export function WorkflowBuilderPage() {
       };
 
       setNodes((nds) => [...nds, newNode]);
+      setTimeout(() => pushCurrentState(), 0);
     },
-    [setNodes],
+    [setNodes, pushCurrentState],
   );
 
   const handleStartEditName = () => {
@@ -318,6 +397,8 @@ export function WorkflowBuilderPage() {
 
   const handleSave = async () => {
     if (!id) return;
+    const issues = validateWorkflow(nodes, edges);
+    setValidationIssues(issues);
     try {
       // Extract trigger config from the trigger node's data
       const triggerNode = nodes.find((n) => n.type === 'trigger');
@@ -443,6 +524,23 @@ export function WorkflowBuilderPage() {
             </button>
           )}
           <button
+            onClick={handleUndo}
+            disabled={!canUndo()}
+            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Undo (Ctrl+Z)"
+          >
+            <Undo2 className="h-4 w-4" />
+          </button>
+          <button
+            onClick={handleRedo}
+            disabled={!canRedo()}
+            className="rounded-lg p-1.5 text-gray-400 hover:bg-gray-100 hover:text-gray-600 disabled:opacity-30 disabled:cursor-not-allowed"
+            title="Redo (Ctrl+Shift+Z)"
+          >
+            <Redo2 className="h-4 w-4" />
+          </button>
+          <div className="w-px h-6 bg-gray-200" />
+          <button
             onClick={handleToggleEnabled}
             className={cn(
               'flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-colors',
@@ -465,6 +563,25 @@ export function WorkflowBuilderPage() {
         </div>
       </div>
 
+      {/* Validation warnings */}
+      {validationIssues.length > 0 && (
+        <div className="mx-4 mb-2 rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+          <p className="text-sm font-medium text-yellow-800 mb-1">
+            {validationIssues.filter(i => i.severity === 'error').length} errors, {validationIssues.filter(i => i.severity === 'warning').length} warnings
+          </p>
+          <ul className="text-xs text-yellow-700 space-y-0.5">
+            {validationIssues.slice(0, 5).map((issue, i) => (
+              <li key={i} className="flex items-center gap-1">
+                <span className={issue.severity === 'error' ? 'text-red-500' : 'text-yellow-500'}>
+                  {issue.severity === 'error' ? '\u25CF' : '\u25CB'}
+                </span>
+                {issue.message}
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+
       {/* Canvas */}
       <div className="flex flex-1 overflow-hidden">
         <NodePalette />
@@ -472,13 +589,28 @@ export function WorkflowBuilderPage() {
           <ReactFlow
             nodes={nodes}
             edges={edges}
-            onNodesChange={onNodesChange}
+            onNodesChange={(changes) => {
+              onNodesChange(changes);
+              if (changes.some(c => c.type === 'position' && c.dragging === false)) {
+                debouncedPushState();
+              }
+            }}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
             onNodeDoubleClick={onNodeDoubleClick}
             onDragOver={onDragOver}
             onDrop={onDrop}
             nodeTypes={nodeTypes}
+            deleteKeyCode={['Backspace', 'Delete']}
+            onNodesDelete={(deletedNodes) => {
+              setEdges(prev => prev.filter(e =>
+                !deletedNodes.some(n => n.id === e.source || n.id === e.target)
+              ));
+              if (editingNode && deletedNodes.some(n => n.id === editingNode.id)) {
+                setEditingNode(null);
+              }
+              setTimeout(() => pushCurrentState(), 0);
+            }}
             fitView
           >
             <Controls />
@@ -494,6 +626,7 @@ export function WorkflowBuilderPage() {
             node={editingNode}
             onClose={() => setEditingNode(null)}
             onNodeUpdate={handleNodeUpdate}
+            onDeleteNode={handleDeleteNode}
             workflowId={id}
           />
         )}

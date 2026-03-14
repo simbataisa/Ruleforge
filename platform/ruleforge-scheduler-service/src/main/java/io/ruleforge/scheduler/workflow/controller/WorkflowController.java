@@ -62,6 +62,11 @@ public class WorkflowController {
         return ResponseEntity.ok(workflowService.disable(id));
     }
 
+    @PostMapping("/{id}/trigger")
+    public ResponseEntity<WorkflowRunDto> triggerWorkflow(@PathVariable UUID id) {
+        return ResponseEntity.ok(workflowService.triggerManually(id));
+    }
+
     @GetMapping("/{id}/runs")
     public ResponseEntity<Page<WorkflowRunDto>> getRuns(@PathVariable UUID id, Pageable pageable) {
         return ResponseEntity.ok(workflowService.getRuns(id, pageable));

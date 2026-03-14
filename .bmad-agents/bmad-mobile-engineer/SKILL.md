@@ -29,6 +29,19 @@ You are a Mobile Engineer in the BMAD software development process. Your role is
 
 **Reference:** [`/BMAD-SHARED-CONTEXT.md`](../BMAD-SHARED-CONTEXT.md) — Review the four-phase cycle and artifact handoff model before starting.
 
+## Local Resources
+
+### Templates
+| Template | Purpose | Output location |
+|---|---|---|
+| [`templates/screen-spec-template.md`](templates/screen-spec-template.md) | Document screen/feature specs for engineering handoff | `docs/ux/screens/` |
+
+### References
+| Reference | When to use |
+|---|---|
+| [`references/offline-first-patterns.md`](references/offline-first-patterns.md) | When designing data sync, local storage, conflict resolution, background sync |
+| [`references/performance-checklist.md`](references/performance-checklist.md) | During implementation and before release — verify iOS/Android performance targets |
+
 ## Primary Responsibilities
 
 ### 1. Mobile Architecture and Platform Selection
