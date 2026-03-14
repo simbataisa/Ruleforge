@@ -24,6 +24,12 @@ const TagListPage = lazy(() =>
 const SpaceListPage = lazy(() =>
   import('@/features/spaces/pages/SpaceListPage').then((m) => ({ default: m.SpaceListPage })),
 );
+const SpaceDetailPage = lazy(() =>
+  import('@/features/spaces/pages/SpaceDetailPage').then((m) => ({ default: m.SpaceDetailPage })),
+);
+const SpaceSettingsPage = lazy(() =>
+  import('@/features/spaces/pages/SpaceSettingsPage').then((m) => ({ default: m.SpaceSettingsPage })),
+);
 const SsoSettingsPage = lazy(() =>
   import('@/features/admin/pages/SsoSettingsPage').then((m) => ({ default: m.SsoSettingsPage })),
 );
@@ -113,6 +119,8 @@ export const router = createBrowserRouter([
       { path: '/webhooks', element: <Lazy><WebhookListPage /></Lazy> },
       { path: '/tags', element: <Lazy><TagListPage /></Lazy> },
       { path: '/spaces', element: <Lazy><SpaceListPage /></Lazy> },
+      { path: '/spaces/:id', element: <Lazy><SpaceDetailPage /></Lazy> },
+      { path: '/spaces/:id/settings', element: <Lazy><SpaceSettingsPage /></Lazy> },
       { path: '/settings/sso', element: <Lazy><SsoSettingsPage /></Lazy> },
       { path: '/settings/members', element: <Lazy><MemberManagementPage /></Lazy> },
     ],

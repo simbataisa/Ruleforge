@@ -795,6 +795,100 @@ except: print('missing')
     fi
 
   fi
+
+  # --- 3.16: Spaces API (auth-service :8081) ---
+  info "3.16 — Spaces API (auth-service :8081)"
+
+  # GET /v1/organizations/current/spaces — list spaces
+  SPACES_LIST_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+    "http://localhost:8081/v1/organizations/current/spaces" \
+    -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+  if [[ "$SPACES_LIST_CODE" == "200" ]]; then
+    pass "GET /v1/organizations/current/spaces — HTTP 200"
+  else
+    fail "GET /v1/organizations/current/spaces — HTTP $SPACES_LIST_CODE"
+  fi
+
+  # GET /v1/organizations/current/spaces — verify slug and ruleCount fields
+  SPACES_BODY=$(curl -s \
+    "http://localhost:8081/v1/organizations/current/spaces" \
+    -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+  if echo "$SPACES_BODY" | grep -q '"slug"'; then
+    pass "Spaces response includes 'slug' field"
+  else
+    fail "Spaces response missing 'slug' field"
+  fi
+  if echo "$SPACES_BODY" | grep -q '"ruleCount"'; then
+    pass "Spaces response includes 'ruleCount' field"
+  else
+    fail "Spaces response missing 'ruleCount' field"
+  fi
+  if echo "$SPACES_BODY" | grep -q '"description"'; then
+    pass "Spaces response includes 'description' field"
+  else
+    fail "Spaces response missing 'description' field"
+  fi
+
+  # POST /v1/organizations/current/spaces — create a test space
+  CREATE_SPACE_RESP=$(curl -s -w "\n%{http_code}" \
+    -X POST "http://localhost:8081/v1/organizations/current/spaces" \
+    -H "Authorization: Bearer $ADMIN_TOKEN" \
+    -H "Content-Type: application/json" \
+    -d '{"name":"Smoke Test Space"}' 2>/dev/null)
+  CREATE_SPACE_CODE=$(echo "$CREATE_SPACE_RESP" | tail -1)
+  CREATE_SPACE_BODY=$(echo "$CREATE_SPACE_RESP" | head -1)
+  if [[ "$CREATE_SPACE_CODE" == "200" || "$CREATE_SPACE_CODE" == "201" ]]; then
+    pass "POST /v1/organizations/current/spaces — HTTP $CREATE_SPACE_CODE"
+  else
+    fail "POST /v1/organizations/current/spaces — HTTP $CREATE_SPACE_CODE"
+  fi
+
+  # Extract space ID for follow-up tests
+  TEST_SPACE_ID=$(echo "$CREATE_SPACE_BODY" | grep -o '"id":"[^"]*"' | head -1 | cut -d'"' -f4)
+
+  if [[ -n "$TEST_SPACE_ID" ]]; then
+    # Verify slug was auto-generated
+    if echo "$CREATE_SPACE_BODY" | grep -q '"slug":"smoke-test-space"'; then
+      pass "POST /v1/organizations/current/spaces — slug auto-generated correctly"
+    else
+      fail "POST /v1/organizations/current/spaces — slug not auto-generated"
+    fi
+
+    # GET /v1/organizations/current/spaces/:id — get single space
+    GET_SPACE_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+      "http://localhost:8081/v1/organizations/current/spaces/$TEST_SPACE_ID" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    if [[ "$GET_SPACE_CODE" == "200" ]]; then
+      pass "GET /v1/organizations/current/spaces/:id — HTTP 200"
+    else
+      fail "GET /v1/organizations/current/spaces/:id — HTTP $GET_SPACE_CODE"
+    fi
+
+    # PUT /v1/organizations/current/spaces/:id — update name and description
+    UPDATE_SPACE_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+      -X PUT "http://localhost:8081/v1/organizations/current/spaces/$TEST_SPACE_ID" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d '{"name":"Smoke Test Space Updated","description":"Updated by smoke test"}' 2>/dev/null)
+    if [[ "$UPDATE_SPACE_CODE" == "200" ]]; then
+      pass "PUT /v1/organizations/current/spaces/:id — HTTP 200"
+    else
+      fail "PUT /v1/organizations/current/spaces/:id — HTTP $UPDATE_SPACE_CODE"
+    fi
+
+    # DELETE /v1/organizations/current/spaces/:id — delete test space
+    DELETE_SPACE_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+      -X DELETE "http://localhost:8081/v1/organizations/current/spaces/$TEST_SPACE_ID" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    if [[ "$DELETE_SPACE_CODE" == "204" ]]; then
+      pass "DELETE /v1/organizations/current/spaces/:id — HTTP 204"
+    else
+      fail "DELETE /v1/organizations/current/spaces/:id — HTTP $DELETE_SPACE_CODE"
+    fi
+  else
+    skip "Spaces GET/:id, PUT, DELETE — could not extract space ID from create response"
+  fi
+
 fi
 
 # ============================================================================

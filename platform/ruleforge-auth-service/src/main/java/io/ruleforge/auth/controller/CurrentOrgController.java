@@ -6,9 +6,11 @@ import io.ruleforge.auth.dto.MemberDto;
 import io.ruleforge.auth.dto.OrganizationDto;
 import io.ruleforge.auth.dto.SpaceDto;
 import io.ruleforge.auth.dto.UpdateRoleRequest;
+import io.ruleforge.auth.dto.UpdateSpaceRequest;
 import io.ruleforge.auth.service.MemberService;
 import io.ruleforge.auth.service.OrganizationService;
 import io.ruleforge.auth.service.SpaceService;
+import io.ruleforge.common.audit.AuditLog;
 import io.ruleforge.common.dto.ApiResponse;
 import io.ruleforge.common.tenant.TenantContext;
 
@@ -48,6 +50,8 @@ public class CurrentOrgController {
         return ApiResponse.ok(org);
     }
 
+    // ─── Spaces ──────────────────────────────────────────────────────────────
+
     @GetMapping("/spaces")
     public ApiResponse<List<SpaceDto>> listSpaces(Authentication authentication) {
         UUID userId = (UUID) authentication.getPrincipal();
@@ -58,6 +62,7 @@ public class CurrentOrgController {
 
     @PostMapping("/spaces")
     @ResponseStatus(HttpStatus.CREATED)
+    @AuditLog(action = "SPACE_CREATED", resourceType = "SPACE")
     public ApiResponse<SpaceDto> createSpace(
             @Valid @RequestBody CreateSpaceRequest request,
             Authentication authentication) {
@@ -66,6 +71,41 @@ public class CurrentOrgController {
         SpaceDto space = spaceService.createSpace(orgId, userId, request);
         return ApiResponse.ok(space);
     }
+
+    @GetMapping("/spaces/{spaceId}")
+    public ApiResponse<SpaceDto> getSpace(
+            @PathVariable UUID spaceId,
+            Authentication authentication) {
+        UUID userId = (UUID) authentication.getPrincipal();
+        UUID orgId = TenantContext.get().orgId();
+        SpaceDto space = spaceService.getSpace(orgId, spaceId, userId);
+        return ApiResponse.ok(space);
+    }
+
+    @PutMapping("/spaces/{spaceId}")
+    @AuditLog(action = "SPACE_UPDATED", resourceType = "SPACE")
+    public ApiResponse<SpaceDto> updateSpace(
+            @PathVariable UUID spaceId,
+            @Valid @RequestBody UpdateSpaceRequest request,
+            Authentication authentication) {
+        UUID userId = (UUID) authentication.getPrincipal();
+        UUID orgId = TenantContext.get().orgId();
+        SpaceDto space = spaceService.updateSpace(orgId, spaceId, userId, request);
+        return ApiResponse.ok(space);
+    }
+
+    @DeleteMapping("/spaces/{spaceId}")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    @AuditLog(action = "SPACE_DELETED", resourceType = "SPACE")
+    public void deleteSpace(
+            @PathVariable UUID spaceId,
+            Authentication authentication) {
+        UUID userId = (UUID) authentication.getPrincipal();
+        UUID orgId = TenantContext.get().orgId();
+        spaceService.deleteSpace(orgId, spaceId, userId);
+    }
+
+    // ─── Members ─────────────────────────────────────────────────────────────
 
     @GetMapping("/members")
     public ApiResponse<List<MemberDto>> listMembers(Authentication authentication) {

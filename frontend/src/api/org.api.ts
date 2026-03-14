@@ -20,7 +20,11 @@ export interface OrgSpace {
   id: string;
   name: string;
   slug: string;
+  description: string | null;
   ruleCount: number;
+  orgId: string;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export function useOrganization() {
@@ -97,6 +101,49 @@ export function useCreateSpace() {
         data,
       );
       return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization', 'spaces'] });
+    },
+  });
+}
+
+export function useSpace(spaceId: string) {
+  return useQuery({
+    queryKey: ['organization', 'spaces', spaceId],
+    queryFn: async () => {
+      const res = await apiClient.get<ApiResponse<OrgSpace>>(
+        `/organizations/current/spaces/${spaceId}`,
+      );
+      return res.data.data;
+    },
+    enabled: !!spaceId,
+  });
+}
+
+export function useUpdateSpace(spaceId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (data: { name: string; description?: string }) => {
+      const res = await apiClient.put<ApiResponse<OrgSpace>>(
+        `/organizations/current/spaces/${spaceId}`,
+        data,
+      );
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['organization', 'spaces'] });
+    },
+  });
+}
+
+export function useDeleteSpace() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (spaceId: string) => {
+      await apiClient.delete(`/organizations/current/spaces/${spaceId}`);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['organization', 'spaces'] });

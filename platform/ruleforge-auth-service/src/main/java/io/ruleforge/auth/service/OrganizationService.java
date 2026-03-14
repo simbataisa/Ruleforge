@@ -105,6 +105,15 @@ public class OrganizationService {
         }
     }
 
+    public void ensureOwner(UUID orgId, UUID userId) {
+        MemberEntity member = memberRepository.findByOrgIdAndUserId(orgId, userId)
+                .orElseThrow(() -> new AccessDeniedException("You are not a member of this organization"));
+
+        if (!SecurityConstants.ROLE_OWNER.equals(member.getRole())) {
+            throw new AccessDeniedException("Only the organization owner can perform this action");
+        }
+    }
+
     private OrganizationDto toDto(OrganizationEntity org) {
         return new OrganizationDto(org.getId(), org.getName(), org.getSlug(), org.getCreatedAt());
     }

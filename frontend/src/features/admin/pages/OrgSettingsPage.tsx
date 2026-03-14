@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Plus, Mail, Shield } from 'lucide-react';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Button } from '@/shared/components/Button';
@@ -36,6 +37,7 @@ const roleColors: Record<string, string> = {
 };
 
 export function OrgSettingsPage() {
+  const navigate = useNavigate();
   const addToast = useToastStore((s) => s.addToast);
   const user = useAuthStore((s) => s.user);
 
@@ -295,7 +297,11 @@ export function OrgSettingsPage() {
                         <span className="text-xs text-gray-500">
                           {space.ruleCount} rule{space.ruleCount !== 1 ? 's' : ''}
                         </span>
-                        <Button size="sm" variant="outline">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => navigate(`/spaces/${space.id}`)}
+                        >
                           Manage
                         </Button>
                       </div>
