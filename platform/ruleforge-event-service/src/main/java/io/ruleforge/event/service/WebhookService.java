@@ -5,6 +5,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ruleforge.common.dto.PageResponse;
 import io.ruleforge.common.exception.EntityNotFoundException;
+import io.ruleforge.common.event.DomainEvent;
 import io.ruleforge.event.dto.CreateWebhookRequest;
 import io.ruleforge.event.dto.UpdateWebhookRequest;
 import io.ruleforge.event.dto.WebhookDeliveryDto;
@@ -25,6 +26,7 @@ import java.time.OffsetDateTime;
 import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -37,17 +39,26 @@ public class WebhookService {
     private final WebhookRepository webhookRepository;
     private final WebhookDeliveryRepository webhookDeliveryRepository;
     private final ObjectMapper objectMapper;
+    private final SsrfGuard ssrfGuard;
+    private final AuditEventService auditEventService;
 
     public WebhookService(WebhookRepository webhookRepository,
                           WebhookDeliveryRepository webhookDeliveryRepository,
-                          ObjectMapper objectMapper) {
+                          ObjectMapper objectMapper,
+                          SsrfGuard ssrfGuard,
+                          AuditEventService auditEventService) {
         this.webhookRepository = webhookRepository;
         this.webhookDeliveryRepository = webhookDeliveryRepository;
         this.objectMapper = objectMapper;
+        this.ssrfGuard = ssrfGuard;
+        this.auditEventService = auditEventService;
     }
 
     @Transactional
     public WebhookDto createWebhook(UUID orgId, UUID userId, CreateWebhookRequest request) {
+        // Validate URL for SSRF before saving
+        ssrfGuard.validate(request.url());
+
         WebhookEntity entity = new WebhookEntity();
         entity.setName(request.name());
         entity.setScopeType(request.scopeType());
@@ -163,6 +174,35 @@ public class WebhookService {
     public WebhookEntity getWebhookEntity(UUID orgId, UUID webhookId) {
         return webhookRepository.findByIdAndOrgId(webhookId, orgId)
                 .orElseThrow(() -> new EntityNotFoundException("Webhook", webhookId.toString()));
+    }
+
+    /**
+     * Rotate the signing secret for the given webhook.
+     * Returns the new secret — shown exactly once to the caller.
+     */
+    @Transactional
+    public String rotateSecret(UUID webhookId, UUID orgId, UUID userId) {
+        WebhookEntity entity = webhookRepository.findByIdAndOrgId(webhookId, orgId)
+                .orElseThrow(() -> new EntityNotFoundException("Webhook", webhookId.toString()));
+
+        String newSecret = generateSecret();
+        entity.setSecret(newSecret);
+        webhookRepository.save(entity);
+
+        log.info("Rotated secret for webhook {} by user {}", webhookId, userId);
+
+        // Write audit event
+        DomainEvent auditEvent = DomainEvent.create(
+                "WEBHOOK_SECRET_ROTATED",
+                "Webhook",
+                webhookId.toString(),
+                orgId,
+                userId,
+                Map.of("webhookId", webhookId.toString(), "webhookName", entity.getName() != null ? entity.getName() : "")
+        );
+        auditEventService.recordEvent(auditEvent);
+
+        return newSecret;
     }
 
     private WebhookDto toDto(WebhookEntity entity) {

@@ -161,6 +161,14 @@ public class WebhookController {
         return ApiResponse.ok(webhook, "Circuit breaker reset successfully");
     }
 
+    @PostMapping("/{id}/rotate-secret")
+    public ApiResponse<Map<String, String>> rotateSecret(@PathVariable UUID id) {
+        UUID orgId = TenantContext.get().orgId();
+        UUID userId = TenantContext.get().userId();
+        String newSecret = webhookService.rotateSecret(id, orgId, userId);
+        return ApiResponse.ok(Map.of("secret", newSecret), "Secret rotated successfully");
+    }
+
     @GetMapping("/{id}/outbox")
     public ApiResponse<List<WebhookOutboxDto>> getOutboxEntries(
             @PathVariable UUID id,

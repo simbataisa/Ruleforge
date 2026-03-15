@@ -16,8 +16,10 @@ import javax.crypto.spec.SecretKeySpec;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
+import java.time.Instant;
 import java.util.HexFormat;
 import java.util.Map;
+import java.util.UUID;
 
 /**
  * Handles direct HTTP delivery of webhook payloads.
@@ -67,13 +69,24 @@ public class WebhookDispatcher {
                     "Payload serialization failed: " + e.getMessage());
         }
 
-        String signature = computeSignature(webhook.getSecret(), payloadJson);
+        // Replay-safe signing: HMAC-SHA256(secret, "{timestamp}.{nonce}.{payload}")
+        long timestamp = Instant.now().getEpochSecond();
+        String nonce = outboxEntry.getAttemptNonce() != null
+                ? outboxEntry.getAttemptNonce().toString()
+                : UUID.randomUUID().toString();
+        String signingInput = timestamp + "." + nonce + "." + payloadJson;
+        String signature = "sha256=" + computeHmac(webhook.getSecret(), signingInput);
 
         try {
             var response = webhookClient.post()
                     .uri(webhook.getUrl())
                     .contentType(MediaType.APPLICATION_JSON)
                     .header(SIGNATURE_HEADER, signature)
+                    .header("X-Webhook-Timestamp", String.valueOf(timestamp))
+                    .header("X-Webhook-Delivery-Id", nonce)
+                    .header("X-Webhook-Id", webhook.getId().toString())
+                    .header("X-Webhook-Schema-Version", "1")
+                    .header("X-Ruleforge-Event", outboxEntry.getEventType())
                     .body(payloadJson)
                     .retrieve()
                     .toEntity(String.class);
@@ -110,13 +123,21 @@ public class WebhookDispatcher {
                     "Payload serialization failed: " + e.getMessage());
         }
 
-        String signature = computeSignature(webhook.getSecret(), payloadJson);
+        long timestamp = Instant.now().getEpochSecond();
+        String nonce = UUID.randomUUID().toString();
+        String signingInput = timestamp + "." + nonce + "." + payloadJson;
+        String signature = "sha256=" + computeHmac(webhook.getSecret(), signingInput);
 
         try {
             var response = webhookClient.post()
                     .uri(webhook.getUrl())
                     .contentType(MediaType.APPLICATION_JSON)
                     .header(SIGNATURE_HEADER, signature)
+                    .header("X-Webhook-Timestamp", String.valueOf(timestamp))
+                    .header("X-Webhook-Delivery-Id", nonce)
+                    .header("X-Webhook-Id", webhook.getId().toString())
+                    .header("X-Webhook-Schema-Version", "1")
+                    .header("X-Ruleforge-Event", "webhook.test")
                     .body(payloadJson)
                     .retrieve()
                     .toEntity(String.class);
@@ -130,14 +151,14 @@ public class WebhookDispatcher {
         }
     }
 
-    private String computeSignature(String secret, String payload) {
+    private String computeHmac(String secret, String data) {
         try {
             Mac mac = Mac.getInstance(HMAC_ALGORITHM);
             SecretKeySpec keySpec = new SecretKeySpec(
                     secret.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM);
             mac.init(keySpec);
-            byte[] hash = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
-            return "sha256=" + HexFormat.of().formatHex(hash);
+            byte[] hash = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new IllegalStateException("Failed to compute HMAC-SHA256 signature", e);
         }
