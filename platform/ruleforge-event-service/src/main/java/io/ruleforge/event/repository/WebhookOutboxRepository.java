@@ -9,6 +9,7 @@ import org.springframework.data.repository.query.Param;
 
 import java.time.OffsetDateTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 public interface WebhookOutboxRepository extends JpaRepository<WebhookOutboxEntity, UUID> {
@@ -25,6 +26,8 @@ public interface WebhookOutboxRepository extends JpaRepository<WebhookOutboxEnti
         @Param("now") OffsetDateTime now,
         @Param("batchSize") int batchSize
     );
+
+    Optional<WebhookOutboxEntity> findByIdAndWebhookId(UUID id, UUID webhookId);
 
     List<WebhookOutboxEntity> findByWebhookIdOrderByCreatedAtDesc(UUID webhookId, Pageable pageable);
 

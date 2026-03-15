@@ -14,6 +14,7 @@ import io.ruleforge.event.entity.WebhookOutboxEntity;
 import io.ruleforge.event.model.WebhookScopeType;
 import io.ruleforge.event.repository.WebhookDeliveryRepository;
 import io.ruleforge.event.repository.WebhookOutboxRepository;
+import io.ruleforge.event.repository.WebhookRepository;
 import io.ruleforge.event.service.WebhookDispatcher;
 import io.ruleforge.event.service.WebhookService;
 
@@ -45,15 +46,18 @@ public class WebhookController {
     private final WebhookDispatcher webhookDispatcher;
     private final WebhookDeliveryRepository webhookDeliveryRepository;
     private final WebhookOutboxRepository webhookOutboxRepository;
+    private final WebhookRepository webhookRepository;
 
     public WebhookController(WebhookService webhookService,
                              WebhookDispatcher webhookDispatcher,
                              WebhookDeliveryRepository webhookDeliveryRepository,
-                             WebhookOutboxRepository webhookOutboxRepository) {
+                             WebhookOutboxRepository webhookOutboxRepository,
+                             WebhookRepository webhookRepository) {
         this.webhookService = webhookService;
         this.webhookDispatcher = webhookDispatcher;
         this.webhookDeliveryRepository = webhookDeliveryRepository;
         this.webhookOutboxRepository = webhookOutboxRepository;
+        this.webhookRepository = webhookRepository;
     }
 
     @PostMapping
@@ -174,13 +178,15 @@ public class WebhookController {
     public ApiResponse<WebhookOutboxDto> retryOutboxEntry(
             @PathVariable UUID id,
             @PathVariable UUID outboxId) {
-        WebhookOutboxEntity entry = webhookOutboxRepository.findById(outboxId)
+        UUID orgId = TenantContext.get().orgId();
+        // Verify the webhook belongs to the current tenant before touching the outbox entry
+        webhookRepository.findByIdAndOrgId(id, orgId)
+                .orElseThrow(() -> new io.ruleforge.common.exception.EntityNotFoundException(
+                        "Webhook", id.toString()));
+        // Verify the outbox entry belongs to this specific webhook (tenant isolation)
+        WebhookOutboxEntity entry = webhookOutboxRepository.findByIdAndWebhookId(outboxId, id)
                 .orElseThrow(() -> new io.ruleforge.common.exception.EntityNotFoundException(
                         "WebhookOutbox", outboxId.toString()));
-        if (!entry.getWebhookId().equals(id)) {
-            throw new io.ruleforge.common.exception.EntityNotFoundException(
-                    "WebhookOutbox", outboxId.toString());
-        }
         entry.setStatus("PENDING");
         entry.setNextAttemptAt(java.time.OffsetDateTime.now());
         WebhookOutboxEntity saved = webhookOutboxRepository.save(entry);
