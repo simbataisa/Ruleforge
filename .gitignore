@@ -1,3 +1,7 @@
+# Git worktrees
+.worktrees/
+.superpowers/
+
 # Java / Gradle
 build/
 target/
