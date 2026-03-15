@@ -23,6 +23,18 @@ SET org_id = s.org_id
 FROM spaces s
 WHERE w.scope_id = s.id;
 
+-- Delete webhooks whose space no longer exists (orphaned — cannot determine org)
+DELETE FROM webhooks WHERE org_id IS NULL AND scope_id IS NOT NULL;
+
+-- Validate no NULL org_id remain before enforcing NOT NULL
+DO $$
+BEGIN
+  IF EXISTS(SELECT 1 FROM webhooks WHERE org_id IS NULL) THEN
+    RAISE EXCEPTION 'V048 backfill incomplete: % webhooks have NULL org_id',
+      (SELECT COUNT(*) FROM webhooks WHERE org_id IS NULL);
+  END IF;
+END $$;
+
 -- Step 5: Drop space_id AFTER backfill is complete
 ALTER TABLE webhooks DROP COLUMN IF EXISTS space_id;
 

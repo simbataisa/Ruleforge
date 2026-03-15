@@ -1,4 +1,7 @@
 -- V014__create_webhook_outbox.sql
+-- IMPORTANT: This migration requires V048 (webhooks scope extension) to have been
+-- applied first via `make migrate`. Start the event-service only AFTER running
+-- `make migrate` to ensure webhooks.scope_id and webhooks.org_id columns exist.
 
 CREATE TABLE IF NOT EXISTS webhook_outbox (
   id               UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
