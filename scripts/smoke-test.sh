@@ -1017,6 +1017,92 @@ print(rule.get('id', ''))
 fi
 
 # ============================================================================
+# 3.18: Space Context Banners — Vite proxy fix validation (management-service :8082)
+# ============================================================================
+if [[ "$QUICK" == "false" ]]; then
+  info "3.18 — Space Context Banners — proxy fix validation"
+
+  # Re-use ADMIN_TOKEN from section 3.2 (already acquired above)
+  if [[ -n "$ADMIN_TOKEN" ]]; then
+    # Get all spaces to find Sandbox and Default IDs
+    SPACES_3_18=$(curl -s "http://localhost:8081/v1/organizations/current/spaces" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+
+    SANDBOX_ID_3_18=$(echo "$SPACES_3_18" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+spaces = data.get('data', [])
+for s in spaces:
+    if s.get('name') == 'Sandbox':
+        print(s['id'])
+        break
+" 2>/dev/null)
+
+    DEFAULT_ID_3_18=$(echo "$SPACES_3_18" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+spaces = data.get('data', [])
+for s in spaces:
+    if s.get('name') != 'Sandbox':
+        print(s['id'])
+        break
+" 2>/dev/null)
+
+    if [[ -n "$SANDBOX_ID_3_18" ]]; then
+      # Test Sandbox space rules endpoint directly against management-service (was returning 500 via proxy)
+      SANDBOX_RULES_CODE_3_18=$(curl -s -o /dev/null -w "%{http_code}" \
+        "http://localhost:8082/v1/spaces/${SANDBOX_ID_3_18}/rules" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+      if [[ "$SANDBOX_RULES_CODE_3_18" == "200" ]]; then
+        pass "GET /v1/spaces/sandbox/rules — management-service returns 200 (proxy target verified)"
+      else
+        fail "GET /v1/spaces/sandbox/rules — HTTP $SANDBOX_RULES_CODE_3_18 (expected 200)"
+      fi
+
+      # Verify response has paginated structure
+      SANDBOX_RULES_BODY_3_18=$(curl -s \
+        "http://localhost:8082/v1/spaces/${SANDBOX_ID_3_18}/rules" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+      SANDBOX_HAS_CONTENT_3_18=$(echo "$SANDBOX_RULES_BODY_3_18" | python3 -c \
+        "import sys,json; d=json.load(sys.stdin); print('yes' if 'content' in d.get('data',{}) else 'no')" 2>/dev/null)
+      if [[ "$SANDBOX_HAS_CONTENT_3_18" == "yes" ]]; then
+        pass "GET /v1/spaces/sandbox/rules — response has paginated 'content' field"
+      else
+        fail "GET /v1/spaces/sandbox/rules — response missing 'content' field"
+      fi
+    else
+      skip "3.18 Sandbox rules test — no space named 'Sandbox' found in org"
+    fi
+
+    if [[ -n "$DEFAULT_ID_3_18" ]]; then
+      # Test non-Sandbox (production) space rules endpoint
+      DEFAULT_RULES_CODE_3_18=$(curl -s -o /dev/null -w "%{http_code}" \
+        "http://localhost:8082/v1/spaces/${DEFAULT_ID_3_18}/rules" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+      if [[ "$DEFAULT_RULES_CODE_3_18" == "200" ]]; then
+        pass "GET /v1/spaces/production/rules — management-service returns 200"
+      else
+        fail "GET /v1/spaces/production/rules — HTTP $DEFAULT_RULES_CODE_3_18 (expected 200)"
+      fi
+    else
+      skip "3.18 production space rules test — no non-Sandbox space found"
+    fi
+
+    # Confirm spaces CRUD still available on auth-service (not broken by proxy rule change)
+    SPACES_LIST_CODE_3_18=$(curl -s -o /dev/null -w "%{http_code}" \
+      "http://localhost:8081/v1/organizations/current/spaces" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    if [[ "$SPACES_LIST_CODE_3_18" == "200" ]]; then
+      pass "GET /v1/organizations/current/spaces — auth-service still returns 200"
+    else
+      fail "GET /v1/organizations/current/spaces — HTTP $SPACES_LIST_CODE_3_18 (expected 200)"
+    fi
+  else
+    skip "3.18 space banners tests — no admin token available"
+  fi
+fi
+
+# ============================================================================
 # Summary
 # ============================================================================
 echo ""

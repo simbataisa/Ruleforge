@@ -3,7 +3,7 @@ import { useNavigate, useParams, Link } from 'react-router-dom';
 import {
   ArrowLeft, Settings, BookOpen, Calendar, ChevronRight,
   Plus, Search, MoreVertical, Pencil, Copy, ArrowRightLeft, Trash2,
-  RefreshCw, X,
+  RefreshCw, X, FlaskConical, Shield,
 } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Spinner } from '@/shared/components/Spinner';
@@ -177,6 +177,29 @@ export function SpaceDetailPage() {
           Settings
         </Button>
       </div>
+
+      {/* Space Context Banner */}
+      {space.name === 'Sandbox' ? (
+        <div
+          role="status"
+          className="flex items-center gap-3 px-6 py-3 bg-amber-50 border-b border-amber-200 text-amber-800 text-sm"
+        >
+          <FlaskConical className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+          <span>
+            This is the Sandbox space. Any rules created here will be visible to all spaces.
+          </span>
+        </div>
+      ) : (
+        <div
+          role="status"
+          className="flex items-center gap-3 px-6 py-3 bg-blue-50 border-b border-blue-200 text-blue-800 text-sm"
+        >
+          <Shield className="h-4 w-4 flex-shrink-0" aria-hidden="true" />
+          <span>
+            This is a production space. Any rules created here will be visible to all spaces.
+          </span>
+        </div>
+      )}
 
       {/* Stats Bar */}
       <div className="flex items-center gap-6 px-6 py-3 bg-gray-50 border-b border-gray-200 text-sm">

@@ -16,6 +16,7 @@ export default defineConfig({
       '/v1/auth': { target: 'http://localhost:8081', changeOrigin: true },
       '/v1/users': { target: 'http://localhost:8081', changeOrigin: true },
       '/v1/organizations': { target: 'http://localhost:8081', changeOrigin: true },
+      '^/v1/spaces/[^/]+/rules': { target: 'http://localhost:8082', changeOrigin: true },
       '/v1/spaces': { target: 'http://localhost:8081', changeOrigin: true },
       '/v1/api-keys': { target: 'http://localhost:8081', changeOrigin: true },
       '/v1/sso': { target: 'http://localhost:8081', changeOrigin: true },

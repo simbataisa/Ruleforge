@@ -9,12 +9,9 @@ Read `.bmad-agents/BMAD-SHARED-CONTEXT.md` first for the shared framework. Befor
   - **Use cases:** FinServ, Insurance, Healthcare, E-commerce.
 
 - **Epic to implement:** Spaces page features
-  - **Goal:** Enable complete rule management scoped to specific spaces.
-  - **API Adjustments:**
-    - Update rule creation to accept `spaceId` (`POST /spaces/{spaceId}/rules`).
-    - Filter rule lists by `spaceId` (`GET /spaces/{spaceId}/rules`).
-  - **Frontend Flow:** Set active space context when navigating to `/spaces/:id` so rule lists and creation flows are scoped appropriately.
-  - **UI Features:** Add full CRUD functionality (create, read, update, delete) plus move, copy, search, filter, and sort capabilities for rules within a specific space.
+  - When loading the Sandbox space, there should be a banner that states "This is the Sandbox space. Any rules created here will be visible to all spaces."
+  - When loading a non-Sandbox space, there should be a banner that states "This is a production space. Any rules created here will be visible to all spaces."
+  - The Sandbox space currently has an error message "Server error. Please try again. :3000/v1/spaces/6b093c21-3626-4ffb-9c3d-1a0761de8c3d/rules:1 Failed to load resource: the server responded with a status of 500 (Internal Server Error)". This should be fixed.
 
 - **Tech stack:** Java 21, Spring Boot 3.3.5 microservices (Gradle), React 18 + Vite, TypeScript 5.5, Tailwind CSS 3.4, Zustand, React Query, PostgreSQL 16 (Flyway), Redis 7, Kafka 3.7.1, Elasticsearch 8, MinIO.
 - **Key constraints:** Strict highly modular UI components, OpenAPI 3.0 adherence, proper error handling, explicit Flyway SQL scripts for DB changes, comprehensive test coverage (unit/smoke).
@@ -47,7 +44,10 @@ Always log handoffs in `docs/.bmad/handoff-log.md` detailing from/to agent, arti
 ### PHASE 4: IMPLEMENTATION (Engineers + QE in parallel)
 
 - **Backend/Frontend/Mobile Engineers:** Implement stories, write unit/integration tests, and mark DoD complete.
+  - _If there are Database changes:_ You MUST run Flyway migrations (`make migrate`) and add seed data.
+  - _Service Lifeycle:_ You MUST restart affected services via `scripts/start-local.sh` or Docker to ensure changes take effect.
 - **Tester & QE:** Create `docs/test-plans/test-strategy.md` and test cases matching PRD requirements. Setup traceability matrix.
+  - _Smoke Testing:_ Run `scripts/smoke-test.sh`. All tests MUST pass. If new API flows or services are introduced, you MUST update `scripts/smoke-test.sh` to include them.
 
 ### PHASE 5: REVIEW LOOP — ITERATE UNTIL GREEN
 
