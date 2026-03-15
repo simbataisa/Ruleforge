@@ -345,6 +345,12 @@ main() {
       (cd "$PROJECT_ROOT/frontend" && npm install)
       ok "Frontend dependencies installed"
     fi
+
+    if command -v pip3 &>/dev/null && [[ -f "$PROJECT_ROOT/ai-service/requirements.txt" ]]; then
+      info "Installing AI service dependencies..."
+      (cd "$PROJECT_ROOT/ai-service" && pip3 install -r requirements.txt -q)
+      ok "AI service dependencies installed"
+    fi
   else
     warn "Skipping builds (--skip-build)"
   fi
