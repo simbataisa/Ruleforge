@@ -16,6 +16,7 @@ import io.ruleforge.event.repository.WebhookDeliveryRepository;
 import io.ruleforge.event.repository.WebhookOutboxRepository;
 import io.ruleforge.event.repository.WebhookRepository;
 import io.ruleforge.event.service.WebhookDispatcher;
+import io.ruleforge.event.service.WebhookOutboxService;
 import io.ruleforge.event.service.WebhookService;
 
 import jakarta.validation.Valid;
@@ -47,17 +48,20 @@ public class WebhookController {
     private final WebhookDeliveryRepository webhookDeliveryRepository;
     private final WebhookOutboxRepository webhookOutboxRepository;
     private final WebhookRepository webhookRepository;
+    private final WebhookOutboxService webhookOutboxService;
 
     public WebhookController(WebhookService webhookService,
                              WebhookDispatcher webhookDispatcher,
                              WebhookDeliveryRepository webhookDeliveryRepository,
                              WebhookOutboxRepository webhookOutboxRepository,
-                             WebhookRepository webhookRepository) {
+                             WebhookRepository webhookRepository,
+                             WebhookOutboxService webhookOutboxService) {
         this.webhookService = webhookService;
         this.webhookDispatcher = webhookDispatcher;
         this.webhookDeliveryRepository = webhookDeliveryRepository;
         this.webhookOutboxRepository = webhookOutboxRepository;
         this.webhookRepository = webhookRepository;
+        this.webhookOutboxService = webhookOutboxService;
     }
 
     @PostMapping
@@ -183,13 +187,9 @@ public class WebhookController {
         webhookRepository.findByIdAndOrgId(id, orgId)
                 .orElseThrow(() -> new io.ruleforge.common.exception.EntityNotFoundException(
                         "Webhook", id.toString()));
-        // Verify the outbox entry belongs to this specific webhook (tenant isolation)
-        WebhookOutboxEntity entry = webhookOutboxRepository.findByIdAndWebhookId(outboxId, id)
-                .orElseThrow(() -> new io.ruleforge.common.exception.EntityNotFoundException(
-                        "WebhookOutbox", outboxId.toString()));
-        entry.setStatus("PENDING");
-        entry.setNextAttemptAt(java.time.OffsetDateTime.now());
-        WebhookOutboxEntity saved = webhookOutboxRepository.save(entry);
+        // Atomically reset the outbox entry for retry in a single transaction to prevent
+        // a race condition with OutboxPoller claiming the entry between find and save.
+        WebhookOutboxEntity saved = webhookOutboxService.resetForRetry(outboxId, id);
         return ApiResponse.ok(toOutboxDto(saved), "Outbox entry queued for retry");
     }
 

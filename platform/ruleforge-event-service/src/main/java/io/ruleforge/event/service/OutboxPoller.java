@@ -140,11 +140,16 @@ public class OutboxPoller {
 
     /**
      * Transaction 3 (success/failure path): persist delivery record + update outbox + webhook.
-     * Sets RLS session variable before writing to the webhooks table.
+     * Sets RLS session variable FIRST (before any writes) so all writes within this transaction
+     * are allowed by the webhooks table RLS policy.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void updateResult(WebhookOutboxEntity entry, WebhookEntity webhook,
                              WebhookDispatcher.DeliveryResult result) {
+        // SET LOCAL first — before any writes — so RLS allows all writes in this transaction.
+        // webhook_outbox has no RLS; webhooks does (org_id = current_setting('app.current_org_id')).
+        jdbcTemplate.execute("SET LOCAL app.current_org_id = '" + entry.getOrgId() + "'");
+
         // Record delivery
         WebhookDeliveryEntity delivery = new WebhookDeliveryEntity();
         delivery.setWebhookId(webhook.getId());
@@ -161,8 +166,6 @@ public class OutboxPoller {
             entry.setLastStatusCode(result.statusCode());
             outboxRepository.save(entry);
 
-            // SET LOCAL so RLS allows the webhook update within this transaction
-            jdbcTemplate.execute("SET LOCAL app.current_org_id = '" + entry.getOrgId() + "'");
             webhook.setConsecutiveFailures(0);
             webhook.setLastDeliveredAt(OffsetDateTime.now());
             webhookRepository.save(webhook);
@@ -190,8 +193,6 @@ public class OutboxPoller {
                             webhook.getId(), newFailures);
                 }
 
-                // SET LOCAL so RLS allows the webhook update within this transaction
-                jdbcTemplate.execute("SET LOCAL app.current_org_id = '" + entry.getOrgId() + "'");
                 webhookRepository.save(webhook);
             } else {
                 entry.setStatus("FAILED");
@@ -229,6 +230,9 @@ public class OutboxPoller {
     @Scheduled(cron = "0 0 2 * * *")
     @Transactional
     public void cleanupOldDlq() {
+        // Cross-tenant maintenance task: webhook_outbox has NO RLS policy (only the webhooks
+        // table has one — see V048). Deleting old DLQ rows across all orgs is intentional and
+        // safe without setting app.current_org_id. No SET LOCAL is required here.
         int deleted = outboxRepository.deleteOldDlqEntries(OffsetDateTime.now().minusDays(30));
         if (deleted > 0) {
             log.info("Cleaned up {} old DLQ outbox entries", deleted);
