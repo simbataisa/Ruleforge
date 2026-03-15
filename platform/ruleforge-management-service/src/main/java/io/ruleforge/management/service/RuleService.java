@@ -12,6 +12,7 @@ import io.ruleforge.management.dto.UpdateRuleRequest;
 import io.ruleforge.management.entity.RuleEntity;
 import io.ruleforge.management.entity.RuleTagEntity;
 import io.ruleforge.management.entity.RuleVersionEntity;
+import io.ruleforge.management.entity.SpaceEntity;
 import io.ruleforge.management.repository.RuleRepository;
 import io.ruleforge.management.repository.RuleTagRepository;
 import io.ruleforge.management.repository.RuleVersionRepository;
@@ -297,9 +298,72 @@ public class RuleService {
     }
 
     @Transactional
+    public RuleDto moveRule(UUID ruleId, UUID targetSpaceId) {
+        TenantContext.TenantInfo tenant = TenantContext.get();
+        RuleEntity rule = findRuleOrThrow(ruleId);
+
+        // Verify rule is not locked
+        if (rule.isLocked()) {
+            throw new ConflictException("Rule is locked and cannot be moved. Unlock it first.");
+        }
+
+        // Verify target space exists and belongs to the same org
+        SpaceEntity targetSpace = spaceRepository.findById(targetSpaceId)
+                .orElseThrow(() -> new EntityNotFoundException("Space", targetSpaceId.toString()));
+        if (!targetSpace.getOrgId().equals(tenant.orgId())) {
+            throw new org.springframework.security.access.AccessDeniedException(
+                    "Target space does not belong to your organization");
+        }
+
+        UUID fromSpaceId = rule.getSpaceId();
+        rule.setSpaceId(targetSpaceId);
+        rule = ruleRepository.save(rule);
+
+        log.info("Rule moved: id={}, fromSpace={}, toSpace={}, by={}", ruleId, fromSpaceId, targetSpaceId, tenant.userId());
+
+        // Publish move event with from/to space context
+        try {
+            DomainEvent event = DomainEvent.create(
+                    "rule.moved",
+                    "Rule",
+                    rule.getId().toString(),
+                    tenant.orgId(),
+                    tenant.userId(),
+                    Map.of(
+                            "name", rule.getName(),
+                            "fromSpaceId", fromSpaceId.toString(),
+                            "toSpaceId", targetSpaceId.toString()
+                    )
+            );
+            eventPublisher.publish(TOPIC_RULE_LIFECYCLE, event);
+        } catch (Exception e) {
+            log.warn("Failed to publish move event for rule {}: {}", ruleId, e.getMessage());
+        }
+
+        return toDto(rule);
+    }
+
+    @Transactional
     public RuleDto copyRule(UUID ruleId, String nameOverride) {
+        return copyRule(ruleId, nameOverride, null);
+    }
+
+    @Transactional
+    public RuleDto copyRule(UUID ruleId, String nameOverride, UUID targetSpaceId) {
         TenantContext.TenantInfo tenant = TenantContext.get();
         RuleEntity original = findRuleOrThrow(ruleId);
+
+        // If a targetSpaceId is specified, verify it belongs to the same org
+        UUID destinationSpaceId = original.getSpaceId();
+        if (targetSpaceId != null) {
+            SpaceEntity targetSpace = spaceRepository.findById(targetSpaceId)
+                    .orElseThrow(() -> new EntityNotFoundException("Space", targetSpaceId.toString()));
+            if (!targetSpace.getOrgId().equals(tenant.orgId())) {
+                throw new org.springframework.security.access.AccessDeniedException(
+                        "Target space does not belong to your organization");
+            }
+            destinationSpaceId = targetSpaceId;
+        }
 
         // Determine name for the copy
         String copyName = (nameOverride != null && !nameOverride.isBlank())
@@ -318,8 +382,9 @@ public class RuleService {
         }
 
         // Create the new rule entity
+        final UUID finalDestinationSpaceId = destinationSpaceId;
         RuleEntity copy = new RuleEntity();
-        copy.setSpaceId(original.getSpaceId());
+        copy.setSpaceId(finalDestinationSpaceId);
         copy.setFolderId(original.getFolderId());
         copy.setName(copyName);
         copy.setAlias(alias);

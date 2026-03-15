@@ -369,13 +369,73 @@ export function useCopyRule() {
     mutationFn: async ({
       ruleId,
       name,
+      targetSpaceId,
     }: {
       ruleId: string;
       name?: string;
+      targetSpaceId?: string;
     }) => {
+      const body: { name?: string; targetSpaceId?: string } = {};
+      if (name) body.name = name;
+      if (targetSpaceId) body.targetSpaceId = targetSpaceId;
       const res = await apiClient.post<ApiResponse<Rule>>(
         `/rules/${ruleId}/copy`,
-        name ? { name } : {},
+        body,
+      );
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rules'] });
+    },
+  });
+}
+
+export function useSpaceRules(spaceId: string, params?: Pick<RuleListParams, 'status' | 'folderId' | 'page' | 'size'>) {
+  return useQuery({
+    queryKey: ['rules', 'space', spaceId, params],
+    queryFn: async () => {
+      const res = await apiClient.get<ApiResponse<PageResponse<Rule>>>(
+        `/spaces/${spaceId}/rules`,
+        { params },
+      );
+      return res.data.data;
+    },
+    enabled: !!spaceId,
+    placeholderData: keepPreviousData,
+  });
+}
+
+export function useCreateSpaceRule(spaceId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (
+      data: { name: string; type: string; description?: string; alias?: string; folderId?: string },
+    ) => {
+      const res = await apiClient.post<ApiResponse<Rule>>(`/spaces/${spaceId}/rules`, data);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rules', 'space', spaceId] });
+      queryClient.invalidateQueries({ queryKey: ['rules'] });
+    },
+  });
+}
+
+export function useMoveRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      ruleId,
+      targetSpaceId,
+    }: {
+      ruleId: string;
+      targetSpaceId: string;
+    }) => {
+      const res = await apiClient.patch<ApiResponse<Rule>>(
+        `/rules/${ruleId}/move`,
+        { targetSpaceId },
       );
       return res.data.data;
     },

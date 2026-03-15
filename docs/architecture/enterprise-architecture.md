@@ -229,3 +229,66 @@ Auth-service is stateless — reverting to the previous JAR reverts all new endp
 
 **Status:** COMPLETE — Ready for UX Design and Tech Lead Story Refinement
 **Enterprise Architect Sign-Off:** BMAD EA Agent, 2026-03-14
+
+---
+
+## Appendix: Epic 2 — Space-Scoped Rule Management (2026-03-14)
+
+### RBAC Matrix for Rule Move/Copy Operations
+
+| Operation | VIEWER | EDITOR | ADMIN | OWNER |
+|-----------|--------|--------|-------|-------|
+| List rules in space | ✅ | ✅ | ✅ | ✅ |
+| Create rule in space | ❌ | ✅ | ✅ | ✅ |
+| Move rule to another space | ❌ | ✅ | ✅ | ✅ |
+| Copy rule to another space | ❌ | ✅ | ✅ | ✅ |
+| Delete rule | ❌ | ✅ (own) | ✅ | ✅ |
+
+**Rationale:**
+- EDITOR and above can create and manage rules within their authorized spaces; move/copy are rule management operations, not structural changes.
+- VIEWER is read-only across all operations.
+- Cross-space move/copy requires the user to have membership in the organization that owns both spaces — enforced by existing `TenantContext` and RLS.
+
+### Observability Requirements — New Endpoints
+
+| Endpoint | Metric | Alert Threshold |
+|----------|--------|----------------|
+| `PATCH /v1/rules/{id}/move` | HTTP 5xx rate | >1% per 5 min → alert |
+| `PATCH /v1/rules/{id}/move` | P99 latency | >2000ms → alert |
+| `POST /v1/rules/{id}/copy` | HTTP 5xx rate | >1% per 5 min → alert |
+| `GET /v1/spaces/{id}/rules` | P95 latency | >500ms → alert |
+
+### Audit Trail Requirements
+
+Move and Copy operations must emit audit events to the `rule.lifecycle` Kafka topic:
+
+```json
+// MOVE_RULE event
+{
+  "eventType": "MOVE_RULE",
+  "ruleId": "uuid",
+  "ruleName": "string",
+  "fromSpaceId": "uuid",
+  "toSpaceId": "uuid",
+  "performedBy": "userId",
+  "timestamp": "ISO-8601"
+}
+
+// COPY_RULE event (update to include targetSpaceId)
+{
+  "eventType": "COPY_RULE",
+  "sourceRuleId": "uuid",
+  "newRuleId": "uuid",
+  "targetSpaceId": "uuid",
+  "performedBy": "userId",
+  "timestamp": "ISO-8601"
+}
+```
+
+### Compliance Traceability
+
+- All move operations must be logged with `fromSpaceId` and `toSpaceId` for audit queries
+- Users must not be able to move rules across organizational boundaries (RLS enforced at DB, validated at service layer)
+- No data migration required — `space_id` column update is in-place with full history preserved in `rule_versions` table
+
+**Enterprise Architect Sign-Off (Epic 2):** BMAD EA Agent, 2026-03-14

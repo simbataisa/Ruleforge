@@ -1,15 +1,16 @@
 import { useState, useMemo, useEffect, useCallback } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   Plus, Search, RefreshCw, ChevronLeft, ChevronRight, Upload,
   LayoutList, LayoutGrid, MoreVertical, Pencil, Play, SendHorizontal,
-  Copy, Trash2, Lock, X,
+  Copy, Trash2, Lock, X, FolderOpen,
 } from 'lucide-react';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Button } from '@/shared/components/Button';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { SkeletonRow } from '@/components/Skeleton';
-import { useRules, useCreateRule, useCopyRule, useTags, useDeleteRule } from '@/api/rules.api';
+import { useRules, useSpaceRules, useCreateRule, useCreateSpaceRule, useCopyRule, useTags, useDeleteRule } from '@/api/rules.api';
+import { useSpace } from '@/api/org.api';
 import { useFolders, useCreateFolder } from '@/api/folders.api';
 import { useToastStore } from '@/stores/toast.store';
 import { useAuthStore } from '@/stores/auth.store';
@@ -42,8 +43,21 @@ function getDateFromPreset(days: number): string {
 
 export function RuleListPage() {
   const navigate = useNavigate();
+  const [searchParams, setSearchParams] = useSearchParams();
   const addToast = useToastStore((s) => s.addToast);
   const user = useAuthStore((s) => s.user);
+
+  // Space context from URL query param
+  const spaceIdFromUrl = searchParams.get('spaceId') ?? undefined;
+  const { data: spaceContext } = useSpace(spaceIdFromUrl ?? '');
+
+  const clearSpaceFilter = useCallback(() => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete('spaceId');
+      return next;
+    });
+  }, [setSearchParams]);
 
   // Search state
   const [search, setSearch] = useState('');
@@ -113,11 +127,17 @@ export function RuleListPage() {
     return params;
   }, [page, pageSize, sortBy, sortDir, debouncedSearch, selectedTypes, selectedStatuses, selectedTags, selectedFolderId, datePreset]);
 
-  const { data: rulesData, isLoading: rulesLoading, isFetching: rulesFetching, refetch: refetchRules } = useRules(queryParams as any);
+  const orgRulesQuery = useRules(spaceIdFromUrl ? undefined : queryParams as any);
+  const spaceRulesQuery = useSpaceRules(spaceIdFromUrl ?? '', spaceIdFromUrl ? { page: queryParams.page as number, size: queryParams.size as number } : undefined);
+  const rulesData = spaceIdFromUrl ? spaceRulesQuery.data : orgRulesQuery.data;
+  const rulesLoading = spaceIdFromUrl ? spaceRulesQuery.isLoading : orgRulesQuery.isLoading;
+  const rulesFetching = spaceIdFromUrl ? spaceRulesQuery.isFetching : orgRulesQuery.isFetching;
+  const refetchRules = spaceIdFromUrl ? spaceRulesQuery.refetch : orgRulesQuery.refetch;
   const { data: foldersData, isLoading: foldersLoading, refetch: refetchFolders } = useFolders();
   const { data: tagsData } = useTags();
 
   const createRule = useCreateRule();
+  const createSpaceRule = useCreateSpaceRule(spaceIdFromUrl ?? '');
   const copyRule = useCopyRule();
   const createFolder = useCreateFolder();
   const deleteRule = useDeleteRule();
@@ -215,7 +235,8 @@ export function RuleListPage() {
   };
 
   const handleCreateRule = (data: { name: string; type: RuleType; description?: string; alias?: string; folderId?: string }) => {
-    createRule.mutate(data, {
+    const mutator = spaceIdFromUrl ? createSpaceRule : createRule;
+    mutator.mutate(data, {
       onSuccess: (response) => {
         setShowCreateRule(false);
         addToast({ type: 'success', title: 'Rule created successfully' });
@@ -404,6 +425,35 @@ export function RuleListPage() {
           </div>
         }
       />
+
+      {/* Space context banner */}
+      {spaceIdFromUrl && (
+        <div className="flex items-center gap-3 px-6 py-2 bg-blue-50 border-b border-blue-200 text-sm">
+          <FolderOpen className="h-4 w-4 text-blue-600 shrink-0" />
+          <span className="text-blue-800">
+            Viewing rules in:{' '}
+            <span className="font-semibold">{spaceContext?.name ?? 'Loading...'}</span>
+          </span>
+          <div className="flex items-center gap-2 ml-auto">
+            {spaceContext && (
+              <Link
+                to={`/spaces/${spaceIdFromUrl}`}
+                className="text-blue-600 hover:text-blue-800 underline underline-offset-2"
+              >
+                View Space
+              </Link>
+            )}
+            <button
+              onClick={clearSpaceFilter}
+              className="flex items-center gap-1 text-blue-600 hover:text-blue-800"
+              aria-label="Clear space filter"
+            >
+              <X className="h-3.5 w-3.5" />
+              Clear
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="flex flex-1 overflow-hidden">
         {/* Sidebar */}

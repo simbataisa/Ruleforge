@@ -889,6 +889,131 @@ except: print('missing')
     skip "Spaces GET/:id, PUT, DELETE — could not extract space ID from create response"
   fi
 
+  # --- 3.17: Space-Scoped Rule Management (management-service :8082) ---
+  info "3.17 — Space-Scoped Rule Management (management-service :8082)"
+
+  # Get first space ID for scoped tests
+  SPACES_BODY_MGMT=$(curl -s \
+    "http://localhost:8081/v1/organizations/current/spaces" \
+    -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+  TEST_SPACE_ID=$(echo "$SPACES_BODY_MGMT" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+items = data.get('data', []) if isinstance(data, dict) else data
+if isinstance(items, list) and items:
+    print(items[0].get('id',''))
+" 2>/dev/null || true)
+
+  if [[ -n "$TEST_SPACE_ID" && "$TEST_SPACE_ID" != "null" ]]; then
+    pass "Found test space ID: ${TEST_SPACE_ID:0:8}..."
+
+    # GET /v1/spaces/{spaceId}/rules — list rules in space
+    SPACE_RULES_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+      "http://localhost:8082/v1/spaces/${TEST_SPACE_ID}/rules" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    if [[ "$SPACE_RULES_CODE" == "200" ]]; then
+      pass "GET /v1/spaces/{spaceId}/rules — HTTP 200"
+    else
+      fail "GET /v1/spaces/{spaceId}/rules — HTTP $SPACE_RULES_CODE"
+    fi
+
+    # GET /v1/spaces/{spaceId}/rules — verify response shape
+    SPACE_RULES_BODY=$(curl -s \
+      "http://localhost:8082/v1/spaces/${TEST_SPACE_ID}/rules" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    if echo "$SPACE_RULES_BODY" | grep -q '"content"'; then
+      pass "GET /v1/spaces/{spaceId}/rules — response has 'content' array"
+    else
+      fail "GET /v1/spaces/{spaceId}/rules — missing 'content' field in response"
+    fi
+    if echo "$SPACE_RULES_BODY" | grep -q '"totalElements"'; then
+      pass "GET /v1/spaces/{spaceId}/rules — response has 'totalElements'"
+    else
+      fail "GET /v1/spaces/{spaceId}/rules — missing 'totalElements' in response"
+    fi
+
+    # POST /v1/spaces/{spaceId}/rules — create rule in specific space (unique name per run)
+    SMOKE_RULE_NAME="Smoke Test Space Rule $(date +%s)"
+    CREATE_SPACE_RULE_BODY=$(curl -s \
+      -X POST "http://localhost:8082/v1/spaces/${TEST_SPACE_ID}/rules" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "{\"name\":\"${SMOKE_RULE_NAME}\",\"type\":\"TABLE\",\"description\":\"Created by smoke test 3.17\"}" 2>/dev/null)
+    CREATED_RULE_ID=$(echo "$CREATE_SPACE_RULE_BODY" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+rule = data.get('data', {})
+print(rule.get('id', ''))
+" 2>/dev/null || true)
+    if [[ -n "$CREATED_RULE_ID" && "$CREATED_RULE_ID" != "null" ]]; then
+      pass "POST /v1/spaces/{spaceId}/rules — rule created (id: ${CREATED_RULE_ID:0:8}...)"
+
+      # PATCH /v1/rules/{ruleId}/move — move rule to same space (idempotent test)
+      MOVE_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        -X PATCH "http://localhost:8082/v1/rules/${CREATED_RULE_ID}/move" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "{\"targetSpaceId\":\"${TEST_SPACE_ID}\"}" 2>/dev/null)
+      if [[ "$MOVE_CODE" == "200" ]]; then
+        pass "PATCH /v1/rules/{ruleId}/move — HTTP 200 (idempotent move to same space)"
+      else
+        fail "PATCH /v1/rules/{ruleId}/move — HTTP $MOVE_CODE (expected 200)"
+      fi
+
+      # POST /v1/rules/{ruleId}/copy — copy rule with same-space (backward compat)
+      COPY_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        -X POST "http://localhost:8082/v1/rules/${CREATED_RULE_ID}/copy" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d '{"name":"Smoke Test Copy"}' 2>/dev/null)
+      if [[ "$COPY_CODE" == "201" ]]; then
+        pass "POST /v1/rules/{ruleId}/copy (no targetSpaceId) — HTTP 201 backward compat"
+      else
+        fail "POST /v1/rules/{ruleId}/copy (no targetSpaceId) — HTTP $COPY_CODE (expected 201)"
+      fi
+
+      # POST /v1/rules/{ruleId}/copy — copy with targetSpaceId (new feature)
+      COPY_WITH_SPACE_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        -X POST "http://localhost:8082/v1/rules/${CREATED_RULE_ID}/copy" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\":\"Smoke Test Copy With Space\",\"targetSpaceId\":\"${TEST_SPACE_ID}\"}" 2>/dev/null)
+      if [[ "$COPY_WITH_SPACE_CODE" == "201" ]]; then
+        pass "POST /v1/rules/{ruleId}/copy with targetSpaceId — HTTP 201"
+      else
+        fail "POST /v1/rules/{ruleId}/copy with targetSpaceId — HTTP $COPY_WITH_SPACE_CODE (expected 201)"
+      fi
+
+      # PATCH /v1/rules/{ruleId}/move — missing targetSpaceId should return 400
+      MOVE_INVALID_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        -X PATCH "http://localhost:8082/v1/rules/${CREATED_RULE_ID}/move" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d '{}' 2>/dev/null)
+      if [[ "$MOVE_INVALID_CODE" == "400" ]]; then
+        pass "PATCH /v1/rules/{ruleId}/move with missing targetSpaceId — HTTP 400 validation"
+      else
+        fail "PATCH /v1/rules/{ruleId}/move with missing targetSpaceId — HTTP $MOVE_INVALID_CODE (expected 400)"
+      fi
+
+      # Cleanup: delete the smoke test rule
+      DELETE_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        -X DELETE "http://localhost:8082/v1/rules/${CREATED_RULE_ID}" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+      if [[ "$DELETE_CODE" == "200" ]]; then
+        pass "DELETE /v1/rules/{smoke-test-rule} — cleanup successful"
+      else
+        skip "DELETE /v1/rules/{smoke-test-rule} — HTTP $DELETE_CODE (cleanup failed, manual cleanup needed)"
+      fi
+    else
+      fail "POST /v1/spaces/{spaceId}/rules — failed to create rule (response: ${CREATE_SPACE_RULE_BODY:0:100})"
+      skip "PATCH /v1/rules/{ruleId}/move — skipped (no rule ID)"
+      skip "POST /v1/rules/{ruleId}/copy tests — skipped (no rule ID)"
+    fi
+  else
+    skip "3.17 space-scoped rule tests — could not get space ID from auth service"
+  fi
+
 fi
 
 # ============================================================================

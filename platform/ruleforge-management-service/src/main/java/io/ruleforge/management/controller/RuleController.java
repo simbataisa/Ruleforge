@@ -5,6 +5,7 @@ import io.ruleforge.common.dto.ApiResponse;
 import io.ruleforge.common.dto.PageResponse;
 import io.ruleforge.common.tenant.TenantContext;
 import io.ruleforge.management.dto.CopyRuleRequest;
+import io.ruleforge.management.dto.MoveRuleRequest;
 import io.ruleforge.management.dto.CreateRuleRequest;
 import io.ruleforge.management.dto.FilterOptionsDto;
 import io.ruleforge.management.dto.CreateSampleInputRequest;
@@ -36,6 +37,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -208,8 +210,17 @@ public class RuleController {
     public ApiResponse<RuleDto> copyRule(@PathVariable UUID ruleId,
                                           @RequestBody(required = false) CopyRuleRequest request) {
         String nameOverride = request != null ? request.name() : null;
-        RuleDto rule = ruleService.copyRule(ruleId, nameOverride);
+        UUID targetSpaceId = request != null ? request.targetSpaceId() : null;
+        RuleDto rule = ruleService.copyRule(ruleId, nameOverride, targetSpaceId);
         return ApiResponse.ok(rule, "Rule copied successfully");
+    }
+
+    @PatchMapping("/rules/{ruleId}/move")
+    @AuditLog(action = "MOVE_RULE", resourceType = "Rule")
+    public ApiResponse<RuleDto> moveRule(@PathVariable UUID ruleId,
+                                          @Valid @RequestBody MoveRuleRequest request) {
+        RuleDto rule = ruleService.moveRule(ruleId, request.targetSpaceId());
+        return ApiResponse.ok(rule, "Rule moved successfully");
     }
 
     @PostMapping("/rules/{ruleId}/validate")
