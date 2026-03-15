@@ -21,6 +21,12 @@ WHERE slug IS NULL OR slug = '';
 -- Make not null
 ALTER TABLE spaces ALTER COLUMN slug SET NOT NULL;
 
--- Enforce uniqueness per org
-ALTER TABLE spaces
-    ADD CONSTRAINT spaces_slug_org_unique UNIQUE (org_id, slug);
+-- Enforce uniqueness per org (idempotent)
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'spaces_slug_org_unique'
+    ) THEN
+        ALTER TABLE spaces ADD CONSTRAINT spaces_slug_org_unique UNIQUE (org_id, slug);
+    END IF;
+END $$;

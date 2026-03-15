@@ -87,7 +87,8 @@ VALUES
    'b0000000-0000-0000-0000-000000000001', 'Alice Admin', 'USER',
    'RULE', 'e2000000-0000-0000-0000-000000000001', 'Mortgage Qualification Tree',
    '{"actorName":"Alice Admin","name":"Mortgage Qualification Tree","ruleType":"TREE","version":1}',
-   now() - interval '18 days');
+   now() - interval '18 days')
+ON CONFLICT (id) DO NOTHING;
 
 -- RULE_UPDATED events
 INSERT INTO audit_events (id, org_id, space_id, event_type, actor_id, actor_name, actor_type,
@@ -139,7 +140,8 @@ VALUES
    'b0000000-0000-0000-0000-000000000001', 'Alice Admin', 'USER',
    'RULE', 'e0000000-0000-0000-0000-000000000003', 'Customer Risk Scorecard',
    '{"actorName":"Alice Admin","name":"Customer Risk Scorecard","changes":{"weights":"Adjusted credit score weight"}}',
-   now() - interval '10 days 3 hours');
+   now() - interval '10 days 3 hours')
+ON CONFLICT (id) DO NOTHING;
 
 -- RULE_PUBLISHED events
 INSERT INTO audit_events (id, org_id, space_id, event_type, actor_id, actor_name, actor_type,
@@ -175,7 +177,8 @@ VALUES
    'b0000000-0000-0000-0000-000000000001', 'Alice Admin', 'USER',
    'RULE', 'e2000000-0000-0000-0000-000000000001', 'Mortgage Qualification Tree',
    '{"actorName":"Alice Admin","name":"Mortgage Qualification Tree","version":2,"environment":"production"}',
-   now() - interval '13 days 6 hours');
+   now() - interval '13 days 6 hours')
+ON CONFLICT (id) DO NOTHING;
 
 -- RULE_ENABLED events
 INSERT INTO audit_events (id, org_id, space_id, event_type, actor_id, actor_name, actor_type,
@@ -195,7 +198,8 @@ VALUES
    'b0000000-0000-0000-0000-000000000002', 'Edward Editor', 'USER',
    'RULE', 'e0000000-0000-0000-0000-000000000007', 'Churn Prediction Ensemble',
    '{"actorName":"Edward Editor","name":"Churn Prediction Ensemble"}',
-   now() - interval '11 days 5 hours');
+   now() - interval '11 days 5 hours')
+ON CONFLICT (id) DO NOTHING;
 
 -- RULE_DISABLED events
 INSERT INTO audit_events (id, org_id, space_id, event_type, actor_id, actor_name, actor_type,
@@ -215,7 +219,8 @@ VALUES
    'b0000000-0000-0000-0000-000000000002', 'Edward Editor', 'USER',
    'RULE', 'e0000000-0000-0000-0000-000000000008', 'Login Anomaly Detector',
    '{"actorName":"Edward Editor","name":"Login Anomaly Detector","reason":"Performance tuning"}',
-   now() - interval '8 days 11 hours');
+   now() - interval '8 days 11 hours')
+ON CONFLICT (id) DO NOTHING;
 
 -- RULE_DELETED events
 INSERT INTO audit_events (id, org_id, space_id, event_type, actor_id, actor_name, actor_type,
@@ -227,7 +232,8 @@ VALUES
    'b0000000-0000-0000-0000-000000000001', 'Alice Admin', 'USER',
    'RULE', 'f0000000-0000-0000-0000-000000000099', 'Legacy Credit Policy v1',
    '{"actorName":"Alice Admin","name":"Legacy Credit Policy v1","reason":"Superseded by new model"}',
-   now() - interval '15 days 3 hours');
+   now() - interval '15 days 3 hours')
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
 -- APPROVALS events
@@ -267,7 +273,8 @@ VALUES
    'b0000000-0000-0000-0000-000000000002', 'Edward Editor', 'USER',
    'RULE', 'e0000000-0000-0000-0000-000000000004', 'Dynamic Pricing Script',
    '{"actorName":"Edward Editor","name":"Dynamic Pricing Script","approvalType":"PUBLISH","comment":"Pending risk review"}',
-   now() - interval '6 days 2 hours');
+   now() - interval '6 days 2 hours')
+ON CONFLICT (id) DO NOTHING;
 
 -- APPROVAL_APPROVED events
 INSERT INTO audit_events (id, org_id, space_id, event_type, actor_id, actor_name, actor_type,
@@ -295,7 +302,8 @@ VALUES
    'b0000000-0000-0000-0000-000000000001', 'Alice Admin', 'USER',
    'RULE', 'e2000000-0000-0000-0000-000000000001', 'Mortgage Qualification Tree',
    '{"actorName":"Alice Admin","name":"Mortgage Qualification Tree","approvalType":"PUBLISH","comment":"Approved — risk team sign-off"}',
-   now() - interval '13 days 6 hours');
+   now() - interval '13 days 6 hours')
+ON CONFLICT (id) DO NOTHING;
 
 -- APPROVAL_REJECTED events
 INSERT INTO audit_events (id, org_id, space_id, event_type, actor_id, actor_name, actor_type,
@@ -315,7 +323,8 @@ VALUES
    'b0000000-0000-0000-0000-000000000001', 'Alice Admin', 'USER',
    'RULE', 'e0000000-0000-0000-0000-000000000006', 'Shipping Rate Decision Table',
    '{"actorName":"Alice Admin","name":"Shipping Rate Decision Table","approvalType":"PUBLISH","comment":"Rejected — international rates not yet configured"}',
-   now() - interval '7 days 3 hours');
+   now() - interval '7 days 3 hours')
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
 -- AUTH events
@@ -363,7 +372,8 @@ VALUES
    'b0000000-0000-0000-0000-000000000002', 'Edward Editor', 'USER',
    'USER', 'b0000000-0000-0000-0000-000000000002', 'Edward Editor',
    '{"actorName":"Edward Editor","ipAddress":"192.168.1.22","userAgent":"Mozilla/5.0 Chrome/121"}',
-   now() - interval '30 minutes');
+   now() - interval '30 minutes')
+ON CONFLICT (id) DO NOTHING;
 
 -- USER_LOGOUT events
 INSERT INTO audit_events (id, org_id, space_id, event_type, actor_id, actor_name, actor_type,
@@ -383,7 +393,8 @@ VALUES
    'b0000000-0000-0000-0000-000000000003', 'Victor Viewer', 'USER',
    'USER', 'b0000000-0000-0000-0000-000000000003', 'Victor Viewer',
    '{"actorName":"Victor Viewer","sessionDurationSeconds":3600}',
-   now() - interval '1 hour 15 minutes');
+   now() - interval '1 hour 15 minutes')
+ON CONFLICT (id) DO NOTHING;
 
 -- API_KEY_CREATED events
 INSERT INTO audit_events (id, org_id, space_id, event_type, actor_id, actor_name, actor_type,
@@ -403,7 +414,8 @@ VALUES
    'b0000000-0000-0000-0000-000000000002', 'Edward Editor', 'USER',
    'API_KEY', 'k0000000-0000-0000-0000-000000000002', 'CI/CD Integration Key',
    '{"actorName":"Edward Editor","name":"CI/CD Integration Key","keyPrefix":"rf_live_..."}',
-   now() - interval '12 days 4 hours');
+   now() - interval '12 days 4 hours')
+ON CONFLICT (id) DO NOTHING;
 
 -- API_KEY_REVOKED events
 INSERT INTO audit_events (id, org_id, space_id, event_type, actor_id, actor_name, actor_type,
@@ -415,7 +427,8 @@ VALUES
    'b0000000-0000-0000-0000-000000000001', 'Alice Admin', 'USER',
    'API_KEY', 'k0000000-0000-0000-0000-000000000099', 'Staging Test Key (expired)',
    '{"actorName":"Alice Admin","name":"Staging Test Key (expired)","reason":"Key rotation"}',
-   now() - interval '9 days 2 hours');
+   now() - interval '9 days 2 hours')
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
 -- SYSTEM events
@@ -439,7 +452,8 @@ VALUES
    'b0000000-0000-0000-0000-000000000001', 'Alice Admin', 'USER',
    'SPACE', 'd0000000-0000-0000-0000-000000000002', 'Sandbox Space',
    '{"actorName":"Alice Admin","name":"Sandbox Space","description":"Experimental rules workspace"}',
-   now() - interval '20 days 6 hours');
+   now() - interval '20 days 6 hours')
+ON CONFLICT (id) DO NOTHING;
 
 -- ORG_UPDATED events
 INSERT INTO audit_events (id, org_id, space_id, event_type, actor_id, actor_name, actor_type,
@@ -459,7 +473,8 @@ VALUES
    'b0000000-0000-0000-0000-000000000001', 'Alice Admin', 'USER',
    'ORGANIZATION', 'a0000000-0000-0000-0000-000000000001', 'Acme Corp',
    '{"actorName":"Alice Admin","name":"Acme Corp","changes":{"enforceMfa":true}}',
-   now() - interval '5 days 4 hours');
+   now() - interval '5 days 4 hours')
+ON CONFLICT (id) DO NOTHING;
 
 -- WEBHOOK_FIRED events
 INSERT INTO audit_events (id, org_id, space_id, event_type, actor_id, actor_name, actor_type,
@@ -495,7 +510,8 @@ VALUES
    '00000000-0000-0000-0000-000000000000', 'System', 'SYSTEM',
    'WEBHOOK', 'w0000000-0000-0000-0000-000000000001', 'Slack Notifications Hook',
    '{"actorName":"System","name":"Slack Notifications Hook","event":"RULE_PUBLISHED","statusCode":200,"durationMs":115}',
-   now() - interval '13 days 6 hours');
+   now() - interval '13 days 6 hours')
+ON CONFLICT (id) DO NOTHING;
 
 -- ============================================================================
 -- Additional recent RULES activity for a rich "last 24 hours" feed
@@ -582,4 +598,5 @@ VALUES
    'b0000000-0000-0000-0000-000000000002', 'Edward Editor', 'USER',
    'RULE', 'e1000000-0000-0000-0000-000000000002', 'Support Ticket Routing',
    '{"actorName":"Edward Editor","name":"Support Ticket Routing","approvalType":"PUBLISH","comment":"VIP routing ready"}',
-   now() - interval '10 minutes');
+   now() - interval '10 minutes')
+ON CONFLICT (id) DO NOTHING;
