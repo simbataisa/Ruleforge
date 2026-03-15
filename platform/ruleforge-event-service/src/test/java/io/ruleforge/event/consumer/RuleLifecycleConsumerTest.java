@@ -4,27 +4,31 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import io.ruleforge.common.event.DomainEvent;
 import io.ruleforge.event.service.AuditEventService;
-import io.ruleforge.event.service.WebhookDispatcher;
+import io.ruleforge.event.service.WebhookOutboxService;
+import io.ruleforge.event.service.WebhookScopeResolver;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.kafka.support.Acknowledgment;
 
 import java.time.Instant;
+import java.util.Collections;
 import java.util.Map;
 import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
 class RuleLifecycleConsumerTest {
 
     @Mock private AuditEventService auditEventService;
-    @Mock private WebhookDispatcher webhookDispatcher;
+    @Mock private WebhookScopeResolver webhookScopeResolver;
+    @Mock private WebhookOutboxService webhookOutboxService;
+    @Mock private Acknowledgment acknowledgment;
 
     private RuleLifecycleConsumer consumer;
     private ObjectMapper objectMapper;
@@ -33,7 +37,8 @@ class RuleLifecycleConsumerTest {
     void setUp() {
         objectMapper = new ObjectMapper();
         objectMapper.registerModule(new JavaTimeModule());
-        consumer = new RuleLifecycleConsumer(auditEventService, webhookDispatcher, objectMapper);
+        consumer = new RuleLifecycleConsumer(auditEventService, webhookScopeResolver,
+                webhookOutboxService, objectMapper);
     }
 
     @Test
@@ -50,24 +55,28 @@ class RuleLifecycleConsumerTest {
                 Map.of("spaceId", spaceId.toString(), "name", "Test Rule")
         );
 
+        when(webhookScopeResolver.resolve(any(DomainEvent.class))).thenReturn(Collections.emptyList());
+
         String message = objectMapper.writeValueAsString(event);
 
-        consumer.onRuleLifecycleEvent(message);
+        consumer.onRuleLifecycleEvent(message, acknowledgment);
 
         verify(auditEventService).recordEvent(any(DomainEvent.class));
-        verify(webhookDispatcher).dispatch(eq(spaceId), any(DomainEvent.class));
+        verify(webhookScopeResolver).resolve(any(DomainEvent.class));
+        verify(acknowledgment).acknowledge();
     }
 
     @Test
     void onRuleLifecycleEvent_invalidJson_doesNotThrow() {
-        consumer.onRuleLifecycleEvent("not-valid-json");
+        consumer.onRuleLifecycleEvent("not-valid-json", acknowledgment);
 
         verifyNoInteractions(auditEventService);
-        verifyNoInteractions(webhookDispatcher);
+        verifyNoInteractions(webhookScopeResolver);
+        verify(acknowledgment).acknowledge();
     }
 
     @Test
-    void onRuleLifecycleEvent_noSpaceIdInPayload_storesButDoesNotDispatchWebhook() throws Exception {
+    void onRuleLifecycleEvent_noSpaceIdInPayload_storesAndResolvesWebhooks() throws Exception {
         DomainEvent event = new DomainEvent(
                 UUID.randomUUID().toString(),
                 "rule.deleted",
@@ -79,11 +88,14 @@ class RuleLifecycleConsumerTest {
                 Map.of("name", "Deleted Rule")
         );
 
+        when(webhookScopeResolver.resolve(any(DomainEvent.class))).thenReturn(Collections.emptyList());
+
         String message = objectMapper.writeValueAsString(event);
 
-        consumer.onRuleLifecycleEvent(message);
+        consumer.onRuleLifecycleEvent(message, acknowledgment);
 
         verify(auditEventService).recordEvent(any(DomainEvent.class));
-        verify(webhookDispatcher, never()).dispatch(any(), any());
+        verify(webhookScopeResolver).resolve(any(DomainEvent.class));
+        verify(acknowledgment).acknowledge();
     }
 }

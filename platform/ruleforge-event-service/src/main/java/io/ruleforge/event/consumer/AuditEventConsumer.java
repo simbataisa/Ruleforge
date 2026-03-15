@@ -2,31 +2,42 @@ package io.ruleforge.event.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ruleforge.common.event.DomainEvent;
+import io.ruleforge.event.entity.WebhookEntity;
 import io.ruleforge.event.service.AuditEventService;
-import io.ruleforge.event.service.WebhookDispatcher;
+import io.ruleforge.event.service.WebhookOutboxService;
+import io.ruleforge.event.service.WebhookScopeResolver;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.transaction.annotation.Transactional;
 
-import java.util.UUID;
+import java.util.List;
 
 /**
  * Base class providing shared event-handling logic for all Kafka consumers
  * in the event service.
+ *
+ * IMPORTANT: The @KafkaListener methods in subclasses call processEvent() first
+ * (which runs within a transaction), then call ack.acknowledge() AFTER the
+ * transaction commits. This ensures Kafka offset is only committed once the
+ * outbox entries are persisted.
  */
 abstract class AuditEventConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(AuditEventConsumer.class);
 
     protected final AuditEventService auditEventService;
-    protected final WebhookDispatcher webhookDispatcher;
+    protected final WebhookScopeResolver webhookScopeResolver;
+    protected final WebhookOutboxService webhookOutboxService;
     protected final ObjectMapper objectMapper;
 
     protected AuditEventConsumer(AuditEventService auditEventService,
-                                 WebhookDispatcher webhookDispatcher,
+                                 WebhookScopeResolver webhookScopeResolver,
+                                 WebhookOutboxService webhookOutboxService,
                                  ObjectMapper objectMapper) {
         this.auditEventService = auditEventService;
-        this.webhookDispatcher = webhookDispatcher;
+        this.webhookScopeResolver = webhookScopeResolver;
+        this.webhookOutboxService = webhookOutboxService;
         this.objectMapper = objectMapper;
     }
 
@@ -39,31 +50,17 @@ abstract class AuditEventConsumer {
         }
     }
 
-    protected void processAndStore(DomainEvent event) {
+    /**
+     * Processes the event within a transaction: records the audit event and
+     * enqueues outbox entries for matching webhooks.
+     * Must NOT receive the Acknowledgment parameter.
+     */
+    @Transactional
+    protected void processEvent(DomainEvent event) {
         auditEventService.recordEvent(event);
-    }
-
-    protected void dispatchWebhooks(DomainEvent event) {
-        if (event.orgId() != null) {
-            // Dispatch with orgId as the space context; real spaceId can come from payload
-            UUID spaceId = extractSpaceId(event);
-            if (spaceId != null) {
-                webhookDispatcher.dispatch(spaceId, event);
-            }
+        List<WebhookEntity> matched = webhookScopeResolver.resolve(event);
+        if (!matched.isEmpty()) {
+            webhookOutboxService.enqueue(event, matched);
         }
-    }
-
-    private UUID extractSpaceId(DomainEvent event) {
-        if (event.payload() != null && event.payload().containsKey("spaceId")) {
-            Object spaceIdVal = event.payload().get("spaceId");
-            if (spaceIdVal instanceof String s) {
-                try {
-                    return UUID.fromString(s);
-                } catch (IllegalArgumentException e) {
-                    log.warn("Invalid spaceId in event payload: {}", s);
-                }
-            }
-        }
-        return null;
     }
 }

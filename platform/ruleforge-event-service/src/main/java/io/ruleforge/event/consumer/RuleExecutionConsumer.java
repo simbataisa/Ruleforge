@@ -3,11 +3,13 @@ package io.ruleforge.event.consumer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ruleforge.common.event.DomainEvent;
 import io.ruleforge.event.service.AuditEventService;
-import io.ruleforge.event.service.WebhookDispatcher;
+import io.ruleforge.event.service.WebhookOutboxService;
+import io.ruleforge.event.service.WebhookScopeResolver;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
+import org.springframework.kafka.support.Acknowledgment;
 import org.springframework.stereotype.Component;
 
 @Component
@@ -16,23 +18,23 @@ public class RuleExecutionConsumer extends AuditEventConsumer {
     private static final Logger log = LoggerFactory.getLogger(RuleExecutionConsumer.class);
 
     public RuleExecutionConsumer(AuditEventService auditEventService,
-                                 WebhookDispatcher webhookDispatcher,
+                                 WebhookScopeResolver webhookScopeResolver,
+                                 WebhookOutboxService webhookOutboxService,
                                  ObjectMapper objectMapper) {
-        super(auditEventService, webhookDispatcher, objectMapper);
+        super(auditEventService, webhookScopeResolver, webhookOutboxService, objectMapper);
     }
 
     @KafkaListener(topics = "rule.execution", groupId = "event-service")
-    public void onRuleExecutionEvent(String message) {
+    public void onRuleExecutionEvent(String message, Acknowledgment ack) {
         log.debug("Received rule.execution event");
         DomainEvent event = parseEvent(message);
         if (event == null) {
+            ack.acknowledge();
             return;
         }
 
-        // Store as audit event - high volume topic, but we persist all for now.
-        // In production, consider sampling or aggregation for very high throughput.
-        processAndStore(event);
-        dispatchWebhooks(event);
+        processEvent(event);
+        ack.acknowledge();
         log.debug("Processed rule.execution event: type={}, aggregateId={}",
                 event.eventType(), event.aggregateId());
     }

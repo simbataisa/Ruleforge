@@ -7,6 +7,14 @@ import io.ruleforge.event.dto.CreateWebhookRequest;
 import io.ruleforge.event.dto.UpdateWebhookRequest;
 import io.ruleforge.event.dto.WebhookDeliveryDto;
 import io.ruleforge.event.dto.WebhookDto;
+import io.ruleforge.event.dto.WebhookOutboxDto;
+import io.ruleforge.event.entity.WebhookDeliveryEntity;
+import io.ruleforge.event.entity.WebhookEntity;
+import io.ruleforge.event.entity.WebhookOutboxEntity;
+import io.ruleforge.event.model.WebhookScopeType;
+import io.ruleforge.event.repository.WebhookDeliveryRepository;
+import io.ruleforge.event.repository.WebhookOutboxRepository;
+import io.ruleforge.event.service.WebhookDispatcher;
 import io.ruleforge.event.service.WebhookService;
 
 import jakarta.validation.Valid;
@@ -24,7 +32,9 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.ResponseStatus;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @RestController
@@ -32,45 +42,57 @@ import java.util.UUID;
 public class WebhookController {
 
     private final WebhookService webhookService;
+    private final WebhookDispatcher webhookDispatcher;
+    private final WebhookDeliveryRepository webhookDeliveryRepository;
+    private final WebhookOutboxRepository webhookOutboxRepository;
 
-    public WebhookController(WebhookService webhookService) {
+    public WebhookController(WebhookService webhookService,
+                             WebhookDispatcher webhookDispatcher,
+                             WebhookDeliveryRepository webhookDeliveryRepository,
+                             WebhookOutboxRepository webhookOutboxRepository) {
         this.webhookService = webhookService;
+        this.webhookDispatcher = webhookDispatcher;
+        this.webhookDeliveryRepository = webhookDeliveryRepository;
+        this.webhookOutboxRepository = webhookOutboxRepository;
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<WebhookDto> createWebhook(@Valid @RequestBody CreateWebhookRequest request) {
-        UUID spaceId = TenantContext.get().spaceId();
-        WebhookDto webhook = webhookService.createWebhook(spaceId, request);
+        UUID orgId = TenantContext.get().orgId();
+        UUID userId = TenantContext.get().userId();
+        WebhookDto webhook = webhookService.createWebhook(orgId, userId, request);
         return ApiResponse.ok(webhook, "Webhook created successfully");
     }
 
     @GetMapping
-    public ApiResponse<List<WebhookDto>> listWebhooks() {
-        UUID spaceId = TenantContext.get().spaceId();
-        List<WebhookDto> webhooks = webhookService.listWebhooks(spaceId);
+    public ApiResponse<List<WebhookDto>> listWebhooks(
+            @RequestParam(required = false) WebhookScopeType scopeType,
+            @RequestParam(required = false) UUID scopeId) {
+        UUID orgId = TenantContext.get().orgId();
+        List<WebhookDto> webhooks = webhookService.listWebhooks(orgId, scopeType, scopeId);
         return ApiResponse.ok(webhooks);
     }
 
     @GetMapping("/{id}")
     public ApiResponse<WebhookDto> getWebhook(@PathVariable UUID id) {
-        UUID spaceId = TenantContext.get().spaceId();
-        WebhookDto webhook = webhookService.getWebhook(spaceId, id);
+        UUID orgId = TenantContext.get().orgId();
+        WebhookDto webhook = webhookService.getWebhook(orgId, id);
         return ApiResponse.ok(webhook);
     }
 
     @PutMapping("/{id}")
     public ApiResponse<WebhookDto> updateWebhook(@PathVariable UUID id,
                                                   @Valid @RequestBody UpdateWebhookRequest request) {
-        UUID spaceId = TenantContext.get().spaceId();
-        WebhookDto webhook = webhookService.updateWebhook(spaceId, id, request);
+        UUID orgId = TenantContext.get().orgId();
+        WebhookDto webhook = webhookService.updateWebhook(orgId, id, request);
         return ApiResponse.ok(webhook, "Webhook updated successfully");
     }
 
     @DeleteMapping("/{id}")
     public ApiResponse<Void> deleteWebhook(@PathVariable UUID id) {
-        UUID spaceId = TenantContext.get().spaceId();
-        webhookService.deleteWebhook(spaceId, id);
+        UUID orgId = TenantContext.get().orgId();
+        webhookService.deleteWebhook(orgId, id);
         return ApiResponse.ok(null, "Webhook deleted successfully");
     }
 
@@ -82,5 +104,101 @@ public class WebhookController {
         Pageable pageable = PageRequest.of(page, size);
         PageResponse<WebhookDeliveryDto> deliveries = webhookService.getDeliveries(id, pageable);
         return ApiResponse.ok(deliveries);
+    }
+
+    @PostMapping("/{id}/test")
+    public ApiResponse<WebhookDeliveryDto> testWebhook(@PathVariable UUID id) {
+        UUID orgId = TenantContext.get().orgId();
+        WebhookEntity webhook = webhookService.getWebhookEntity(orgId, id);
+
+        // Build a synthetic test payload
+        Map<String, Object> testPayload = Map.of(
+                "eventId", UUID.randomUUID().toString(),
+                "eventType", "webhook.test",
+                "aggregateType", "Webhook",
+                "aggregateId", id.toString(),
+                "orgId", orgId.toString(),
+                "timestamp", Instant.now().toString(),
+                "payload", Map.of("test", true, "message", "This is a test webhook delivery")
+        );
+
+        WebhookDispatcher.DeliveryResult result = webhookDispatcher.deliverTestPayload(webhook, testPayload);
+
+        // Record the delivery
+        WebhookDeliveryEntity delivery = new WebhookDeliveryEntity();
+        delivery.setWebhookId(webhook.getId());
+        delivery.setEventType("webhook.test");
+        delivery.setPayload(result.payloadJson());
+        delivery.setStatusCode(result.statusCode());
+        delivery.setResponseBody(result.responseBody());
+        delivery.setSuccess(result.success());
+        delivery.setDeliveredAt(Instant.now());
+        WebhookDeliveryEntity saved = webhookDeliveryRepository.save(delivery);
+
+        WebhookDeliveryDto dto = new WebhookDeliveryDto(
+                saved.getId(),
+                saved.getWebhookId(),
+                saved.getEventType(),
+                saved.getStatusCode(),
+                saved.isSuccess(),
+                saved.getDeliveredAt()
+        );
+        return ApiResponse.ok(dto, result.success() ? "Test delivery successful" : "Test delivery failed");
+    }
+
+    @PostMapping("/{id}/reset-circuit")
+    public ApiResponse<WebhookDto> resetCircuit(@PathVariable UUID id) {
+        UUID orgId = TenantContext.get().orgId();
+        WebhookDto webhook = webhookService.resetCircuit(orgId, id);
+        return ApiResponse.ok(webhook, "Circuit breaker reset successfully");
+    }
+
+    @GetMapping("/{id}/outbox")
+    public ApiResponse<List<WebhookOutboxDto>> getOutboxEntries(
+            @PathVariable UUID id,
+            @RequestParam(required = false) String status,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        Pageable pageable = PageRequest.of(page, size);
+        List<WebhookOutboxEntity> entries;
+        if (status != null && !status.isBlank()) {
+            entries = webhookOutboxRepository.findByWebhookIdAndStatusOrderByCreatedAtDesc(id, status, pageable);
+        } else {
+            entries = webhookOutboxRepository.findByWebhookIdOrderByCreatedAtDesc(id, pageable);
+        }
+        List<WebhookOutboxDto> dtos = entries.stream().map(this::toOutboxDto).toList();
+        return ApiResponse.ok(dtos);
+    }
+
+    @PostMapping("/{id}/outbox/{outboxId}/retry")
+    public ApiResponse<WebhookOutboxDto> retryOutboxEntry(
+            @PathVariable UUID id,
+            @PathVariable UUID outboxId) {
+        WebhookOutboxEntity entry = webhookOutboxRepository.findById(outboxId)
+                .orElseThrow(() -> new io.ruleforge.common.exception.EntityNotFoundException(
+                        "WebhookOutbox", outboxId.toString()));
+        if (!entry.getWebhookId().equals(id)) {
+            throw new io.ruleforge.common.exception.EntityNotFoundException(
+                    "WebhookOutbox", outboxId.toString());
+        }
+        entry.setStatus("PENDING");
+        entry.setNextAttemptAt(java.time.OffsetDateTime.now());
+        WebhookOutboxEntity saved = webhookOutboxRepository.save(entry);
+        return ApiResponse.ok(toOutboxDto(saved), "Outbox entry queued for retry");
+    }
+
+    private WebhookOutboxDto toOutboxDto(WebhookOutboxEntity entity) {
+        return new WebhookOutboxDto(
+                entity.getId(),
+                entity.getWebhookId(),
+                entity.getEventType(),
+                entity.getStatus(),
+                entity.getAttemptCount(),
+                entity.getNextAttemptAt(),
+                entity.getLastAttemptAt(),
+                entity.getLastStatusCode(),
+                entity.getLastError(),
+                entity.getCreatedAt()
+        );
     }
 }
