@@ -2,31 +2,31 @@ package io.ruleforge.event.consumer;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import io.ruleforge.common.event.DomainEvent;
-import io.ruleforge.event.service.AuditEventService;
-import io.ruleforge.event.service.WebhookDispatcher;
+import io.ruleforge.event.service.AuditEventProcessor;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
-import java.util.UUID;
-
 /**
  * Base class providing shared event-handling logic for all Kafka consumers
  * in the event service.
+ *
+ * IMPORTANT: The @KafkaListener methods in subclasses call processEvent() first
+ * (which delegates to AuditEventProcessor, a separate Spring bean, so the
+ * @Transactional annotation on that bean is honoured by the AOP proxy), then
+ * call ack.acknowledge() AFTER the transaction commits. This ensures Kafka
+ * offset is only committed once the outbox entries are persisted.
  */
 abstract class AuditEventConsumer {
 
     private static final Logger log = LoggerFactory.getLogger(AuditEventConsumer.class);
 
-    protected final AuditEventService auditEventService;
-    protected final WebhookDispatcher webhookDispatcher;
+    protected final AuditEventProcessor auditEventProcessor;
     protected final ObjectMapper objectMapper;
 
-    protected AuditEventConsumer(AuditEventService auditEventService,
-                                 WebhookDispatcher webhookDispatcher,
-                                 ObjectMapper objectMapper) {
-        this.auditEventService = auditEventService;
-        this.webhookDispatcher = webhookDispatcher;
+    protected AuditEventConsumer(AuditEventProcessor auditEventProcessor,
+                                  ObjectMapper objectMapper) {
+        this.auditEventProcessor = auditEventProcessor;
         this.objectMapper = objectMapper;
     }
 
@@ -39,31 +39,11 @@ abstract class AuditEventConsumer {
         }
     }
 
-    protected void processAndStore(DomainEvent event) {
-        auditEventService.recordEvent(event);
-    }
-
-    protected void dispatchWebhooks(DomainEvent event) {
-        if (event.orgId() != null) {
-            // Dispatch with orgId as the space context; real spaceId can come from payload
-            UUID spaceId = extractSpaceId(event);
-            if (spaceId != null) {
-                webhookDispatcher.dispatch(spaceId, event);
-            }
-        }
-    }
-
-    private UUID extractSpaceId(DomainEvent event) {
-        if (event.payload() != null && event.payload().containsKey("spaceId")) {
-            Object spaceIdVal = event.payload().get("spaceId");
-            if (spaceIdVal instanceof String s) {
-                try {
-                    return UUID.fromString(s);
-                } catch (IllegalArgumentException e) {
-                    log.warn("Invalid spaceId in event payload: {}", s);
-                }
-            }
-        }
-        return null;
+    /**
+     * Delegates to AuditEventProcessor (a separate Spring bean) so that the
+     * @Transactional on processEvent() is intercepted by the Spring AOP proxy.
+     */
+    protected void processEvent(DomainEvent event) {
+        auditEventProcessor.processEvent(event);
     }
 }

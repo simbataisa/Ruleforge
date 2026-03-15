@@ -13,6 +13,7 @@ dependencies {
     implementation("org.flywaydb:flyway-core:${property("flywayVersion")}")
     implementation("org.flywaydb:flyway-database-postgresql:${property("flywayVersion")}")
     implementation("org.springframework.kafka:spring-kafka")
+    implementation("org.springframework.boot:spring-boot-starter-data-redis")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
 }

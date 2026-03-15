@@ -1,18 +1,13 @@
 package io.ruleforge.event.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import io.ruleforge.common.event.DomainEvent;
-import io.ruleforge.event.entity.WebhookDeliveryEntity;
 import io.ruleforge.event.entity.WebhookEntity;
-import io.ruleforge.event.repository.WebhookDeliveryRepository;
-import io.ruleforge.event.repository.WebhookRepository;
+import io.ruleforge.event.entity.WebhookOutboxEntity;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.http.MediaType;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClient;
 
@@ -22,11 +17,14 @@ import java.nio.charset.StandardCharsets;
 import java.security.InvalidKeyException;
 import java.security.NoSuchAlgorithmException;
 import java.time.Instant;
-import java.util.Collections;
 import java.util.HexFormat;
-import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
+/**
+ * Handles direct HTTP delivery of webhook payloads.
+ * Used by OutboxPoller for production delivery and by the test endpoint.
+ */
 @Service
 public class WebhookDispatcher {
 
@@ -34,124 +32,135 @@ public class WebhookDispatcher {
     private static final String HMAC_ALGORITHM = "HmacSHA256";
     private static final String SIGNATURE_HEADER = "X-Webhook-Signature";
 
-    private final WebhookRepository webhookRepository;
-    private final WebhookDeliveryRepository webhookDeliveryRepository;
     private final RestClient webhookClient;
     private final ObjectMapper objectMapper;
 
-    public WebhookDispatcher(WebhookRepository webhookRepository,
-                             WebhookDeliveryRepository webhookDeliveryRepository,
-                             RestClient webhookClient,
-                             ObjectMapper objectMapper) {
-        this.webhookRepository = webhookRepository;
-        this.webhookDeliveryRepository = webhookDeliveryRepository;
+    public WebhookDispatcher(RestClient webhookClient, ObjectMapper objectMapper) {
         this.webhookClient = webhookClient;
         this.objectMapper = objectMapper;
     }
 
-    @Async
-    public void dispatch(UUID spaceId, DomainEvent event) {
-        List<WebhookEntity> activeWebhooks = webhookRepository.findBySpaceIdAndActiveTrue(spaceId);
+    /**
+     * Result of a direct webhook delivery attempt.
+     */
+    public record DeliveryResult(
+            boolean success,
+            int statusCode,
+            String responseBody,
+            String payloadJson,
+            String errorMessage
+    ) {}
 
-        for (WebhookEntity webhook : activeWebhooks) {
-            if (isSubscribedToEvent(webhook, event.eventType())) {
-                deliverWebhook(webhook, event);
-            }
-        }
-    }
-
-    private boolean isSubscribedToEvent(WebhookEntity webhook, String eventType) {
-        List<String> subscribedEvents = deserializeEvents(webhook.getEvents());
-        if (subscribedEvents.isEmpty()) {
-            return false;
-        }
-        // Support wildcard "*" to subscribe to all events
-        if (subscribedEvents.contains("*")) {
-            return true;
-        }
-        // Support prefix matching, e.g. "rule.*" matches "rule.created"
-        for (String subscribed : subscribedEvents) {
-            if (subscribed.equals(eventType)) {
-                return true;
-            }
-            if (subscribed.endsWith(".*")) {
-                String prefix = subscribed.substring(0, subscribed.length() - 1);
-                if (eventType.startsWith(prefix)) {
-                    return true;
-                }
-            }
-        }
-        return false;
-    }
-
-    private void deliverWebhook(WebhookEntity webhook, DomainEvent event) {
+    /**
+     * Deliver a webhook payload directly via HTTP POST.
+     *
+     * @param webhook      the webhook entity with url and secret
+     * @param outboxEntry  the outbox entry containing the payload
+     * @return delivery result
+     */
+    public DeliveryResult deliverDirect(WebhookEntity webhook, WebhookOutboxEntity outboxEntry) {
         String payloadJson;
         try {
-            payloadJson = objectMapper.writeValueAsString(event);
+            payloadJson = objectMapper.writeValueAsString(outboxEntry.getPayload());
         } catch (JsonProcessingException e) {
-            log.error("Failed to serialize event {} for webhook {}: {}",
-                    event.eventId(), webhook.getId(), e.getMessage());
-            return;
+            log.error("Failed to serialize payload for webhook {}: {}",
+                    webhook.getId(), e.getMessage());
+            return new DeliveryResult(false, 0, null, null,
+                    "Payload serialization failed: " + e.getMessage());
         }
 
-        String signature = computeSignature(webhook.getSecret(), payloadJson);
-
-        WebhookDeliveryEntity delivery = new WebhookDeliveryEntity();
-        delivery.setWebhookId(webhook.getId());
-        delivery.setEventType(event.eventType());
-        delivery.setPayload(payloadJson);
-        delivery.setDeliveredAt(Instant.now());
+        // Replay-safe signing: HMAC-SHA256(secret, "{timestamp}.{nonce}.{payload}")
+        long timestamp = Instant.now().getEpochSecond();
+        String nonce = outboxEntry.getAttemptNonce() != null
+                ? outboxEntry.getAttemptNonce().toString()
+                : UUID.randomUUID().toString();
+        String signingInput = timestamp + "." + nonce + "." + payloadJson;
+        String signature = "sha256=" + computeHmac(webhook.getSecret(), signingInput);
 
         try {
             var response = webhookClient.post()
                     .uri(webhook.getUrl())
                     .contentType(MediaType.APPLICATION_JSON)
                     .header(SIGNATURE_HEADER, signature)
+                    .header("X-Webhook-Timestamp", String.valueOf(timestamp))
+                    .header("X-Webhook-Delivery-Id", nonce)
+                    .header("X-Webhook-Id", webhook.getId().toString())
+                    .header("X-Webhook-Schema-Version", "1")
+                    .header("X-Ruleforge-Event", outboxEntry.getEventType())
                     .body(payloadJson)
                     .retrieve()
                     .toEntity(String.class);
 
             int statusCode = response.getStatusCode().value();
-            delivery.setStatusCode(statusCode);
-            delivery.setResponseBody(truncateResponse(response.getBody()));
-            delivery.setSuccess(response.getStatusCode().is2xxSuccessful());
+            boolean success = response.getStatusCode().is2xxSuccessful();
+            String responseBody = truncateResponse(response.getBody());
 
             log.debug("Webhook {} delivered to {} with status {}",
                     webhook.getId(), webhook.getUrl(), statusCode);
 
+            return new DeliveryResult(success, statusCode, responseBody, payloadJson,
+                    success ? null : "HTTP " + statusCode);
         } catch (Exception e) {
             log.warn("Webhook delivery failed for webhook {} to {}: {}",
                     webhook.getId(), webhook.getUrl(), e.getMessage());
-            delivery.setStatusCode(0);
-            delivery.setResponseBody(e.getMessage());
-            delivery.setSuccess(false);
+            return new DeliveryResult(false, 0, null, payloadJson, e.getMessage());
         }
-
-        webhookDeliveryRepository.save(delivery);
     }
 
-    private String computeSignature(String secret, String payload) {
+    /**
+     * Deliver a test payload directly (for the test endpoint).
+     *
+     * @param webhook the webhook entity
+     * @param testPayload a synthetic test payload map
+     * @return delivery result
+     */
+    public DeliveryResult deliverTestPayload(WebhookEntity webhook, Map<String, Object> testPayload) {
+        String payloadJson;
+        try {
+            payloadJson = objectMapper.writeValueAsString(testPayload);
+        } catch (JsonProcessingException e) {
+            return new DeliveryResult(false, 0, null, null,
+                    "Payload serialization failed: " + e.getMessage());
+        }
+
+        long timestamp = Instant.now().getEpochSecond();
+        String nonce = UUID.randomUUID().toString();
+        String signingInput = timestamp + "." + nonce + "." + payloadJson;
+        String signature = "sha256=" + computeHmac(webhook.getSecret(), signingInput);
+
+        try {
+            var response = webhookClient.post()
+                    .uri(webhook.getUrl())
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .header(SIGNATURE_HEADER, signature)
+                    .header("X-Webhook-Timestamp", String.valueOf(timestamp))
+                    .header("X-Webhook-Delivery-Id", nonce)
+                    .header("X-Webhook-Id", webhook.getId().toString())
+                    .header("X-Webhook-Schema-Version", "1")
+                    .header("X-Ruleforge-Event", "webhook.test")
+                    .body(payloadJson)
+                    .retrieve()
+                    .toEntity(String.class);
+
+            int statusCode = response.getStatusCode().value();
+            boolean success = response.getStatusCode().is2xxSuccessful();
+            return new DeliveryResult(success, statusCode, truncateResponse(response.getBody()),
+                    payloadJson, success ? null : "HTTP " + statusCode);
+        } catch (Exception e) {
+            return new DeliveryResult(false, 0, null, payloadJson, e.getMessage());
+        }
+    }
+
+    private String computeHmac(String secret, String data) {
         try {
             Mac mac = Mac.getInstance(HMAC_ALGORITHM);
             SecretKeySpec keySpec = new SecretKeySpec(
                     secret.getBytes(StandardCharsets.UTF_8), HMAC_ALGORITHM);
             mac.init(keySpec);
-            byte[] hash = mac.doFinal(payload.getBytes(StandardCharsets.UTF_8));
-            return "sha256=" + HexFormat.of().formatHex(hash);
+            byte[] hash = mac.doFinal(data.getBytes(StandardCharsets.UTF_8));
+            return HexFormat.of().formatHex(hash);
         } catch (NoSuchAlgorithmException | InvalidKeyException e) {
             throw new IllegalStateException("Failed to compute HMAC-SHA256 signature", e);
-        }
-    }
-
-    private List<String> deserializeEvents(String json) {
-        if (json == null || json.isBlank()) {
-            return Collections.emptyList();
-        }
-        try {
-            return objectMapper.readValue(json, new TypeReference<>() {});
-        } catch (JsonProcessingException e) {
-            log.warn("Failed to deserialize webhook events: {}", e.getMessage());
-            return Collections.emptyList();
         }
     }
 

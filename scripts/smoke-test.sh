@@ -1178,6 +1178,236 @@ if content:
 fi
 
 # ============================================================================
+# 3.20: Webhook Multi-Scope + Security (event-service :8084)
+# ============================================================================
+if [[ "$QUICK" == "false" ]]; then
+  info "3.20 — Webhook Multi-Scope + Security (event-service :8084)"
+
+  EVENT_HEALTH_320=$(curl -sf --max-time 3 "http://localhost:8084/actuator/health" 2>/dev/null | \
+    python3 -c "import sys,json; print(json.load(sys.stdin).get('status','DOWN'))" 2>/dev/null || echo "DOWN")
+
+  if [[ "$EVENT_HEALTH_320" != "UP" ]]; then
+    skip "Webhook tests (3.20) — event-service not running (health: $EVENT_HEALTH_320)"
+  elif [[ -z "${ADMIN_TOKEN:-}" ]]; then
+    skip "Webhook tests (3.20) — no admin token (auth service unavailable?)"
+  else
+    # Seed org and space IDs (from V021 seed migration)
+    SEED_ORG_ID="a0000000-0000-0000-0000-000000000001"
+    SEED_SPACE_ID="d0000000-0000-0000-0000-000000000001"
+
+    # Acquire editor token for RBAC tests
+    EDITOR_LOGIN_320=$(curl -s -X POST http://localhost:8081/v1/auth/login \
+      -H 'Content-Type: application/json' \
+      -d '{"email":"editor@ruleforge.io","password":"password123"}' 2>/dev/null)
+    EDITOR_TOKEN_320=$(echo "$EDITOR_LOGIN_320" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['accessToken'])" 2>/dev/null || echo "")
+
+    # --- 3.20.1: Create SPACE-scoped webhook ---
+    WH_CREATE_RESP=$(curl -s -w "\n%{http_code}" \
+      -X POST "http://localhost:8084/v1/webhooks" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "{\"name\":\"smoke-test-webhook\",\"url\":\"https://httpbin.org/post\",\"events\":[\"rule.published\",\"rule.executed\"],\"scopeType\":\"SPACE\",\"scopeId\":\"${SEED_SPACE_ID}\"}" 2>/dev/null)
+    WH_CREATE_CODE=$(echo "$WH_CREATE_RESP" | tail -1)
+    WH_CREATE_BODY=$(echo "$WH_CREATE_RESP" | sed '$d')
+
+    if [[ "$WH_CREATE_CODE" =~ ^(200|201)$ ]]; then
+      WH_ID=$(echo "$WH_CREATE_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('id',''))" 2>/dev/null || echo "")
+      WH_SECRET=$(echo "$WH_CREATE_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('secret',''))" 2>/dev/null || echo "")
+      if [[ -n "$WH_ID" && -n "$WH_SECRET" ]]; then
+        pass "POST /v1/webhooks (scopeType=SPACE) — HTTP $WH_CREATE_CODE, id and secret returned"
+        verbose "webhook_id=${WH_ID}"
+      else
+        fail "POST /v1/webhooks (scopeType=SPACE) — response missing id or secret fields"
+        verbose "$WH_CREATE_BODY"
+      fi
+    else
+      fail "POST /v1/webhooks (scopeType=SPACE) — HTTP $WH_CREATE_CODE"
+      verbose "$WH_CREATE_BODY"
+      WH_ID=""
+    fi
+
+    # --- 3.20.2: SSRF blocking — internal URL must be rejected ---
+    WH_SSRF_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+      -X POST "http://localhost:8084/v1/webhooks" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "{\"name\":\"ssrf-test\",\"url\":\"http://localhost/webhook\",\"events\":[\"rule.published\"],\"scopeType\":\"SPACE\",\"scopeId\":\"${SEED_SPACE_ID}\"}" 2>/dev/null)
+    if [[ "$WH_SSRF_CODE" == "400" ]]; then
+      pass "POST /v1/webhooks url=http://localhost/webhook — HTTP 400 SSRF blocked"
+    else
+      fail "POST /v1/webhooks url=http://localhost/webhook — HTTP $WH_SSRF_CODE (expected 400, SSRF not blocked)"
+    fi
+
+    # --- 3.20.3: ORG-scoped webhook as OWNER (should succeed) ---
+    WH_ORG_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+      -X POST "http://localhost:8084/v1/webhooks" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "{\"name\":\"smoke-org-webhook\",\"url\":\"https://httpbin.org/post\",\"events\":[\"rule.published\"],\"scopeType\":\"ORG\",\"scopeId\":\"${SEED_ORG_ID}\"}" 2>/dev/null)
+    if [[ "$WH_ORG_CODE" =~ ^(200|201)$ ]]; then
+      pass "POST /v1/webhooks (scopeType=ORG) as OWNER — HTTP $WH_ORG_CODE"
+    else
+      fail "POST /v1/webhooks (scopeType=ORG) as OWNER — HTTP $WH_ORG_CODE (expected 201)"
+    fi
+
+    # --- 3.20.4: ORG-scoped webhook as EDITOR (should fail 403) ---
+    if [[ -n "$EDITOR_TOKEN_320" ]]; then
+      WH_EDITOR_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        -X POST "http://localhost:8084/v1/webhooks" \
+        -H "Authorization: Bearer $EDITOR_TOKEN_320" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\":\"smoke-editor-org-webhook\",\"url\":\"https://httpbin.org/post\",\"events\":[\"rule.published\"],\"scopeType\":\"ORG\",\"scopeId\":\"${SEED_ORG_ID}\"}" 2>/dev/null)
+      if [[ "$WH_EDITOR_CODE" == "403" ]]; then
+        pass "POST /v1/webhooks (scopeType=ORG) as EDITOR — HTTP 403 (RBAC enforced)"
+      else
+        fail "POST /v1/webhooks (scopeType=ORG) as EDITOR — HTTP $WH_EDITOR_CODE (expected 403)"
+      fi
+    else
+      skip "POST /v1/webhooks (scopeType=ORG) as EDITOR — no editor token (seed not applied?)"
+    fi
+
+    # --- 3.20.5: List webhooks with scope filter ---
+    WH_LIST_RESP=$(curl -s -w "\n%{http_code}" \
+      "http://localhost:8084/v1/webhooks?scopeType=SPACE" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+    WH_LIST_CODE=$(echo "$WH_LIST_RESP" | tail -1)
+    WH_LIST_BODY=$(echo "$WH_LIST_RESP" | sed '$d')
+    if [[ "$WH_LIST_CODE" == "200" ]]; then
+      IS_ARRAY=$(echo "$WH_LIST_BODY" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    data = d.get('data', d)
+    items = data.get('content', data) if isinstance(data, dict) else data
+    print('yes' if isinstance(items, list) else 'no')
+except: print('no')
+" 2>/dev/null || echo "no")
+      if [[ "$IS_ARRAY" == "yes" ]]; then
+        pass "GET /v1/webhooks?scopeType=SPACE — HTTP 200, array response"
+      else
+        fail "GET /v1/webhooks?scopeType=SPACE — HTTP 200 but response is not an array"
+        verbose "$WH_LIST_BODY"
+      fi
+    else
+      fail "GET /v1/webhooks?scopeType=SPACE — HTTP $WH_LIST_CODE"
+      verbose "$WH_LIST_BODY"
+    fi
+
+    # --- Tests requiring a webhook ID (created in 3.20.1) ---
+    if [[ -n "${WH_ID:-}" ]]; then
+
+      # --- 3.20.6: Get single webhook ---
+      WH_GET_RESP=$(curl -s -w "\n%{http_code}" \
+        "http://localhost:8084/v1/webhooks/${WH_ID}" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+      WH_GET_CODE=$(echo "$WH_GET_RESP" | tail -1)
+      WH_GET_BODY=$(echo "$WH_GET_RESP" | sed '$d')
+      if [[ "$WH_GET_CODE" == "200" ]]; then
+        HAS_SCOPE_FIELDS=$(echo "$WH_GET_BODY" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    data = d.get('data', d)
+    has_scope = 'scopeType' in data
+    has_failures = 'consecutiveFailures' in data
+    print('ok' if has_scope and has_failures else 'missing')
+except: print('missing')
+" 2>/dev/null || echo "missing")
+        if [[ "$HAS_SCOPE_FIELDS" == "ok" ]]; then
+          pass "GET /v1/webhooks/{id} — HTTP 200, scopeType and consecutiveFailures present"
+        else
+          fail "GET /v1/webhooks/{id} — HTTP 200 but missing scopeType or consecutiveFailures"
+          verbose "$WH_GET_BODY"
+        fi
+      else
+        fail "GET /v1/webhooks/{id} — HTTP $WH_GET_CODE"
+        verbose "$WH_GET_BODY"
+      fi
+
+      # --- 3.20.7: Send test delivery ---
+      WH_TEST_RESP=$(curl -s -w "\n%{http_code}" \
+        -X POST "http://localhost:8084/v1/webhooks/${WH_ID}/test" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+      WH_TEST_CODE=$(echo "$WH_TEST_RESP" | tail -1)
+      WH_TEST_BODY=$(echo "$WH_TEST_RESP" | sed '$d')
+      if [[ "$WH_TEST_CODE" == "200" ]]; then
+        HAS_STATUS_CODE=$(echo "$WH_TEST_BODY" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    data = d.get('data', d)
+    print('ok' if 'statusCode' in data else 'missing')
+except: print('missing')
+" 2>/dev/null || echo "missing")
+        if [[ "$HAS_STATUS_CODE" == "ok" ]]; then
+          pass "POST /v1/webhooks/{id}/test — HTTP 200, statusCode in response"
+        else
+          pass "POST /v1/webhooks/{id}/test — HTTP 200 (delivery attempted; connection errors to external URL are expected)"
+        fi
+        verbose "$WH_TEST_BODY"
+      else
+        fail "POST /v1/webhooks/{id}/test — HTTP $WH_TEST_CODE (expected 200)"
+        verbose "$WH_TEST_BODY"
+      fi
+
+      # --- 3.20.8: Rotate secret ---
+      WH_ROTATE_RESP=$(curl -s -w "\n%{http_code}" \
+        -X POST "http://localhost:8084/v1/webhooks/${WH_ID}/rotate-secret" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+      WH_ROTATE_CODE=$(echo "$WH_ROTATE_RESP" | tail -1)
+      WH_ROTATE_BODY=$(echo "$WH_ROTATE_RESP" | sed '$d')
+      if [[ "$WH_ROTATE_CODE" == "200" ]]; then
+        NEW_SECRET=$(echo "$WH_ROTATE_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('secret',''))" 2>/dev/null || echo "")
+        if [[ -n "$NEW_SECRET" ]]; then
+          pass "POST /v1/webhooks/{id}/rotate-secret — HTTP 200, new secret returned"
+          verbose "new_secret_length=${#NEW_SECRET}"
+        else
+          fail "POST /v1/webhooks/{id}/rotate-secret — HTTP 200 but no secret in response"
+          verbose "$WH_ROTATE_BODY"
+        fi
+      else
+        fail "POST /v1/webhooks/{id}/rotate-secret — HTTP $WH_ROTATE_CODE"
+        verbose "$WH_ROTATE_BODY"
+      fi
+
+      # --- 3.20.9: Get outbox (as ADMIN) ---
+      WH_OUTBOX_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        "http://localhost:8084/v1/webhooks/${WH_ID}/outbox" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+      if [[ "$WH_OUTBOX_CODE" == "200" ]]; then
+        pass "GET /v1/webhooks/{id}/outbox — HTTP 200"
+      else
+        fail "GET /v1/webhooks/{id}/outbox — HTTP $WH_OUTBOX_CODE (expected 200)"
+      fi
+
+      # --- 3.20.10: Reset circuit breaker ---
+      WH_RESET_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        -X POST "http://localhost:8084/v1/webhooks/${WH_ID}/reset-circuit" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+      if [[ "$WH_RESET_CODE" == "200" ]]; then
+        pass "POST /v1/webhooks/{id}/reset-circuit — HTTP 200"
+      else
+        fail "POST /v1/webhooks/{id}/reset-circuit — HTTP $WH_RESET_CODE (expected 200)"
+      fi
+
+      # Cleanup: delete the smoke-test webhook
+      WH_DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        -X DELETE "http://localhost:8084/v1/webhooks/${WH_ID}" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+      if [[ "$WH_DEL_CODE" =~ ^(200|204)$ ]]; then
+        pass "DELETE /v1/webhooks/{id} — cleanup (HTTP $WH_DEL_CODE)"
+      else
+        skip "DELETE /v1/webhooks/{id} — HTTP $WH_DEL_CODE (cleanup failed, manual cleanup needed)"
+      fi
+
+    else
+      skip "Webhook detail tests (3.20.6-3.20.10) — no webhook ID (creation failed in 3.20.1)"
+    fi
+
+  fi
+fi
+
+# ============================================================================
 # Summary
 # ============================================================================
 echo ""

@@ -1,29 +1,17 @@
 import { useState } from 'react';
-import { Plus, Trash2, Pencil } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Plus } from 'lucide-react';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Button } from '@/shared/components/Button';
-import { Input } from '@/shared/components/Input';
 import { Badge } from '@/shared/components/Badge';
-import { DataTable } from '@/shared/components/DataTable';
 import { Spinner } from '@/shared/components/Spinner';
 import { EmptyState } from '@/shared/components/EmptyState';
-import { Modal } from '@/shared/components/Modal';
 import {
   useWebhooks,
-  useCreateWebhook,
-  useUpdateWebhook,
-  useDeleteWebhook,
   type Webhook,
 } from '@/api/webhooks.api';
-import { useToastStore } from '@/stores/toast.store';
-
-const AVAILABLE_EVENTS = [
-  'rule.created',
-  'rule.updated',
-  'rule.deleted',
-  'rule.published',
-  'rule.executed',
-];
+import { WebhookScopeBadge } from '@/features/webhooks/components/WebhookScopeBadge';
+import { CreateWebhookModal } from '@/features/webhooks/components/CreateWebhookModal';
 
 function formatDate(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('en-US', {
@@ -34,77 +22,29 @@ function formatDate(dateStr: string): string {
 }
 
 export function WebhookListPage() {
-  const addToast = useToastStore((s) => s.addToast);
-  const { data: webhooks, isLoading } = useWebhooks();
-  const createWebhook = useCreateWebhook();
-  const updateWebhook = useUpdateWebhook();
-  const deleteWebhook = useDeleteWebhook();
+  const navigate = useNavigate();
+  const { data: webhooks, isLoading, isError, refetch } = useWebhooks();
 
-  const [showModal, setShowModal] = useState(false);
-  const [editingWebhook, setEditingWebhook] = useState<Webhook | null>(null);
-  const [url, setUrl] = useState('');
-  const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
-  const [active, setActive] = useState(true);
-
-  const openCreate = () => {
-    setEditingWebhook(null);
-    setUrl('');
-    setSelectedEvents([]);
-    setActive(true);
-    setShowModal(true);
-  };
-
-  const openEdit = (webhook: Webhook) => {
-    setEditingWebhook(webhook);
-    setUrl(webhook.url);
-    setSelectedEvents(webhook.events);
-    setActive(webhook.active);
-    setShowModal(true);
-  };
-
-  const handleSubmit = () => {
-    const data = { url, events: selectedEvents, active };
-    if (editingWebhook) {
-      updateWebhook.mutate(
-        { id: editingWebhook.id, ...data },
-        {
-          onSuccess: () => {
-            setShowModal(false);
-            addToast({ type: 'success', title: 'Webhook updated' });
-          },
-          onError: () => addToast({ type: 'error', title: 'Failed to update webhook' }),
-        },
-      );
-    } else {
-      createWebhook.mutate(data, {
-        onSuccess: () => {
-          setShowModal(false);
-          addToast({ type: 'success', title: 'Webhook created' });
-        },
-        onError: () => addToast({ type: 'error', title: 'Failed to create webhook' }),
-      });
-    }
-  };
-
-  const handleDelete = (id: string) => {
-    deleteWebhook.mutate(id, {
-      onSuccess: () => addToast({ type: 'success', title: 'Webhook deleted' }),
-      onError: () => addToast({ type: 'error', title: 'Failed to delete webhook' }),
-    });
-  };
-
-  const toggleEvent = (event: string) => {
-    setSelectedEvents((prev) =>
-      prev.includes(event) ? prev.filter((e) => e !== event) : [...prev, event],
-    );
-  };
+  const [showCreateModal, setShowCreateModal] = useState(false);
 
   const columns = [
     {
       key: 'url',
-      header: 'URL',
+      header: 'URL / Name',
       render: (w: Webhook) => (
-        <span className="font-medium text-gray-900 text-sm truncate max-w-xs block">{w.url}</span>
+        <div>
+          {w.name && (
+            <div className="font-medium text-gray-900 text-sm">{w.name}</div>
+          )}
+          <span className="text-gray-500 text-sm truncate max-w-xs block">{w.url}</span>
+        </div>
+      ),
+    },
+    {
+      key: 'scope',
+      header: 'Scope',
+      render: (w: Webhook) => (
+        <WebhookScopeBadge scopeType={w.scopeType ?? 'ORG'} />
       ),
     },
     {
@@ -121,37 +61,26 @@ export function WebhookListPage() {
     {
       key: 'active',
       header: 'Status',
-      render: (w: Webhook) => (
-        <Badge className={w.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}>
-          {w.active ? 'Active' : 'Inactive'}
-        </Badge>
-      ),
+      render: (w: Webhook) => {
+        if (w.circuitStatus === 'OPEN') {
+          return (
+            <Badge className="bg-orange-100 text-orange-800">
+              ⚡ Circuit Open
+            </Badge>
+          );
+        }
+        return (
+          <Badge className={w.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-600'}>
+            {w.active ? 'Active' : 'Inactive'}
+          </Badge>
+        );
+      },
     },
     {
       key: 'createdAt',
       header: 'Created',
       render: (w: Webhook) => (
         <span className="text-gray-500">{formatDate(w.createdAt)}</span>
-      ),
-    },
-    {
-      key: 'actions',
-      header: '',
-      render: (w: Webhook) => (
-        <div className="flex items-center gap-1">
-          <button
-            onClick={(e) => { e.stopPropagation(); openEdit(w); }}
-            className="p-1.5 rounded text-gray-400 hover:text-indigo-600 hover:bg-gray-100"
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-          <button
-            onClick={(e) => { e.stopPropagation(); handleDelete(w.id); }}
-            className="p-1.5 rounded text-gray-400 hover:text-red-600 hover:bg-gray-100"
-          >
-            <Trash2 className="h-4 w-4" />
-          </button>
-        </div>
       ),
     },
   ];
@@ -164,6 +93,19 @@ export function WebhookListPage() {
     );
   }
 
+  if (isError) {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-6 flex items-center justify-between">
+        <p className="text-sm text-red-700 font-medium">
+          Failed to load webhooks. Please try again.
+        </p>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          Retry
+        </Button>
+      </div>
+    );
+  }
+
   const webhookList = webhooks ?? [];
 
   return (
@@ -172,7 +114,7 @@ export function WebhookListPage() {
         title="Webhooks"
         description="Configure HTTP callbacks for rule lifecycle events."
         actions={
-          <Button onClick={openCreate}>
+          <Button onClick={() => setShowCreateModal(true)}>
             <Plus className="h-4 w-4" />
             Create Webhook
           </Button>
@@ -185,65 +127,47 @@ export function WebhookListPage() {
           description="Create a webhook to receive notifications when events occur."
         />
       ) : (
-        <DataTable data={webhookList} columns={columns} />
+        <div className="overflow-hidden">
+          <table className="w-full text-sm">
+            <thead className="bg-gray-50 border-b border-gray-200">
+              <tr>
+                {columns.map((col) => (
+                  <th
+                    key={col.key}
+                    className="text-left px-4 py-3 font-medium text-gray-500"
+                  >
+                    {col.header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-gray-100">
+              {webhookList.map((webhook) => (
+                <tr
+                  key={webhook.id}
+                  className={`cursor-pointer transition-colors hover:bg-gray-50 ${
+                    webhook.circuitStatus === 'OPEN' ? 'bg-orange-50' : ''
+                  }`}
+                  onClick={() => navigate(`/webhooks/${webhook.id}`)}
+                >
+                  {columns.map((col) => (
+                    <td key={col.key} className="px-4 py-3">
+                      {col.render(webhook)}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
-      <Modal
-        open={showModal}
-        onClose={() => setShowModal(false)}
-        title={editingWebhook ? 'Edit Webhook' : 'Create Webhook'}
-        footer={
-          <>
-            <Button variant="outline" onClick={() => setShowModal(false)}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleSubmit}
-              disabled={!url || selectedEvents.length === 0 || createWebhook.isPending || updateWebhook.isPending}
-            >
-              {editingWebhook ? 'Update' : 'Create'}
-            </Button>
-          </>
-        }
-      >
-        <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">URL</label>
-            <Input
-              value={url}
-              onChange={(e) => setUrl(e.target.value)}
-              placeholder="https://example.com/webhook"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Events</label>
-            <div className="space-y-2">
-              {AVAILABLE_EVENTS.map((event) => (
-                <label key={event} className="flex items-center gap-2 text-sm">
-                  <input
-                    type="checkbox"
-                    checked={selectedEvents.includes(event)}
-                    onChange={() => toggleEvent(event)}
-                    className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-                  />
-                  {event}
-                </label>
-              ))}
-            </div>
-          </div>
-          <div>
-            <label className="flex items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={active}
-                onChange={(e) => setActive(e.target.checked)}
-                className="rounded border-gray-300 text-indigo-600 focus:ring-indigo-500"
-              />
-              <span className="font-medium text-gray-700">Active</span>
-            </label>
-          </div>
-        </div>
-      </Modal>
+      {showCreateModal && (
+        <CreateWebhookModal
+          onClose={() => setShowCreateModal(false)}
+          onSuccess={() => setShowCreateModal(false)}
+        />
+      )}
     </div>
   );
 }

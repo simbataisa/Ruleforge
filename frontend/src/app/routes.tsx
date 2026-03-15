@@ -18,6 +18,9 @@ const AuditLogPage = lazy(() =>
 const WebhookListPage = lazy(() =>
   import('@/features/webhooks/pages/WebhookListPage').then((m) => ({ default: m.WebhookListPage })),
 );
+const WebhookDetailPage = lazy(() =>
+  import('@/features/webhooks/pages/WebhookDetailPage').then((m) => ({ default: m.WebhookDetailPage })),
+);
 const TagListPage = lazy(() =>
   import('@/features/tags/pages/TagListPage').then((m) => ({ default: m.TagListPage })),
 );
@@ -117,6 +120,7 @@ export const router = createBrowserRouter([
       { path: '/profile', element: <Lazy><ProfilePage /></Lazy> },
       { path: '/audit', element: <Lazy><AuditLogPage /></Lazy> },
       { path: '/webhooks', element: <Lazy><WebhookListPage /></Lazy> },
+      { path: '/webhooks/:id', element: <Lazy><WebhookDetailPage /></Lazy> },
       { path: '/tags', element: <Lazy><TagListPage /></Lazy> },
       { path: '/spaces', element: <Lazy><SpaceListPage /></Lazy> },
       { path: '/spaces/:id', element: <Lazy><SpaceDetailPage /></Lazy> },

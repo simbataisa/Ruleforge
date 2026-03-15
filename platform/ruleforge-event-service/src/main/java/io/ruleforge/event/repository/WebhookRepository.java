@@ -1,6 +1,7 @@
 package io.ruleforge.event.repository;
 
 import io.ruleforge.event.entity.WebhookEntity;
+import io.ruleforge.event.model.WebhookScopeType;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.List;
@@ -9,9 +10,11 @@ import java.util.UUID;
 
 public interface WebhookRepository extends JpaRepository<WebhookEntity, UUID> {
 
-    List<WebhookEntity> findBySpaceIdAndActiveTrue(UUID spaceId);
+    List<WebhookEntity> findByScopeTypeAndScopeId(WebhookScopeType scopeType, UUID scopeId);
 
-    List<WebhookEntity> findBySpaceId(UUID spaceId);
+    List<WebhookEntity> findByOrgId(UUID orgId);
 
-    Optional<WebhookEntity> findByIdAndSpaceId(UUID id, UUID spaceId);
+    List<WebhookEntity> findByOrgIdAndActiveTrue(UUID orgId);
+
+    Optional<WebhookEntity> findByIdAndOrgId(UUID id, UUID orgId);
 }
