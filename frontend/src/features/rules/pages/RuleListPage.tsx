@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   Plus, Search, RefreshCw, ChevronLeft, ChevronRight, Upload,
   LayoutList, LayoutGrid, MoreVertical, Pencil, Play, SendHorizontal,
-  Copy, Trash2, Lock, X, FolderOpen,
+  Copy, Trash2, Lock, X, FolderOpen, Layers,
 } from 'lucide-react';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Button } from '@/shared/components/Button';
@@ -20,6 +20,7 @@ import { CreateFolderModal } from '@/features/rules/components/CreateFolderModal
 import { ImportRuleModal } from '@/features/rules/components/ImportRuleModal';
 import { ExportRuleButton } from '@/features/rules/components/ExportRuleButton';
 import { RequestApprovalModal } from '@/features/rules/components/RequestApprovalModal';
+import { AssignToSpaceModal } from '@/features/rules/components/AssignToSpaceModal';
 import { FilterChips } from '@/features/rules/components/FilterChips';
 import { TagBadge } from '@/features/rules/components/TagBadge';
 import { RuleTypeIcon } from '@/features/rules/components/RuleTypeIcon';
@@ -89,6 +90,7 @@ export function RuleListPage() {
   const [createFolderParentId, setCreateFolderParentId] = useState<string | undefined>();
   const [actionMenuRuleId, setActionMenuRuleId] = useState<string | null>(null);
   const [approvalModalRules, setApprovalModalRules] = useState<Rule[]>([]);
+  const [assignToSpaceRules, setAssignToSpaceRules] = useState<Rule[]>([]);
 
   // Persist view mode
   useEffect(() => {
@@ -348,6 +350,16 @@ export function RuleListPage() {
                 className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
               >
                 <Copy className="h-3.5 w-3.5" /> Duplicate
+              </button>
+              <button
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActionMenuRuleId(null);
+                  setAssignToSpaceRules([rule]);
+                }}
+                className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+              >
+                <Layers className="h-3.5 w-3.5" /> Assign to Space
               </button>
               <div className="px-3 py-1">
                 <ExportRuleButton ruleId={rule.id} ruleName={rule.name} variant="menu" />
@@ -788,6 +800,10 @@ export function RuleListPage() {
         onRequestApproval={handleBatchRequestApproval}
         onExport={handleBatchExport}
         onClearSelection={() => setSelectedRuleIds(new Set())}
+        onAssignToSpace={() => {
+          const selected = rules.filter((r) => selectedRuleIds.has(r.id));
+          setAssignToSpaceRules(selected);
+        }}
       />
 
       {/* Modals */}
@@ -828,6 +844,17 @@ export function RuleListPage() {
           refetchRules();
         }}
       />
+
+      {assignToSpaceRules.length > 0 && (
+        <AssignToSpaceModal
+          rules={assignToSpaceRules}
+          onClose={() => setAssignToSpaceRules([])}
+          onSuccess={() => {
+            setSelectedRuleIds(new Set());
+            refetchRules();
+          }}
+        />
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { X, SendHorizontal, Download, CheckSquare } from 'lucide-react';
+import { X, SendHorizontal, Download, CheckSquare, Layers } from 'lucide-react';
 
 interface BatchActionBarProps {
   selectedCount: number;
@@ -6,6 +6,7 @@ interface BatchActionBarProps {
   onRequestApproval: () => void;
   onExport: () => void;
   onClearSelection: () => void;
+  onAssignToSpace?: () => void;
 }
 
 export function BatchActionBar({
@@ -14,6 +15,7 @@ export function BatchActionBar({
   onRequestApproval,
   onExport,
   onClearSelection,
+  onAssignToSpace,
 }: BatchActionBarProps) {
   if (selectedCount === 0) return null;
 
@@ -41,6 +43,15 @@ export function BatchActionBar({
             >
               <SendHorizontal className="h-3.5 w-3.5" />
               Request Approval
+            </button>
+          )}
+          {onAssignToSpace && (
+            <button
+              onClick={onAssignToSpace}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
+            >
+              <Layers className="h-3.5 w-3.5" />
+              Assign to Space
             </button>
           )}
           <button

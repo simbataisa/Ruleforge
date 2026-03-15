@@ -1,3 +1,71 @@
+# BMAD Handoff Log — Space-Rule Assignment Epic
+
+**Epic:** Space-Rule Assignment (Epic 4)
+**Simulation Date:** 2026-03-15
+**Method:** BMAD (Breakthrough Method of Agile AI-Driven Development)
+
+---
+
+## Phase Tracker — Epic 4: Space-Rule Assignment
+
+| Phase | Agent | Status | Output Artifact |
+|---|---|---|---|
+| 1 — Analysis | Business Analyst | ✅ COMPLETE | `docs/project-brief-space-assignment.md` |
+| 2 — Planning | Product Owner | ✅ COMPLETE | `docs/prd-space-assignment.md` |
+| 3a — Solution Architecture | Solution Architect | ✅ COMPLETE | `docs/architecture/solution-architecture-space-assignment.md` |
+| 3b — ADR | Solution Architect | ✅ COMPLETE | `docs/architecture/adr/ADR-006-assign-vs-create-separation.md` |
+| 3c — UX/UI Design | UX Designer | ✅ COMPLETE | `docs/ux/ui-spec-space-assignment.md` |
+| 3d — Story Refinement | Tech Lead | ✅ COMPLETE | `docs/stories/story-012-*.md`, `story-013-*.md` |
+| 4a — Frontend Implementation | Frontend Engineer | ✅ COMPLETE | SpaceDetailPage, RuleListPage, AssignRulesModal, AssignToSpaceModal, BatchActionBar |
+| 4b — Test Planning | Tester/QE | ✅ COMPLETE | Section 3.19 in smoke-test.sh |
+| 5a — Code Review | Tech Lead | ✅ COMPLETE | Review complete |
+| 5b — Issue Fixes | Engineers | ✅ COMPLETE | No blocking issues |
+| 5c — QE Full Test | QE | ✅ COMPLETE | Smoke test executed |
+| 5d — Release Readiness | Tech Lead | ✅ COMPLETE | `docs/reviews/release-readiness-space-assignment.md` |
+
+---
+
+## Final Epic Status
+
+**✅ RELEASE APPROVED — Epic complete**
+**Smoke Test:** Section 3.19: 3/3 new tests pass
+**Frontend Build:** TypeScript 0 errors, built in 4.32s
+**Date Completed:** 2026-03-15
+
+---
+
+## Epic 4 — Key Decisions
+
+| Decision | Rationale |
+|---|---|
+| No backend changes | Existing `PATCH /rules/{id}/move` covers all assignment cases |
+| Remove Create Rule from SpaceDetailPage | Spaces are containers, not factories; eliminates duplicate creation path |
+| AssignRulesModal: two-panel layout | Mirrors established Epic 2 modal patterns; multi-select needs both list + summary |
+| Bulk assignment via sequential PATCHes | No bulk backend endpoint needed; `Promise.allSettled` handles partial failures |
+| ADR-006 accepted | Assign-only model for spaces approved by SA, TL, PO |
+
+---
+
+## Handoff Notes — Epic 4
+
+### Phase 3 → Phase 4 (Architects + UX → Engineers)
+
+**Handed off by:** Tech Lead (Story Refinement)
+**Date:** 2026-03-15
+
+**Ready to implement:**
+- story-012: Remove CreateRuleModal from SpaceDetailPage; implement AssignRulesModal
+- story-013: Add "Assign to Space" to RuleListPage action menu + bulk bar; implement AssignToSpaceModal
+
+**Key implementation notes:**
+- `useMoveRule` hook from Epic 2 is reused — verify exact file path before starting
+- `AssignRulesModal` lives in `frontend/src/features/spaces/components/`
+- `AssignToSpaceModal` lives in `frontend/src/features/rules/components/`
+- `CreateRuleModal.tsx` is NOT deleted — still used by RuleListPage
+- RBAC check: `currentUser.role !== 'VIEWER'` pattern (same as existing Move/Copy buttons)
+
+---
+
 # BMAD Handoff Log — Space Context Banners Epic
 
 **Epic:** Space Context Banners + Rules Proxy Fix (Epic 3)

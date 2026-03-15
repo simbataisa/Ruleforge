@@ -1103,6 +1103,81 @@ for s in spaces:
 fi
 
 # ============================================================================
+# 3.19: Space-Rule Assignment — assign existing rules to spaces via move endpoint
+# ============================================================================
+if [[ "$QUICK" == "false" ]]; then
+  info "3.19 — Space-Rule Assignment — assign rules to spaces via PATCH /rules/{id}/move"
+
+  if [[ -n "$ADMIN_TOKEN" ]]; then
+    # Get spaces to find target space
+    SPACES_3_19=$(curl -s "http://localhost:8081/v1/organizations/current/spaces" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+
+    TARGET_SPACE_3_19=$(echo "$SPACES_3_19" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+spaces = data.get('data', [])
+if spaces:
+    print(spaces[0]['id'])
+" 2>/dev/null)
+
+    if [[ -n "$TARGET_SPACE_3_19" ]]; then
+      # Get rules for assignment test
+      RULES_3_19=$(curl -s "http://localhost:8082/v1/spaces/${TARGET_SPACE_3_19}/rules?page=0&size=1" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+      RULES_CODE_3_19=$(curl -s -o /dev/null -w "%{http_code}" \
+        "http://localhost:8082/v1/spaces/${TARGET_SPACE_3_19}/rules?page=0&size=1" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+
+      if [[ "$RULES_CODE_3_19" == "200" ]]; then
+        pass "GET /v1/spaces/{id}/rules — returns 200 (used for current-space rule filtering)"
+      else
+        fail "GET /v1/spaces/{id}/rules — HTTP $RULES_CODE_3_19 (expected 200)"
+      fi
+
+      # Verify all-org rules endpoint (used by AssignRulesModal to fetch org-wide rules)
+      ALL_RULES_CODE_3_19=$(curl -s -o /dev/null -w "%{http_code}" \
+        "http://localhost:8082/v1/rules?page=0&size=200" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+      if [[ "$ALL_RULES_CODE_3_19" == "200" ]]; then
+        pass "GET /v1/rules?page=0&size=200 — returns 200 (used by AssignRulesModal)"
+      else
+        fail "GET /v1/rules?page=0&size=200 — HTTP $ALL_RULES_CODE_3_19 (expected 200)"
+      fi
+
+      # Verify move endpoint exists and responds (used for rule assignment)
+      RULE_ID_3_19=$(echo "$RULES_3_19" | python3 -c "
+import sys, json
+data = json.load(sys.stdin)
+content = data.get('data', {}).get('content', [])
+if content:
+    print(content[0]['id'])
+" 2>/dev/null)
+
+      if [[ -n "$RULE_ID_3_19" ]]; then
+        # Move rule to the same space (no-op move — verifies endpoint exists)
+        MOVE_CODE_3_19=$(curl -s -o /dev/null -w "%{http_code}" \
+          -X PATCH "http://localhost:8082/v1/rules/${RULE_ID_3_19}/move" \
+          -H "Authorization: Bearer $ADMIN_TOKEN" \
+          -H "Content-Type: application/json" \
+          -d "{\"targetSpaceId\": \"${TARGET_SPACE_3_19}\"}" 2>/dev/null)
+        if [[ "$MOVE_CODE_3_19" == "200" ]]; then
+          pass "PATCH /v1/rules/{id}/move — returns 200 (rule assignment endpoint works)"
+        else
+          fail "PATCH /v1/rules/{id}/move — HTTP $MOVE_CODE_3_19 (expected 200)"
+        fi
+      else
+        skip "3.19 move endpoint test — no rules found in target space to test with"
+      fi
+    else
+      skip "3.19 space-rule assignment tests — no spaces found in org"
+    fi
+  else
+    skip "3.19 space-rule assignment tests — no admin token available"
+  fi
+fi
+
+# ============================================================================
 # Summary
 # ============================================================================
 echo ""

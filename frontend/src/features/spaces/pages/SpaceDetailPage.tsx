@@ -10,13 +10,12 @@ import { Spinner } from '@/shared/components/Spinner';
 import { Select } from '@/shared/components/Select';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { useSpace } from '@/api/org.api';
-import { useSpaceRules, useCreateSpaceRule, useDeleteRule } from '@/api/rules.api';
-import { useFolders } from '@/api/folders.api';
+import { useSpaceRules, useDeleteRule } from '@/api/rules.api';
 import { MoveRuleModal } from '@/features/spaces/components/MoveRuleModal';
 import { CopyRuleModal } from '@/features/spaces/components/CopyRuleModal';
-import { CreateRuleModal } from '@/features/rules/components/CreateRuleModal';
+import { AssignRulesModal } from '@/features/spaces/components/AssignRulesModal';
 import { useToastStore } from '@/stores/toast.store';
-import type { Rule, RuleType } from '@/api/types/rule.types';
+import type { Rule } from '@/api/types/rule.types';
 
 const RULE_TYPES = ['TABLE', 'TREE', 'SCORECARD', 'FLOW', 'SCRIPT', 'DMN', 'CEP', 'ENSEMBLE'];
 const RULE_STATUSES = ['DRAFT', 'PUBLISHED', 'ARCHIVED', 'PENDING_APPROVAL'];
@@ -67,10 +66,7 @@ export function SpaceDetailPage() {
   const { data: space, isLoading, isError } = useSpace(id ?? '');
   const { data: rulesPage, isLoading: rulesLoading, isError: rulesError, refetch: refetchRules } =
     useSpaceRules(id ?? '');
-  const { data: foldersData } = useFolders();
-  const createSpaceRule = useCreateSpaceRule(id ?? '');
   const deleteRule = useDeleteRule();
-  const folders = useMemo(() => (Array.isArray(foldersData) ? foldersData : []), [foldersData]);
 
   // Search / filter state
   const [search, setSearch] = useState('');
@@ -79,12 +75,13 @@ export function SpaceDetailPage() {
   const [actionMenuRuleId, setActionMenuRuleId] = useState<string | null>(null);
 
   // Modal state
-  const [showCreateRule, setShowCreateRule] = useState(false);
+  const [showAssignRules, setShowAssignRules] = useState(false);
   const [moveRule, setMoveRule] = useState<Rule | null>(null);
   const [copyRule, setCopyRule] = useState<Rule | null>(null);
   const [deleteConfirmRule, setDeleteConfirmRule] = useState<Rule | null>(null);
 
   const allRules: Rule[] = useMemo(() => rulesPage?.content ?? [], [rulesPage]);
+  const currentRuleIds = useMemo(() => new Set(allRules.map((r) => r.id)), [allRules]);
 
   const filteredRules = useMemo(() => {
     return allRules.filter((r) => {
@@ -97,17 +94,6 @@ export function SpaceDetailPage() {
 
   const hasFilters = !!search || !!filterType || !!filterStatus;
   const clearFilters = () => { setSearch(''); setFilterType(''); setFilterStatus(''); };
-
-  const handleCreateRule = (data: { name: string; type: RuleType; description?: string; alias?: string; folderId?: string }) => {
-    createSpaceRule.mutate(data, {
-      onSuccess: (response) => {
-        setShowCreateRule(false);
-        addToast({ type: 'success', title: 'Rule created successfully' });
-        if (response?.id) navigate(`/rules/${response.id}/edit`);
-      },
-      onError: () => addToast({ type: 'error', title: 'Failed to create rule' }),
-    });
-  };
 
   const handleDeleteRule = () => {
     if (!deleteConfirmRule) return;
@@ -236,9 +222,17 @@ export function SpaceDetailPage() {
               >
                 <RefreshCw className={`h-4 w-4 ${rulesLoading ? 'animate-spin' : ''}`} />
               </Button>
-              <Button size="sm" onClick={() => setShowCreateRule(true)}>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/rules')}
+              >
                 <Plus className="h-4 w-4" />
                 Create Rule
+              </Button>
+              <Button size="sm" onClick={() => setShowAssignRules(true)}>
+                <Plus className="h-4 w-4" />
+                Assign Rules
               </Button>
             </div>
           </div>
@@ -316,12 +310,21 @@ export function SpaceDetailPage() {
                 <>
                   <BookOpen className="h-12 w-12 text-gray-300" />
                   <div>
-                    <p className="text-gray-600 font-medium">No rules in this space yet</p>
-                    <p className="text-sm text-gray-400 mt-1">Create your first rule to get started.</p>
+                    <p className="text-gray-600 font-medium">No rules assigned to this space</p>
+                    <p className="text-sm text-gray-400 mt-1">
+                      Assign existing rules or create new ones from the{' '}
+                      <button
+                        onClick={() => navigate('/rules')}
+                        className="text-blue-600 hover:text-blue-700 underline"
+                      >
+                        Rules page
+                      </button>
+                      .
+                    </p>
                   </div>
-                  <Button onClick={() => setShowCreateRule(true)}>
+                  <Button onClick={() => setShowAssignRules(true)}>
                     <Plus className="h-4 w-4" />
-                    Create Rule
+                    Assign Rules
                   </Button>
                 </>
               )}
@@ -434,13 +437,12 @@ export function SpaceDetailPage() {
       </div>
 
       {/* Modals */}
-      {showCreateRule && (
-        <CreateRuleModal
-          open={showCreateRule}
-          onClose={() => setShowCreateRule(false)}
-          onSubmit={handleCreateRule}
-          loading={createSpaceRule.isPending}
-          folders={folders}
+      {showAssignRules && id && (
+        <AssignRulesModal
+          spaceId={id}
+          currentRuleIds={currentRuleIds}
+          onClose={() => setShowAssignRules(false)}
+          onSuccess={() => { setShowAssignRules(false); refetchRules(); }}
         />
       )}
 

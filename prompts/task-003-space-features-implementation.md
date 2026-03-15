@@ -9,9 +9,8 @@ Read `.bmad-agents/BMAD-SHARED-CONTEXT.md` first for the shared framework. Befor
   - **Use cases:** FinServ, Insurance, Healthcare, E-commerce.
 
 - **Epic to implement:** Spaces page features
-  - When loading the Sandbox space, there should be a banner that states "This is the Sandbox space. Any rules created here will be visible to all spaces."
-  - When loading a non-Sandbox space, there should be a banner that states "This is a production space. Any rules created here will be visible to all spaces."
-  - The Sandbox space currently has an error message "Server error. Please try again. :3000/v1/spaces/6b093c21-3626-4ffb-9c3d-1a0761de8c3d/rules:1 Failed to load resource: the server responded with a status of 500 (Internal Server Error)". This should be fixed.
+  - The spaces should only allow rules to be assigned instead of having user to create rules. This is becasue we already have rules page
+  - In Rules page, we can have rule to assign to spaces too.
 
 - **Tech stack:** Java 21, Spring Boot 3.3.5 microservices (Gradle), React 18 + Vite, TypeScript 5.5, Tailwind CSS 3.4, Zustand, React Query, PostgreSQL 16 (Flyway), Redis 7, Kafka 3.7.1, Elasticsearch 8, MinIO.
 - **Key constraints:** Strict highly modular UI components, OpenAPI 3.0 adherence, proper error handling, explicit Flyway SQL scripts for DB changes, comprehensive test coverage (unit/smoke).
