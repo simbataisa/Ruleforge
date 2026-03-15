@@ -77,7 +77,7 @@ export function WebhookDetailPage() {
 
   const handleTest = () => {
     if (!id) return;
-    testWebhook.mutate(id, {
+    testWebhook.mutate({ webhookId: id }, {
       onSuccess: () => addToast({ type: 'success', title: 'Test delivery sent' }),
       onError: () => addToast({ type: 'error', title: 'Failed to send test delivery' }),
     });

@@ -169,12 +169,16 @@ export function useRotateSecret() {
 }
 
 export function useTestWebhook() {
+  const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async (webhookId: string) => {
+    mutationFn: async ({ webhookId }: { webhookId: string }) => {
       const res = await apiClient.post<ApiResponse<WebhookDelivery>>(
         `/webhooks/${webhookId}/test`,
       );
       return res.data.data;
+    },
+    onSuccess: (_data, vars) => {
+      queryClient.invalidateQueries({ queryKey: ['webhook-deliveries', vars.webhookId] });
     },
   });
 }

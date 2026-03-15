@@ -23,7 +23,7 @@ function formatDate(dateStr: string): string {
 
 export function WebhookListPage() {
   const navigate = useNavigate();
-  const { data: webhooks, isLoading } = useWebhooks();
+  const { data: webhooks, isLoading, isError, refetch } = useWebhooks();
 
   const [showCreateModal, setShowCreateModal] = useState(false);
 
@@ -89,6 +89,19 @@ export function WebhookListPage() {
     return (
       <div className="flex items-center justify-center h-64">
         <Spinner size="lg" />
+      </div>
+    );
+  }
+
+  if (isError) {
+    return (
+      <div className="rounded-lg border border-red-200 bg-red-50 p-6 flex items-center justify-between">
+        <p className="text-sm text-red-700 font-medium">
+          Failed to load webhooks. Please try again.
+        </p>
+        <Button variant="outline" size="sm" onClick={() => refetch()}>
+          Retry
+        </Button>
       </div>
     );
   }

@@ -32,10 +32,14 @@ export function WebhookSecurityTab({ webhookId }: Props) {
   };
 
   const handleCopy = (text: string) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    navigator.clipboard.writeText(text)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        addToast({ type: 'error', title: 'Copy failed', message: 'Please copy the secret manually.' });
+      });
   };
 
   return (

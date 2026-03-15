@@ -87,6 +87,7 @@ export function WebhookDeliveryLogsTab({ webhookId }: Props) {
   const addToast = useToastStore((s) => s.addToast);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('ALL');
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set());
+  const [retryingEntryId, setRetryingEntryId] = useState<string | null>(null);
 
   const { data: deliveriesPage, isLoading, refetch } = useWebhookDeliveries(webhookId);
   const { data: dlqEntries } = useWebhookOutbox(webhookId, 'DLQ');
@@ -111,14 +112,19 @@ export function WebhookDeliveryLogsTab({ webhookId }: Props) {
     });
   };
 
-  const handleRetryDlq = (entryId: string) => {
-    retryEntry.mutate(
-      { webhookId, entryId },
-      {
-        onSuccess: () => addToast({ type: 'success', title: 'Retry queued' }),
-        onError: () => addToast({ type: 'error', title: 'Failed to retry' }),
-      },
-    );
+  const handleRetryDlq = async (entryId: string) => {
+    setRetryingEntryId(entryId);
+    try {
+      await retryEntry.mutateAsync(
+        { webhookId, entryId },
+        {
+          onSuccess: () => addToast({ type: 'success', title: 'Retry queued' }),
+          onError: () => addToast({ type: 'error', title: 'Failed to retry' }),
+        },
+      );
+    } finally {
+      setRetryingEntryId(null);
+    }
   };
 
   const dlqList = dlqEntries ?? [];
@@ -195,7 +201,8 @@ export function WebhookDeliveryLogsTab({ webhookId }: Props) {
                           size="sm"
                           variant="outline"
                           onClick={() => handleRetryDlq(entry.id)}
-                          loading={retryEntry.isPending}
+                          loading={retryingEntryId === entry.id}
+                          disabled={retryingEntryId !== null}
                         >
                           Retry
                         </Button>

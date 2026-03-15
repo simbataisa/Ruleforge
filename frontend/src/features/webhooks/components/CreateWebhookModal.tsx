@@ -127,10 +127,14 @@ export function CreateWebhookModal({ onClose, onSuccess }: Props) {
   };
 
   const handleCopySecret = () => {
-    navigator.clipboard.writeText(newSecret).then(() => {
-      setCopied(true);
-      setTimeout(() => setCopied(false), 2000);
-    });
+    navigator.clipboard.writeText(newSecret)
+      .then(() => {
+        setCopied(true);
+        setTimeout(() => setCopied(false), 2000);
+      })
+      .catch(() => {
+        addToast({ type: 'error', title: 'Copy failed', message: 'Please copy the secret manually.' });
+      });
   };
 
   const handleSecretDismiss = () => {

@@ -37,7 +37,7 @@ export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
     setUrl(webhook.url);
     setSelectedEvents(webhook.events);
     setActive(webhook.active);
-  }, [webhook.id]);
+  }, [webhook.id, webhook.updatedAt]);
 
   const toggleEvent = (event: string) => {
     setSelectedEvents((prev) =>
