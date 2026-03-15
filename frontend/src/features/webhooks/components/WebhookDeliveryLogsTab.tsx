@@ -256,7 +256,7 @@ export function WebhookDeliveryLogsTab({ webhookId }: Props) {
                             : <ChevronRight className="h-3.5 w-3.5 text-gray-400" />
                           }
                         </td>
-                        <td className="px-4 py-3 text-gray-500 text-xs">{formatDateTime(delivery.createdAt)}</td>
+                        <td className="px-4 py-3 text-gray-500 text-xs">{formatDateTime(delivery.deliveredAt)}</td>
                         <td className="px-4 py-3 font-mono text-xs text-gray-900">{delivery.eventType}</td>
                         <td className="px-4 py-3">
                           <Badge color={color}>{label}</Badge>

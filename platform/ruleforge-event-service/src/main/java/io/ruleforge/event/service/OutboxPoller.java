@@ -181,7 +181,11 @@ public class OutboxPoller {
                              WebhookDispatcher.DeliveryResult result) {
         // SET LOCAL first — before any writes — so RLS allows all writes in this transaction.
         // webhook_outbox has no RLS; webhooks does (org_id = current_setting('app.current_org_id')).
-        jdbcTemplate.execute("SET LOCAL app.current_org_id = '" + entry.getOrgId() + "'");
+        // Safety: UUID.fromString() validates the value before concatenation; UUID.toString() only
+        // contains hex digits and hyphens, making string concatenation safe here. PostgreSQL JDBC
+        // drivers do not support '?' parameters in SET LOCAL statements.
+        UUID validatedOrgId = UUID.fromString(entry.getOrgId().toString());
+        jdbcTemplate.execute("SET LOCAL app.current_org_id = '" + validatedOrgId + "'");
 
         // Record delivery
         WebhookDeliveryEntity delivery = new WebhookDeliveryEntity();

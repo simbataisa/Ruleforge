@@ -60,7 +60,7 @@ export function WebhookDetailPage() {
   const stats = useMemo(() => {
     const deliveries = deliveriesPage?.content ?? [];
     const sevenDaysAgo = Date.now() - 7 * 24 * 60 * 60 * 1000;
-    const recent = deliveries.filter((d) => new Date(d.createdAt).getTime() > sevenDaysAgo);
+    const recent = deliveries.filter((d) => new Date(d.deliveredAt).getTime() > sevenDaysAgo);
 
     const delivered7d = recent.filter((d) => d.success).length;
     const failed7d = recent.filter((d) => !d.success).length;

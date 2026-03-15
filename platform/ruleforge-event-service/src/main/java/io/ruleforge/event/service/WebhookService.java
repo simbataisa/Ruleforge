@@ -70,7 +70,7 @@ public class WebhookService {
         entity.setScopeId(request.scopeId());
         entity.setUrl(request.url());
         entity.setEvents(serializeEvents(request.events()));
-        entity.setActive(true);
+        entity.setActive(request.active() != null ? request.active() : true);
         entity.setCreatedBy(userId);
 
         // Resolve orgId: for ORG scope, scopeId IS the orgId.

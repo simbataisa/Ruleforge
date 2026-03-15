@@ -13,5 +13,6 @@ public record CreateWebhookRequest(
         @NotEmpty List<String> events,
         @NotNull WebhookScopeType scopeType,
         @NotNull UUID scopeId,
-        String name
+        String name,
+        Boolean active
 ) {}

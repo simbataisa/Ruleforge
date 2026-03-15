@@ -8,7 +8,6 @@ export type CircuitStatus = 'CLOSED' | 'OPEN';
 
 export interface Webhook {
   id: string;
-  spaceId: string;
   url: string;
   events: string[];
   secret: string;
@@ -30,7 +29,7 @@ export interface WebhookDelivery {
   eventType: string;
   statusCode: number;
   success: boolean;
-  createdAt: string;
+  deliveredAt: string;
   attemptCount?: number;
   lastError?: string;
   requestHeaders?: Record<string, string>;

@@ -15,6 +15,7 @@ import io.ruleforge.event.model.WebhookScopeType;
 import io.ruleforge.event.repository.WebhookDeliveryRepository;
 import io.ruleforge.event.repository.WebhookOutboxRepository;
 import io.ruleforge.event.repository.WebhookRepository;
+import io.ruleforge.event.service.SsrfGuard;
 import io.ruleforge.event.service.WebhookDispatcher;
 import io.ruleforge.event.service.WebhookOutboxService;
 import io.ruleforge.event.service.WebhookService;
@@ -23,7 +24,9 @@ import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.DeleteMapping;
+import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -49,19 +52,27 @@ public class WebhookController {
     private final WebhookOutboxRepository webhookOutboxRepository;
     private final WebhookRepository webhookRepository;
     private final WebhookOutboxService webhookOutboxService;
+    private final SsrfGuard ssrfGuard;
 
     public WebhookController(WebhookService webhookService,
                              WebhookDispatcher webhookDispatcher,
                              WebhookDeliveryRepository webhookDeliveryRepository,
                              WebhookOutboxRepository webhookOutboxRepository,
                              WebhookRepository webhookRepository,
-                             WebhookOutboxService webhookOutboxService) {
+                             WebhookOutboxService webhookOutboxService,
+                             SsrfGuard ssrfGuard) {
         this.webhookService = webhookService;
         this.webhookDispatcher = webhookDispatcher;
         this.webhookDeliveryRepository = webhookDeliveryRepository;
         this.webhookOutboxRepository = webhookOutboxRepository;
         this.webhookRepository = webhookRepository;
         this.webhookOutboxService = webhookOutboxService;
+        this.ssrfGuard = ssrfGuard;
+    }
+
+    @ExceptionHandler(IllegalArgumentException.class)
+    public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
+        return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
     }
 
     @PostMapping
@@ -118,6 +129,10 @@ public class WebhookController {
     public ApiResponse<WebhookDeliveryDto> testWebhook(@PathVariable UUID id) {
         UUID orgId = TenantContext.get().orgId();
         WebhookEntity webhook = webhookService.getWebhookEntity(orgId, id);
+
+        // SSRF guard: validate the stored URL before making an outbound HTTP call.
+        // The outbox poller checks this too, but the test endpoint bypasses the poller.
+        ssrfGuard.validate(webhook.getUrl());
 
         // Build a synthetic test payload
         Map<String, Object> testPayload = Map.of(
