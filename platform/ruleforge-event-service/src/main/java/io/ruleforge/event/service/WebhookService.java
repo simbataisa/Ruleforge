@@ -15,9 +15,12 @@ import io.ruleforge.event.model.WebhookScopeType;
 import io.ruleforge.event.repository.WebhookDeliveryRepository;
 import io.ruleforge.event.repository.WebhookRepository;
 
+import io.ruleforge.common.tenant.TenantContext;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Pageable;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -27,6 +30,7 @@ import java.util.Base64;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 @Service
@@ -35,6 +39,7 @@ public class WebhookService {
     private static final Logger log = LoggerFactory.getLogger(WebhookService.class);
     private static final SecureRandom SECURE_RANDOM = new SecureRandom();
     private static final int SECRET_LENGTH_BYTES = 32;
+    private static final Set<String> EDITOR_PLUS_ROLES = Set.of("EDITOR", "ADMIN", "OWNER");
 
     private final WebhookRepository webhookRepository;
     private final WebhookDeliveryRepository webhookDeliveryRepository;
@@ -182,6 +187,11 @@ public class WebhookService {
      */
     @Transactional
     public String rotateSecret(UUID webhookId, UUID orgId, UUID userId) {
+        String role = TenantContext.get().role();
+        if (role == null || !EDITOR_PLUS_ROLES.contains(role)) {
+            throw new AccessDeniedException("EDITOR or higher role required to rotate webhook secret");
+        }
+
         WebhookEntity entity = webhookRepository.findByIdAndOrgId(webhookId, orgId)
                 .orElseThrow(() -> new EntityNotFoundException("Webhook", webhookId.toString()));
 
