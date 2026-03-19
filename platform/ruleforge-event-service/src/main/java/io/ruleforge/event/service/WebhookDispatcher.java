@@ -104,7 +104,7 @@ public class WebhookDispatcher {
         try {
             webhookAuthInjectorRegistry.getFor(webhook.getAuthType()).injectAuth(authHeaders, authConfig, payloadBytes);
         } catch (WebhookAuthException e) {
-            log.error("Auth injection failed for webhook {}, marking permanent auth failure: {}",
+            log.warn("Auth injection failed for webhook {}, marking permanent auth failure: {}",
                     webhook.getId(), e.getMessage());
             return new DeliveryResult(false, 0, null, payloadJson,
                     "AUTH_FAILURE: " + e.getMessage(), true, true);
@@ -178,7 +178,7 @@ public class WebhookDispatcher {
         try {
             webhookAuthInjectorRegistry.getFor(webhook.getAuthType()).injectAuth(authHeaders, authConfig, payloadBytes);
         } catch (WebhookAuthException e) {
-            log.error("Auth injection failed for webhook {} (test), marking permanent auth failure: {}",
+            log.warn("Auth injection failed for webhook {} (test), marking permanent auth failure: {}",
                     webhook.getId(), e.getMessage());
             return new DeliveryResult(false, 0, null, payloadJson,
                     "AUTH_FAILURE: " + e.getMessage(), true, true);

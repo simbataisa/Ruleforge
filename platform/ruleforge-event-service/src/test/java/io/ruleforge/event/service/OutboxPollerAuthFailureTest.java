@@ -1,5 +1,6 @@
 package io.ruleforge.event.service;
 
+import io.ruleforge.event.entity.WebhookDeliveryEntity;
 import io.ruleforge.event.entity.WebhookEntity;
 import io.ruleforge.event.entity.WebhookOutboxEntity;
 import io.ruleforge.event.repository.WebhookDeliveryRepository;
@@ -140,11 +141,11 @@ class OutboxPollerAuthFailureTest {
     }
 
     // ------------------------------------------------------------------
-    // Test 2: AUTH_FAILURE does not save a delivery record (no HTTP call was made)
+    // Test 2: AUTH_FAILURE writes a delivery record with status AUTH_FAILURE
     // ------------------------------------------------------------------
 
     @Test
-    void authFailureDelivery_doesNotSaveDeliveryRecord() {
+    void authFailureDelivery_savesDeliveryRecordWithAuthFailureStatus() {
         UUID orgId = UUID.randomUUID();
         WebhookEntity webhook = activeWebhook(orgId);
         WebhookOutboxEntity entry = outboxEntry(webhook.getId(), orgId);
@@ -159,8 +160,17 @@ class OutboxPollerAuthFailureTest {
 
         poller.pollAndDeliver();
 
-        // No delivery record should be written — AUTH_FAILURE takes the early-exit path
-        verifyNoInteractions(deliveryRepository);
+        // A delivery record must be written so GET /deliveries can surface the AUTH_FAILURE
+        ArgumentCaptor<WebhookDeliveryEntity> deliveryCaptor =
+                ArgumentCaptor.forClass(WebhookDeliveryEntity.class);
+        verify(deliveryRepository).save(deliveryCaptor.capture());
+        WebhookDeliveryEntity savedDelivery = deliveryCaptor.getValue();
+        assertEquals("AUTH_FAILURE", savedDelivery.getStatus(),
+                "Delivery record status must be AUTH_FAILURE");
+        assertFalse(savedDelivery.isSuccess(),
+                "Delivery record success must be false for AUTH_FAILURE");
+        assertEquals(webhook.getId(), savedDelivery.getWebhookId(),
+                "Delivery record webhookId must match the webhook");
     }
 
     // ------------------------------------------------------------------
@@ -209,6 +219,7 @@ class OutboxPollerAuthFailureTest {
         entry.setId(UUID.randomUUID());
         entry.setWebhookId(UUID.randomUUID());
         entry.setOrgId(UUID.randomUUID());
+        entry.setEventType("rule.fired");
         entry.setStatus("DELIVERING");
 
         poller.updateResultAuthFailure(entry, "AUTH_FAILURE: test error");
@@ -217,5 +228,12 @@ class OutboxPollerAuthFailureTest {
         verify(outboxRepository).save(captor.capture());
         assertEquals("AUTH_FAILURE", captor.getValue().getStatus());
         assertEquals("AUTH_FAILURE: test error", captor.getValue().getLastError());
+
+        // Also verify a delivery record was written
+        ArgumentCaptor<WebhookDeliveryEntity> deliveryCaptor =
+                ArgumentCaptor.forClass(WebhookDeliveryEntity.class);
+        verify(deliveryRepository).save(deliveryCaptor.capture());
+        assertEquals("AUTH_FAILURE", deliveryCaptor.getValue().getStatus());
+        assertFalse(deliveryCaptor.getValue().isSuccess());
     }
 }

@@ -300,7 +300,7 @@ public class OutboxPoller {
     }
 
     /**
-     * Transaction 3 (AUTH_FAILURE path): mark outbox entry as AUTH_FAILURE.
+     * Transaction 3 (AUTH_FAILURE path): mark outbox entry as AUTH_FAILURE and write a delivery record.
      * Does NOT increment webhook consecutiveFailures — auth failures are a configuration
      * problem, not a delivery reliability problem, and must not trip the circuit breaker.
      */
@@ -309,6 +309,16 @@ public class OutboxPoller {
         entry.setStatus("AUTH_FAILURE");
         entry.setLastError(reason);
         outboxRepository.save(entry);
+
+        // Write a delivery record so GET /v1/webhooks/{id}/deliveries returns this failure
+        WebhookDeliveryEntity delivery = new WebhookDeliveryEntity();
+        delivery.setWebhookId(entry.getWebhookId());
+        delivery.setEventType(entry.getEventType());
+        delivery.setStatusCode(0);
+        delivery.setSuccess(false);
+        delivery.setStatus("AUTH_FAILURE");
+        delivery.setDeliveredAt(Instant.now());
+        deliveryRepository.save(delivery);
     }
 
     /**

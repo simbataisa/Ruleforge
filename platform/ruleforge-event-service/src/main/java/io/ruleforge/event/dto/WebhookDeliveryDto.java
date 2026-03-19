@@ -9,5 +9,6 @@ public record WebhookDeliveryDto(
         String eventType,
         int statusCode,
         boolean success,
+        String status,
         Instant deliveredAt
 ) {}

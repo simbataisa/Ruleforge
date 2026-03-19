@@ -7,6 +7,7 @@ import io.ruleforge.event.dto.CreateWebhookRequest;
 import io.ruleforge.event.dto.UpdateWebhookRequest;
 import io.ruleforge.event.dto.WebhookDeliveryDto;
 import io.ruleforge.event.dto.WebhookDto;
+import io.ruleforge.event.dto.WebhookMetricsDto;
 import io.ruleforge.event.dto.WebhookOutboxDto;
 import io.ruleforge.event.entity.WebhookDeliveryEntity;
 import io.ruleforge.event.entity.WebhookEntity;
@@ -17,11 +18,13 @@ import io.ruleforge.event.repository.WebhookOutboxRepository;
 import io.ruleforge.event.repository.WebhookRepository;
 import io.ruleforge.event.service.SsrfGuard;
 import io.ruleforge.event.service.WebhookDispatcher;
+import io.ruleforge.event.service.WebhookMetricsService;
 import io.ruleforge.event.service.WebhookOutboxService;
 import io.ruleforge.event.service.WebhookService;
 
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -53,6 +56,7 @@ public class WebhookController {
     private final WebhookRepository webhookRepository;
     private final WebhookOutboxService webhookOutboxService;
     private final SsrfGuard ssrfGuard;
+    private final WebhookMetricsService webhookMetricsService;
 
     public WebhookController(WebhookService webhookService,
                              WebhookDispatcher webhookDispatcher,
@@ -60,7 +64,8 @@ public class WebhookController {
                              WebhookOutboxRepository webhookOutboxRepository,
                              WebhookRepository webhookRepository,
                              WebhookOutboxService webhookOutboxService,
-                             SsrfGuard ssrfGuard) {
+                             SsrfGuard ssrfGuard,
+                             WebhookMetricsService webhookMetricsService) {
         this.webhookService = webhookService;
         this.webhookDispatcher = webhookDispatcher;
         this.webhookDeliveryRepository = webhookDeliveryRepository;
@@ -68,6 +73,7 @@ public class WebhookController {
         this.webhookRepository = webhookRepository;
         this.webhookOutboxService = webhookOutboxService;
         this.ssrfGuard = ssrfGuard;
+        this.webhookMetricsService = webhookMetricsService;
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -155,6 +161,9 @@ public class WebhookController {
         delivery.setStatusCode(result.statusCode());
         delivery.setResponseBody(result.responseBody());
         delivery.setSuccess(result.success());
+        String status = result.success() ? "SUCCESS" : (result.authFailure() ? "AUTH_FAILURE" : "FAILED");
+        delivery.setStatus(status);
+        delivery.setAttemptedAt(Instant.now());
         delivery.setDeliveredAt(Instant.now());
         WebhookDeliveryEntity saved = webhookDeliveryRepository.save(delivery);
 
@@ -164,6 +173,7 @@ public class WebhookController {
                 saved.getEventType(),
                 saved.getStatusCode(),
                 saved.isSuccess(),
+                saved.getStatus(),
                 saved.getDeliveredAt()
         );
         return ApiResponse.ok(dto, result.success() ? "Test delivery successful" : "Test delivery failed");
@@ -174,6 +184,13 @@ public class WebhookController {
         UUID orgId = TenantContext.get().orgId();
         WebhookDto webhook = webhookService.resetCircuit(orgId, id);
         return ApiResponse.ok(webhook, "Circuit breaker reset successfully");
+    }
+
+    @GetMapping("/{id}/metrics")
+    @PreAuthorize("hasAnyRole('OWNER', 'EDITOR')")
+    public ApiResponse<WebhookMetricsDto> getMetrics(@PathVariable UUID id) {
+        UUID orgId = TenantContext.get().orgId();
+        return ApiResponse.ok(webhookMetricsService.getMetrics(id, orgId));
     }
 
     @PostMapping("/{id}/rotate-secret")
