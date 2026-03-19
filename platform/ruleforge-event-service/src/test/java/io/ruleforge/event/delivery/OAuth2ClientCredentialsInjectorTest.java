@@ -149,7 +149,8 @@ class OAuth2ClientCredentialsInjectorTest {
 
         assertThatThrownBy(() -> injector.injectAuth(new HttpHeaders(), config, new byte[0], orgId, webhookId))
                 .isInstanceOf(WebhookAuthException.class)
-                .hasMessageContaining("Connection refused");
+                .hasMessageContaining("Connection refused")
+                .cause().isInstanceOf(RuntimeException.class);
     }
 
     @Test
@@ -163,7 +164,8 @@ class OAuth2ClientCredentialsInjectorTest {
 
         assertThatThrownBy(() -> injector.injectAuth(new HttpHeaders(), config, new byte[0], orgId, webhookId))
                 .isInstanceOf(WebhookAuthException.class)
-                .hasMessageContaining("SSRF");
+                .hasMessageContaining("tokenUrl blocked by SSRF guard:")
+                .hasMessageContaining("https://192.168.1.1/token");
 
         verifyNoInteractions(restClient);
     }
