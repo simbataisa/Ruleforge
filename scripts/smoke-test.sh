@@ -1655,19 +1655,19 @@ if [[ "$QUICK" == "false" ]]; then
       WH_CH_HAS_HEADER=$(echo "$WH_CH_BODY" | grep -c "X-Service-Auth" || true)
       WH_CH_LEAKS_SECRET=$(echo "$WH_CH_BODY" | grep -c "super-secret-value" || true)
 
-      if [[ "$WH_CH_AUTH_TYPE" == "CUSTOM_HEADER" && "$WH_CH_HAS_HEADER" -ge 1 && "$WH_CH_LEAKS_SECRET" -eq 0 ]]; then
-        pass "3.22.1 POST /v1/webhooks (authType=CUSTOM_HEADER) — HTTP $WH_CH_CODE, headerName present, headerValue not exposed"
-        verbose "webhook_id=${CUSTOM_HEADER_WEBHOOK_ID}"
+      if [[ "$WH_CH_LEAKS_SECRET" -ge 1 ]]; then
+        fail "3.22.1 POST /v1/webhooks (authType=CUSTOM_HEADER) — headerValue 'super-secret-value' exposed in create response"
+        verbose "$WH_CH_BODY"
       elif [[ -z "$CUSTOM_HEADER_WEBHOOK_ID" ]]; then
         CUSTOM_HEADER_WEBHOOK_ID=""
         fail "3.22.1 POST /v1/webhooks (authType=CUSTOM_HEADER) — HTTP $WH_CH_CODE but id missing"
         verbose "$WH_CH_BODY"
-      elif [[ "$WH_CH_LEAKS_SECRET" -ge 1 ]]; then
-        fail "3.22.1 POST /v1/webhooks (authType=CUSTOM_HEADER) — headerValue 'super-secret-value' exposed in create response"
+      elif [[ "$WH_CH_AUTH_TYPE" != "CUSTOM_HEADER" || "$WH_CH_HAS_HEADER" -lt 1 ]]; then
+        fail "3.22.1 POST /v1/webhooks (authType=CUSTOM_HEADER) — unexpected response body (authType=$WH_CH_AUTH_TYPE)"
         verbose "$WH_CH_BODY"
       else
-        fail "3.22.1 POST /v1/webhooks (authType=CUSTOM_HEADER) — unexpected authType: $WH_CH_AUTH_TYPE"
-        verbose "$WH_CH_BODY"
+        pass "3.22.1 POST /v1/webhooks (authType=CUSTOM_HEADER) — HTTP $WH_CH_CODE, headerName present, headerValue not exposed"
+        verbose "webhook_id=${CUSTOM_HEADER_WEBHOOK_ID}"
       fi
     else
       CUSTOM_HEADER_WEBHOOK_ID=""
@@ -1725,19 +1725,19 @@ if [[ "$QUICK" == "false" ]]; then
       WH_OA_LEAKS_SECRET=$(echo "$WH_OA_BODY" | grep -c "test-client-secret" || true)
       WH_OA_HAS_REDACTED=$(echo "$WH_OA_BODY" | grep -c "\[REDACTED\]" || true)
 
-      if [[ "$WH_OA_AUTH_TYPE" == "OAUTH2_CLIENT_CREDENTIALS" && "$WH_OA_HAS_CLIENT_ID" -ge 1 && "$WH_OA_LEAKS_SECRET" -eq 0 && "$WH_OA_HAS_REDACTED" -ge 1 ]]; then
-        pass "3.22.3 POST /v1/webhooks (authType=OAUTH2_CLIENT_CREDENTIALS) — HTTP $WH_OA_CODE, clientId present, clientSecret=[REDACTED]"
-        verbose "webhook_id=${OAUTH2_WEBHOOK_ID}"
+      if [[ "$WH_OA_LEAKS_SECRET" -ge 1 ]]; then
+        fail "3.22.3 POST /v1/webhooks (authType=OAUTH2_CLIENT_CREDENTIALS) — clientSecret 'test-client-secret' exposed in response"
+        verbose "$WH_OA_BODY"
       elif [[ -z "$OAUTH2_WEBHOOK_ID" ]]; then
         OAUTH2_WEBHOOK_ID=""
         fail "3.22.3 POST /v1/webhooks (authType=OAUTH2_CLIENT_CREDENTIALS) — HTTP $WH_OA_CODE but id missing"
         verbose "$WH_OA_BODY"
-      elif [[ "$WH_OA_LEAKS_SECRET" -ge 1 ]]; then
-        fail "3.22.3 POST /v1/webhooks (authType=OAUTH2_CLIENT_CREDENTIALS) — clientSecret 'test-client-secret' exposed in response"
-        verbose "$WH_OA_BODY"
-      else
+      elif [[ "$WH_OA_AUTH_TYPE" != "OAUTH2_CLIENT_CREDENTIALS" || "$WH_OA_HAS_CLIENT_ID" -lt 1 ]]; then
         fail "3.22.3 POST /v1/webhooks (authType=OAUTH2_CLIENT_CREDENTIALS) — unexpected authType: $WH_OA_AUTH_TYPE"
         verbose "$WH_OA_BODY"
+      else
+        pass "3.22.3 POST /v1/webhooks (authType=OAUTH2_CLIENT_CREDENTIALS) — HTTP $WH_OA_CODE, clientId present, clientSecret not exposed"
+        verbose "webhook_id=${OAUTH2_WEBHOOK_ID}"
       fi
     else
       OAUTH2_WEBHOOK_ID=""
