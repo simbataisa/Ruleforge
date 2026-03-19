@@ -2,6 +2,7 @@ package io.ruleforge.event.service;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import io.ruleforge.event.delivery.OAuth2ClientCredentialsInjector;
 import io.ruleforge.event.delivery.WebhookAuthInjectorRegistry;
 import io.ruleforge.event.exception.WebhookAuthException;
 import io.ruleforge.event.exception.WebhookCredentialDecryptionException;
@@ -102,7 +103,14 @@ public class WebhookDispatcher {
                     "CREDENTIAL_DECRYPT_ERROR: " + e.getMessage(), true);
         }
         try {
-            webhookAuthInjectorRegistry.getFor(webhook.getAuthType()).injectAuth(authHeaders, authConfig, payloadBytes);
+            var injector = webhookAuthInjectorRegistry.getFor(webhook.getAuthType());
+            if (authConfig instanceof WebhookAuthConfig.OAuth2ClientCredentials
+                    && injector instanceof OAuth2ClientCredentialsInjector oauth2Injector) {
+                oauth2Injector.injectAuth(authHeaders, authConfig, payloadBytes,
+                        webhook.getOrgId(), webhook.getId());
+            } else {
+                injector.injectAuth(authHeaders, authConfig, payloadBytes);
+            }
         } catch (WebhookAuthException e) {
             log.warn("Auth injection failed for webhook {}, marking permanent auth failure: {}",
                     webhook.getId(), e.getMessage());
@@ -176,7 +184,14 @@ public class WebhookDispatcher {
                     "CREDENTIAL_DECRYPT_ERROR: " + e.getMessage(), true);
         }
         try {
-            webhookAuthInjectorRegistry.getFor(webhook.getAuthType()).injectAuth(authHeaders, authConfig, payloadBytes);
+            var injector = webhookAuthInjectorRegistry.getFor(webhook.getAuthType());
+            if (authConfig instanceof WebhookAuthConfig.OAuth2ClientCredentials
+                    && injector instanceof OAuth2ClientCredentialsInjector oauth2Injector) {
+                oauth2Injector.injectAuth(authHeaders, authConfig, payloadBytes,
+                        webhook.getOrgId(), webhook.getId());
+            } else {
+                injector.injectAuth(authHeaders, authConfig, payloadBytes);
+            }
         } catch (WebhookAuthException e) {
             log.warn("Auth injection failed for webhook {} (test), marking permanent auth failure: {}",
                     webhook.getId(), e.getMessage());

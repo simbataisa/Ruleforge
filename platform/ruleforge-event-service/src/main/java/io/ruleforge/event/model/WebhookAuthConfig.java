@@ -10,7 +10,8 @@ import com.fasterxml.jackson.annotation.JsonTypeInfo;
     @JsonSubTypes.Type(value = WebhookAuthConfig.ApiKey.class, name = "API_KEY"),
     @JsonSubTypes.Type(value = WebhookAuthConfig.BasicAuth.class, name = "BASIC_AUTH"),
     @JsonSubTypes.Type(value = WebhookAuthConfig.BearerToken.class, name = "BEARER_TOKEN"),
-    @JsonSubTypes.Type(value = WebhookAuthConfig.CustomHeader.class, name = "CUSTOM_HEADER")
+    @JsonSubTypes.Type(value = WebhookAuthConfig.CustomHeader.class, name = "CUSTOM_HEADER"),
+    @JsonSubTypes.Type(value = WebhookAuthConfig.OAuth2ClientCredentials.class, name = "OAUTH2_CLIENT_CREDENTIALS")
 })
 public sealed interface WebhookAuthConfig permits
         WebhookAuthConfig.None,
@@ -18,7 +19,8 @@ public sealed interface WebhookAuthConfig permits
         WebhookAuthConfig.ApiKey,
         WebhookAuthConfig.BasicAuth,
         WebhookAuthConfig.BearerToken,
-        WebhookAuthConfig.CustomHeader {
+        WebhookAuthConfig.CustomHeader,
+        WebhookAuthConfig.OAuth2ClientCredentials {
 
     record None() implements WebhookAuthConfig {}
     record SigningSecret(String secret) implements WebhookAuthConfig {}
@@ -26,4 +28,10 @@ public sealed interface WebhookAuthConfig permits
     record BasicAuth(String username, String password) implements WebhookAuthConfig {}
     record BearerToken(String token) implements WebhookAuthConfig {}
     record CustomHeader(String headerName, String headerValue) implements WebhookAuthConfig {}
+    record OAuth2ClientCredentials(
+        String tokenUrl,
+        String clientId,
+        String clientSecret,
+        String scope
+    ) implements WebhookAuthConfig {}
 }
