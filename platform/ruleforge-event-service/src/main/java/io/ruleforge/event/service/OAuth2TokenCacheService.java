@@ -24,14 +24,19 @@ public class OAuth2TokenCacheService {
     }
 
     /**
-     * Stores the token using SET NX PX — atomic set-if-absent.
-     * Safe under concurrent event-service instances.
+     * Stores the token using SET NX PX — prevents duplicate cache writes under concurrent instances.
+     * Note: does not prevent concurrent token fetches; two instances may both fetch tokens on a miss,
+     * but only one write will succeed. All fetched tokens are valid.
      */
     public void set(UUID orgId, UUID webhookId, String accessToken, long ttlSeconds) {
         long safeTtl = Math.max(ttlSeconds, 60L);
-        redisTemplate.opsForValue().setIfAbsent(
+        Boolean stored = redisTemplate.opsForValue().setIfAbsent(
                 cacheKey(orgId, webhookId), accessToken, safeTtl, TimeUnit.SECONDS);
-        log.debug("OAuth2 token cached for webhook {} with TTL {}s", webhookId, safeTtl);
+        if (Boolean.TRUE.equals(stored)) {
+            log.debug("OAuth2 token cached for webhook {} with TTL {}s", webhookId, safeTtl);
+        } else {
+            log.debug("OAuth2 token cache write skipped for webhook {} (key already set)", webhookId);
+        }
     }
 
     public void evict(UUID orgId, UUID webhookId) {
@@ -39,7 +44,7 @@ public class OAuth2TokenCacheService {
         log.debug("OAuth2 token cache evicted for webhook {}", webhookId);
     }
 
-    String cacheKey(UUID orgId, UUID webhookId) {
+    private String cacheKey(UUID orgId, UUID webhookId) {
         return "tenant:" + orgId + ":webhook:" + webhookId + ":oauth_token";
     }
 }

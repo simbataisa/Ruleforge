@@ -28,7 +28,7 @@ import java.util.UUID;
 public class OAuth2ClientCredentialsInjector implements WebhookAuthInjector {
 
     private static final Logger log = LoggerFactory.getLogger(OAuth2ClientCredentialsInjector.class);
-    static final long DEFAULT_TTL_SECONDS = 3540L; // 59 minutes fallback when expires_in absent
+    public static final long DEFAULT_TTL_SECONDS = 3540L; // 59 minutes fallback when expires_in absent
 
     private final OAuth2TokenCacheService tokenCache;
     private final RestClient webhookClient;

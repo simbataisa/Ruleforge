@@ -21,7 +21,7 @@ class OAuth2TokenCacheServiceTest {
     private RedisTemplate<String, String> redisTemplate;
 
     @Mock
-    private ValueOperations<String, String> valueOperations;
+    private ValueOperations<String, String> valueOps;
 
     private OAuth2TokenCacheService service;
 
@@ -35,24 +35,33 @@ class OAuth2TokenCacheServiceTest {
 
     @Test
     void get_delegatesToRedisTemplate() {
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
-        String expectedKey = service.cacheKey(orgId, webhookId);
-        when(valueOperations.get(expectedKey)).thenReturn("my-token");
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        String expectedKey = "tenant:" + orgId + ":webhook:" + webhookId + ":oauth_token";
+        when(valueOps.get(expectedKey)).thenReturn("my-token");
 
         String result = service.get(orgId, webhookId);
 
         assertThat(result).isEqualTo("my-token");
-        verify(valueOperations).get(expectedKey);
+        verify(valueOps).get(expectedKey);
+    }
+
+    @Test
+    void get_returnsNullOnCacheMiss() {
+        UUID orgId = UUID.randomUUID();
+        UUID webhookId = UUID.randomUUID();
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
+        when(valueOps.get(anyString())).thenReturn(null);
+        assertThat(service.get(orgId, webhookId)).isNull();
     }
 
     @Test
     void set_usesSetIfAbsent_withTtl() {
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
 
         service.set(orgId, webhookId, "access-token", 3540L);
 
-        verify(valueOperations).setIfAbsent(
-                service.cacheKey(orgId, webhookId),
+        verify(valueOps).setIfAbsent(
+                "tenant:" + orgId + ":webhook:" + webhookId + ":oauth_token",
                 "access-token",
                 3540L,
                 TimeUnit.SECONDS);
@@ -60,12 +69,12 @@ class OAuth2TokenCacheServiceTest {
 
     @Test
     void set_enforcesMinTtlOf60s() {
-        when(redisTemplate.opsForValue()).thenReturn(valueOperations);
+        when(redisTemplate.opsForValue()).thenReturn(valueOps);
 
         service.set(orgId, webhookId, "tok", 30L);
 
-        verify(valueOperations).setIfAbsent(
-                service.cacheKey(orgId, webhookId),
+        verify(valueOps).setIfAbsent(
+                "tenant:" + orgId + ":webhook:" + webhookId + ":oauth_token",
                 "tok",
                 60L,
                 TimeUnit.SECONDS);
@@ -73,17 +82,10 @@ class OAuth2TokenCacheServiceTest {
 
     @Test
     void evict_callsDelete() {
-        String expectedKey = service.cacheKey(orgId, webhookId);
+        String expectedKey = "tenant:" + orgId + ":webhook:" + webhookId + ":oauth_token";
 
         service.evict(orgId, webhookId);
 
         verify(redisTemplate).delete(expectedKey);
-    }
-
-    @Test
-    void cacheKey_matchesExpectedFormat() {
-        String key = service.cacheKey(orgId, webhookId);
-
-        assertThat(key).isEqualTo("tenant:" + orgId + ":webhook:" + webhookId + ":oauth_token");
     }
 }
