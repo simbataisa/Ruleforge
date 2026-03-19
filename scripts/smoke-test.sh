@@ -1408,6 +1408,458 @@ except: print('missing')
 fi
 
 # ============================================================================
+# 3.21: Webhook Auth Enhancement — auth types, metrics RBAC (event-service :8084)
+# ============================================================================
+if [[ "$QUICK" == "false" ]]; then
+  info "3.21 — Webhook Auth Enhancement (event-service :8084)"
+
+  EVENT_HEALTH_321=$(curl -sf --max-time 3 "http://localhost:8084/actuator/health" 2>/dev/null | \
+    python3 -c "import sys,json; print(json.load(sys.stdin).get('status','DOWN'))" 2>/dev/null || echo "DOWN")
+
+  if [[ "$EVENT_HEALTH_321" != "UP" ]]; then
+    skip "Webhook auth tests (3.21) — event-service not running (health: $EVENT_HEALTH_321)"
+  elif [[ -z "${ADMIN_TOKEN:-}" ]]; then
+    skip "Webhook auth tests (3.21) — no admin token (auth service unavailable?)"
+  else
+    SEED_SPACE_ID_321="d0000000-0000-0000-0000-000000000001"
+
+    # Acquire editor and viewer tokens for RBAC tests
+    EDITOR_LOGIN_321=$(curl -s -X POST http://localhost:8081/v1/auth/login \
+      -H 'Content-Type: application/json' \
+      -d '{"email":"editor@ruleforge.io","password":"password123"}' 2>/dev/null)
+    EDITOR_TOKEN_321=$(echo "$EDITOR_LOGIN_321" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['accessToken'])" 2>/dev/null || echo "")
+
+    VIEWER_LOGIN_321=$(curl -s -X POST http://localhost:8081/v1/auth/login \
+      -H 'Content-Type: application/json' \
+      -d '{"email":"viewer@ruleforge.io","password":"password123"}' 2>/dev/null)
+    VIEWER_TOKEN_321=$(echo "$VIEWER_LOGIN_321" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['accessToken'])" 2>/dev/null || echo "")
+
+    # --- 3.21.1: Create webhook with API_KEY auth type ---
+    WH_AUTH_RESP=$(curl -s -w "\n%{http_code}" \
+      -X POST "http://localhost:8084/v1/webhooks" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "{\"name\":\"smoke-test-apikey-webhook\",\"url\":\"https://httpbin.org/post\",\"events\":[\"rule.published\"],\"scopeType\":\"SPACE\",\"scopeId\":\"${SEED_SPACE_ID_321}\",\"authType\":\"API_KEY\",\"authConfig\":{\"headerName\":\"X-Api-Key\",\"apiKey\":\"smoke-test-key-abc123\"}}" 2>/dev/null)
+    WH_AUTH_CODE=$(echo "$WH_AUTH_RESP" | tail -1)
+    WH_AUTH_BODY=$(echo "$WH_AUTH_RESP" | sed '$d')
+
+    if [[ "$WH_AUTH_CODE" =~ ^(200|201)$ ]]; then
+      WH_AUTH_ID=$(echo "$WH_AUTH_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('id',''))" 2>/dev/null || echo "")
+      WH_AUTH_TYPE=$(echo "$WH_AUTH_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('authType',''))" 2>/dev/null || echo "")
+      WH_SECRET_ON_CREATION=$(echo "$WH_AUTH_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('secretOnCreation',''))" 2>/dev/null || echo "")
+      if [[ -n "$WH_AUTH_ID" && "$WH_AUTH_TYPE" == "API_KEY" ]]; then
+        pass "POST /v1/webhooks (authType=API_KEY) — HTTP $WH_AUTH_CODE, authType=API_KEY in response"
+        verbose "webhook_id=${WH_AUTH_ID} secretOnCreation_len=${#WH_SECRET_ON_CREATION}"
+      else
+        fail "POST /v1/webhooks (authType=API_KEY) — HTTP $WH_AUTH_CODE but authType not returned correctly (got: $WH_AUTH_TYPE)"
+        verbose "$WH_AUTH_BODY"
+      fi
+    else
+      WH_AUTH_ID=""
+      fail "POST /v1/webhooks (authType=API_KEY) — HTTP $WH_AUTH_CODE"
+      verbose "$WH_AUTH_BODY"
+    fi
+
+    # --- 3.21.2: GET response must not expose plaintext credentials ---
+    if [[ -n "${WH_AUTH_ID:-}" ]]; then
+      WH_GET_AUTH_RESP=$(curl -s -w "\n%{http_code}" \
+        "http://localhost:8084/v1/webhooks/${WH_AUTH_ID}" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+      WH_GET_AUTH_CODE=$(echo "$WH_GET_AUTH_RESP" | tail -1)
+      WH_GET_AUTH_BODY=$(echo "$WH_GET_AUTH_RESP" | sed '$d')
+      if [[ "$WH_GET_AUTH_CODE" == "200" ]]; then
+        AUTH_REDACT_CHECK=$(echo "$WH_GET_AUTH_BODY" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    data = d.get('data', d)
+    auth_cfg = data.get('authConfig') or {}
+    has_auth_type = data.get('authType') == 'API_KEY'
+    api_key_redacted = auth_cfg.get('apiKey') is None
+    print('ok' if has_auth_type and api_key_redacted else 'exposed')
+except:
+    print('error')
+" 2>/dev/null || echo "error")
+        if [[ "$AUTH_REDACT_CHECK" == "ok" ]]; then
+          pass "GET /v1/webhooks/{id} — authType=API_KEY present; apiKey not exposed in response"
+        else
+          fail "GET /v1/webhooks/{id} — plaintext credential may be exposed (expected apiKey=null)"
+          verbose "$WH_GET_AUTH_BODY"
+        fi
+      else
+        fail "GET /v1/webhooks/{id} after API_KEY creation — HTTP $WH_GET_AUTH_CODE"
+        verbose "$WH_GET_AUTH_BODY"
+      fi
+    else
+      skip "3.21.2 credential redaction check — no webhook ID (3.21.1 failed)"
+    fi
+
+    # --- 3.21.3: OWNER can access metrics endpoint ---
+    if [[ -n "${WH_AUTH_ID:-}" ]]; then
+      WH_METRICS_RESP=$(curl -s -w "\n%{http_code}" \
+        "http://localhost:8084/v1/webhooks/${WH_AUTH_ID}/metrics" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+      WH_METRICS_CODE=$(echo "$WH_METRICS_RESP" | tail -1)
+      WH_METRICS_BODY=$(echo "$WH_METRICS_RESP" | sed '$d')
+      if [[ "$WH_METRICS_CODE" == "200" ]]; then
+        METRICS_FIELDS=$(echo "$WH_METRICS_BODY" | python3 -c "
+import sys, json
+try:
+    d = json.load(sys.stdin)
+    data = d.get('data', d)
+    has_total = 'totalDeliveries' in data
+    has_success = 'successfulDeliveries' in data
+    has_timeline = 'timeline' in data
+    print('ok' if has_total and has_success and has_timeline else 'missing')
+except:
+    print('missing')
+" 2>/dev/null || echo "missing")
+        if [[ "$METRICS_FIELDS" == "ok" ]]; then
+          pass "GET /v1/webhooks/{id}/metrics (OWNER) — HTTP 200, totalDeliveries/successfulDeliveries/timeline present"
+        else
+          fail "GET /v1/webhooks/{id}/metrics (OWNER) — HTTP 200 but missing expected fields"
+          verbose "$WH_METRICS_BODY"
+        fi
+      else
+        fail "GET /v1/webhooks/{id}/metrics (OWNER) — HTTP $WH_METRICS_CODE (expected 200)"
+        verbose "$WH_METRICS_BODY"
+      fi
+    else
+      skip "3.21.3 metrics OWNER test — no webhook ID (3.21.1 failed)"
+    fi
+
+    # --- 3.21.4: EDITOR can access metrics endpoint ---
+    if [[ -n "${WH_AUTH_ID:-}" && -n "${EDITOR_TOKEN_321:-}" ]]; then
+      WH_METRICS_ED_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        "http://localhost:8084/v1/webhooks/${WH_AUTH_ID}/metrics" \
+        -H "Authorization: Bearer $EDITOR_TOKEN_321" 2>/dev/null)
+      if [[ "$WH_METRICS_ED_CODE" == "200" ]]; then
+        pass "GET /v1/webhooks/{id}/metrics (EDITOR) — HTTP 200 (EDITOR has read access)"
+      else
+        fail "GET /v1/webhooks/{id}/metrics (EDITOR) — HTTP $WH_METRICS_ED_CODE (expected 200)"
+      fi
+    else
+      skip "3.21.4 metrics EDITOR test — no webhook ID or editor token"
+    fi
+
+    # --- 3.21.5: VIEWER is denied metrics endpoint (403/401) ---
+    if [[ -n "${WH_AUTH_ID:-}" && -n "${VIEWER_TOKEN_321:-}" ]]; then
+      WH_METRICS_VW_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        "http://localhost:8084/v1/webhooks/${WH_AUTH_ID}/metrics" \
+        -H "Authorization: Bearer $VIEWER_TOKEN_321" 2>/dev/null)
+      if [[ "$WH_METRICS_VW_CODE" =~ ^(401|403)$ ]]; then
+        pass "GET /v1/webhooks/{id}/metrics (VIEWER) — HTTP $WH_METRICS_VW_CODE (VIEWER correctly denied)"
+      else
+        fail "GET /v1/webhooks/{id}/metrics (VIEWER) — HTTP $WH_METRICS_VW_CODE (expected 401/403; VIEWER must not access metrics)"
+      fi
+    else
+      skip "3.21.5 metrics VIEWER deny test — no webhook ID or viewer token"
+    fi
+
+    # --- 3.21.6: Update auth config via PUT ---
+    if [[ -n "${WH_AUTH_ID:-}" ]]; then
+      WH_UPD_AUTH_RESP=$(curl -s -w "\n%{http_code}" \
+        -X PUT "http://localhost:8084/v1/webhooks/${WH_AUTH_ID}" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" \
+        -H "Content-Type: application/json" \
+        -d "{\"authConfig\":{\"token\":\"smoke-bearer-token-xyz\"}}" 2>/dev/null)
+      WH_UPD_AUTH_CODE=$(echo "$WH_UPD_AUTH_RESP" | tail -1)
+      WH_UPD_AUTH_BODY=$(echo "$WH_UPD_AUTH_RESP" | sed '$d')
+      if [[ "$WH_UPD_AUTH_CODE" == "200" ]]; then
+        pass "PUT /v1/webhooks/{id} (update authConfig) — HTTP 200"
+      else
+        fail "PUT /v1/webhooks/{id} (update authConfig) — HTTP $WH_UPD_AUTH_CODE"
+        verbose "$WH_UPD_AUTH_BODY"
+      fi
+    else
+      skip "3.21.6 update authConfig test — no webhook ID (3.21.1 failed)"
+    fi
+
+    # --- 3.21.7: Create webhook with BASIC_AUTH ---
+    WH_BASIC_RESP=$(curl -s -w "\n%{http_code}" \
+      -X POST "http://localhost:8084/v1/webhooks" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "{\"name\":\"smoke-test-basicauth-webhook\",\"url\":\"https://httpbin.org/post\",\"events\":[\"rule.published\"],\"scopeType\":\"SPACE\",\"scopeId\":\"${SEED_SPACE_ID_321}\",\"authType\":\"BASIC_AUTH\",\"authConfig\":{\"username\":\"smoke-user\",\"password\":\"smoke-pass\"}}" 2>/dev/null)
+    WH_BASIC_CODE=$(echo "$WH_BASIC_RESP" | tail -1)
+    WH_BASIC_BODY=$(echo "$WH_BASIC_RESP" | sed '$d')
+    if [[ "$WH_BASIC_CODE" =~ ^(200|201)$ ]]; then
+      WH_BASIC_ID=$(echo "$WH_BASIC_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('id',''))" 2>/dev/null || echo "")
+      WH_BASIC_AUTH_TYPE=$(echo "$WH_BASIC_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('authType',''))" 2>/dev/null || echo "")
+      if [[ "$WH_BASIC_AUTH_TYPE" == "BASIC_AUTH" ]]; then
+        pass "POST /v1/webhooks (authType=BASIC_AUTH) — HTTP $WH_BASIC_CODE, authType=BASIC_AUTH in response"
+      else
+        WH_BASIC_ID=""
+        fail "POST /v1/webhooks (authType=BASIC_AUTH) — unexpected authType: $WH_BASIC_AUTH_TYPE"
+        verbose "$WH_BASIC_BODY"
+      fi
+    else
+      WH_BASIC_ID=""
+      fail "POST /v1/webhooks (authType=BASIC_AUTH) — HTTP $WH_BASIC_CODE"
+      verbose "$WH_BASIC_BODY"
+    fi
+
+    # --- Cleanup: delete both auth smoke-test webhooks ---
+    for WH_CLEANUP_ID in "${WH_AUTH_ID:-}" "${WH_BASIC_ID:-}"; do
+      if [[ -n "$WH_CLEANUP_ID" ]]; then
+        WH_CLEANUP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+          -X DELETE "http://localhost:8084/v1/webhooks/${WH_CLEANUP_ID}" \
+          -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+        if [[ "$WH_CLEANUP_CODE" =~ ^(200|204)$ ]]; then
+          pass "DELETE /v1/webhooks/${WH_CLEANUP_ID} — auth webhook cleanup OK (HTTP $WH_CLEANUP_CODE)"
+        else
+          skip "DELETE /v1/webhooks/${WH_CLEANUP_ID} — HTTP $WH_CLEANUP_CODE (manual cleanup needed)"
+        fi
+      fi
+    done
+
+  fi
+fi
+
+# ============================================================================
+# 3.22: Webhook Auth v2 — OAuth2 Client Credentials & Custom Header (event-service :8084)
+# ============================================================================
+if [[ "$QUICK" == "false" ]]; then
+  info "3.22 — Webhook Auth v2 — OAuth2 & Custom Header (event-service :8084)"
+
+  EVENT_HEALTH_322=$(curl -sf --max-time 3 "http://localhost:8084/actuator/health" 2>/dev/null | \
+    python3 -c "import sys,json; print(json.load(sys.stdin).get('status','DOWN'))" 2>/dev/null || echo "DOWN")
+
+  if [[ "$EVENT_HEALTH_322" != "UP" ]]; then
+    skip "Webhook auth v2 tests (3.22) — event-service not running (health: $EVENT_HEALTH_322)"
+  elif [[ -z "${ADMIN_TOKEN:-}" ]]; then
+    skip "Webhook auth v2 tests (3.22) — no admin token (auth service unavailable?)"
+  else
+    SEED_SPACE_ID_322="d0000000-0000-0000-0000-000000000001"
+    CUSTOM_HEADER_WEBHOOK_ID=""
+    OAUTH2_WEBHOOK_ID=""
+
+    # Acquire viewer token for RBAC test
+    VIEWER_LOGIN_322=$(curl -s -X POST http://localhost:8081/v1/auth/login \
+      -H 'Content-Type: application/json' \
+      -d '{"email":"viewer@ruleforge.io","password":"password123"}' 2>/dev/null)
+    VIEWER_TOKEN_322=$(echo "$VIEWER_LOGIN_322" | python3 -c "import sys,json; print(json.load(sys.stdin)['data']['accessToken'])" 2>/dev/null || echo "")
+
+    # --- 3.22.1: Create webhook with CUSTOM_HEADER auth type ---
+    WH_CH_RESP=$(curl -s -w "\n%{http_code}" \
+      -X POST "http://localhost:8084/v1/webhooks" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "{\"name\":\"smoke-custom-header-webhook\",\"url\":\"https://httpbin.org/post\",\"events\":[\"rule.published\"],\"scopeType\":\"SPACE\",\"scopeId\":\"${SEED_SPACE_ID_322}\",\"authType\":\"CUSTOM_HEADER\",\"authConfig\":{\"headerName\":\"X-Service-Auth\",\"headerValue\":\"super-secret-value\"}}" 2>/dev/null)
+    WH_CH_CODE=$(echo "$WH_CH_RESP" | tail -1)
+    WH_CH_BODY=$(echo "$WH_CH_RESP" | sed '$d')
+
+    if [[ "$WH_CH_CODE" =~ ^(200|201)$ ]]; then
+      CUSTOM_HEADER_WEBHOOK_ID=$(echo "$WH_CH_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('id',''))" 2>/dev/null || echo "")
+      WH_CH_AUTH_TYPE=$(echo "$WH_CH_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('authType',''))" 2>/dev/null || echo "")
+      WH_CH_HAS_HEADER=$(echo "$WH_CH_BODY" | grep -c "X-Service-Auth" || true)
+      WH_CH_LEAKS_SECRET=$(echo "$WH_CH_BODY" | grep -c "super-secret-value" || true)
+
+      if [[ "$WH_CH_AUTH_TYPE" == "CUSTOM_HEADER" && "$WH_CH_HAS_HEADER" -ge 1 && "$WH_CH_LEAKS_SECRET" -eq 0 ]]; then
+        pass "3.22.1 POST /v1/webhooks (authType=CUSTOM_HEADER) — HTTP $WH_CH_CODE, headerName present, headerValue not exposed"
+        verbose "webhook_id=${CUSTOM_HEADER_WEBHOOK_ID}"
+      elif [[ -z "$CUSTOM_HEADER_WEBHOOK_ID" ]]; then
+        CUSTOM_HEADER_WEBHOOK_ID=""
+        fail "3.22.1 POST /v1/webhooks (authType=CUSTOM_HEADER) — HTTP $WH_CH_CODE but id missing"
+        verbose "$WH_CH_BODY"
+      elif [[ "$WH_CH_LEAKS_SECRET" -ge 1 ]]; then
+        fail "3.22.1 POST /v1/webhooks (authType=CUSTOM_HEADER) — headerValue 'super-secret-value' exposed in create response"
+        verbose "$WH_CH_BODY"
+      else
+        fail "3.22.1 POST /v1/webhooks (authType=CUSTOM_HEADER) — unexpected authType: $WH_CH_AUTH_TYPE"
+        verbose "$WH_CH_BODY"
+      fi
+    else
+      CUSTOM_HEADER_WEBHOOK_ID=""
+      fail "3.22.1 POST /v1/webhooks (authType=CUSTOM_HEADER) — HTTP $WH_CH_CODE"
+      verbose "$WH_CH_BODY"
+    fi
+
+    # --- 3.22.2: GET webhook masks headerValue ---
+    if [[ -n "$CUSTOM_HEADER_WEBHOOK_ID" ]]; then
+      WH_CH_GET_RESP=$(curl -s -w "\n%{http_code}" \
+        "http://localhost:8084/v1/webhooks/${CUSTOM_HEADER_WEBHOOK_ID}" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+      WH_CH_GET_CODE=$(echo "$WH_CH_GET_RESP" | tail -1)
+      WH_CH_GET_BODY=$(echo "$WH_CH_GET_RESP" | sed '$d')
+
+      if [[ "$WH_CH_GET_CODE" == "200" ]]; then
+        CH_HAS_AUTH_TYPE=$(echo "$WH_CH_GET_BODY" | grep -c "CUSTOM_HEADER" || true)
+        CH_HAS_HEADER_NAME=$(echo "$WH_CH_GET_BODY" | grep -c "X-Service-Auth" || true)
+        CH_LEAKS_SECRET=$(echo "$WH_CH_GET_BODY" | grep -c "super-secret-value" || true)
+        CH_HAS_REDACTED=$(echo "$WH_CH_GET_BODY" | grep -c "\[REDACTED\]" || true)
+
+        if [[ "$CH_HAS_AUTH_TYPE" -ge 1 && "$CH_HAS_HEADER_NAME" -ge 1 && "$CH_LEAKS_SECRET" -eq 0 && "$CH_HAS_REDACTED" -ge 1 ]]; then
+          pass "3.22.2 GET /v1/webhooks/{id} (CUSTOM_HEADER) — authType+headerName present, headerValue=[REDACTED], no plaintext secret"
+        elif [[ "$CH_LEAKS_SECRET" -ge 1 ]]; then
+          fail "3.22.2 GET /v1/webhooks/{id} (CUSTOM_HEADER) — plaintext 'super-secret-value' leaked in GET response"
+          verbose "$WH_CH_GET_BODY"
+        elif [[ "$CH_HAS_REDACTED" -eq 0 ]]; then
+          fail "3.22.2 GET /v1/webhooks/{id} (CUSTOM_HEADER) — [REDACTED] placeholder missing from authConfig"
+          verbose "$WH_CH_GET_BODY"
+        else
+          fail "3.22.2 GET /v1/webhooks/{id} (CUSTOM_HEADER) — unexpected response structure"
+          verbose "$WH_CH_GET_BODY"
+        fi
+      else
+        fail "3.22.2 GET /v1/webhooks/{id} (CUSTOM_HEADER) — HTTP $WH_CH_GET_CODE (expected 200)"
+        verbose "$WH_CH_GET_BODY"
+      fi
+    else
+      skip "3.22.2 GET webhook masks headerValue — no webhook ID (3.22.1 failed)"
+    fi
+
+    # --- 3.22.3: Create webhook with OAUTH2_CLIENT_CREDENTIALS auth type ---
+    WH_OA_RESP=$(curl -s -w "\n%{http_code}" \
+      -X POST "http://localhost:8084/v1/webhooks" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "{\"name\":\"smoke-oauth2-webhook\",\"url\":\"https://httpbin.org/post\",\"events\":[\"rule.published\"],\"scopeType\":\"SPACE\",\"scopeId\":\"${SEED_SPACE_ID_322}\",\"authType\":\"OAUTH2_CLIENT_CREDENTIALS\",\"authConfig\":{\"tokenUrl\":\"https://auth.example.com/oauth/token\",\"clientId\":\"test-client-id\",\"clientSecret\":\"test-client-secret\",\"scope\":\"api:read\"}}" 2>/dev/null)
+    WH_OA_CODE=$(echo "$WH_OA_RESP" | tail -1)
+    WH_OA_BODY=$(echo "$WH_OA_RESP" | sed '$d')
+
+    if [[ "$WH_OA_CODE" =~ ^(200|201)$ ]]; then
+      OAUTH2_WEBHOOK_ID=$(echo "$WH_OA_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('id',''))" 2>/dev/null || echo "")
+      WH_OA_AUTH_TYPE=$(echo "$WH_OA_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('authType',''))" 2>/dev/null || echo "")
+      WH_OA_HAS_CLIENT_ID=$(echo "$WH_OA_BODY" | grep -c "test-client-id" || true)
+      WH_OA_LEAKS_SECRET=$(echo "$WH_OA_BODY" | grep -c "test-client-secret" || true)
+      WH_OA_HAS_REDACTED=$(echo "$WH_OA_BODY" | grep -c "\[REDACTED\]" || true)
+
+      if [[ "$WH_OA_AUTH_TYPE" == "OAUTH2_CLIENT_CREDENTIALS" && "$WH_OA_HAS_CLIENT_ID" -ge 1 && "$WH_OA_LEAKS_SECRET" -eq 0 && "$WH_OA_HAS_REDACTED" -ge 1 ]]; then
+        pass "3.22.3 POST /v1/webhooks (authType=OAUTH2_CLIENT_CREDENTIALS) — HTTP $WH_OA_CODE, clientId present, clientSecret=[REDACTED]"
+        verbose "webhook_id=${OAUTH2_WEBHOOK_ID}"
+      elif [[ -z "$OAUTH2_WEBHOOK_ID" ]]; then
+        OAUTH2_WEBHOOK_ID=""
+        fail "3.22.3 POST /v1/webhooks (authType=OAUTH2_CLIENT_CREDENTIALS) — HTTP $WH_OA_CODE but id missing"
+        verbose "$WH_OA_BODY"
+      elif [[ "$WH_OA_LEAKS_SECRET" -ge 1 ]]; then
+        fail "3.22.3 POST /v1/webhooks (authType=OAUTH2_CLIENT_CREDENTIALS) — clientSecret 'test-client-secret' exposed in response"
+        verbose "$WH_OA_BODY"
+      else
+        fail "3.22.3 POST /v1/webhooks (authType=OAUTH2_CLIENT_CREDENTIALS) — unexpected authType: $WH_OA_AUTH_TYPE"
+        verbose "$WH_OA_BODY"
+      fi
+    else
+      OAUTH2_WEBHOOK_ID=""
+      fail "3.22.3 POST /v1/webhooks (authType=OAUTH2_CLIENT_CREDENTIALS) — HTTP $WH_OA_CODE"
+      verbose "$WH_OA_BODY"
+    fi
+
+    # --- 3.22.4: GET webhook masks clientSecret ---
+    if [[ -n "$OAUTH2_WEBHOOK_ID" ]]; then
+      WH_OA_GET_RESP=$(curl -s -w "\n%{http_code}" \
+        "http://localhost:8084/v1/webhooks/${OAUTH2_WEBHOOK_ID}" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+      WH_OA_GET_CODE=$(echo "$WH_OA_GET_RESP" | tail -1)
+      WH_OA_GET_BODY=$(echo "$WH_OA_GET_RESP" | sed '$d')
+
+      if [[ "$WH_OA_GET_CODE" == "200" ]]; then
+        OA_HAS_CLIENT_ID=$(echo "$WH_OA_GET_BODY" | grep -c "test-client-id" || true)
+        OA_LEAKS_SECRET=$(echo "$WH_OA_GET_BODY" | grep -c "test-client-secret" || true)
+        OA_HAS_REDACTED=$(echo "$WH_OA_GET_BODY" | grep -c "\[REDACTED\]" || true)
+
+        if [[ "$OA_HAS_CLIENT_ID" -ge 1 && "$OA_LEAKS_SECRET" -eq 0 && "$OA_HAS_REDACTED" -ge 1 ]]; then
+          pass "3.22.4 GET /v1/webhooks/{id} (OAUTH2) — clientId present, clientSecret=[REDACTED], no plaintext secret"
+        elif [[ "$OA_LEAKS_SECRET" -ge 1 ]]; then
+          fail "3.22.4 GET /v1/webhooks/{id} (OAUTH2) — plaintext 'test-client-secret' leaked in GET response"
+          verbose "$WH_OA_GET_BODY"
+        elif [[ "$OA_HAS_REDACTED" -eq 0 ]]; then
+          fail "3.22.4 GET /v1/webhooks/{id} (OAUTH2) — [REDACTED] placeholder missing from authConfig"
+          verbose "$WH_OA_GET_BODY"
+        else
+          fail "3.22.4 GET /v1/webhooks/{id} (OAUTH2) — unexpected response structure"
+          verbose "$WH_OA_GET_BODY"
+        fi
+      else
+        fail "3.22.4 GET /v1/webhooks/{id} (OAUTH2) — HTTP $WH_OA_GET_CODE (expected 200)"
+        verbose "$WH_OA_GET_BODY"
+      fi
+    else
+      skip "3.22.4 GET webhook masks clientSecret — no webhook ID (3.22.3 failed)"
+    fi
+
+    # --- 3.22.5: tokenUrl using HTTP (insecure) must be rejected with 400 ---
+    WH_HTTP_RESP=$(curl -s -w "\n%{http_code}" \
+      -X POST "http://localhost:8084/v1/webhooks" \
+      -H "Authorization: Bearer $ADMIN_TOKEN" \
+      -H "Content-Type: application/json" \
+      -d "{\"name\":\"smoke-oauth2-insecure\",\"url\":\"https://httpbin.org/post\",\"events\":[\"rule.published\"],\"scopeType\":\"SPACE\",\"scopeId\":\"${SEED_SPACE_ID_322}\",\"authType\":\"OAUTH2_CLIENT_CREDENTIALS\",\"authConfig\":{\"tokenUrl\":\"http://insecure.example.com/token\",\"clientId\":\"cid\",\"clientSecret\":\"csecret\"}}" 2>/dev/null)
+    WH_HTTP_CODE=$(echo "$WH_HTTP_RESP" | tail -1)
+    WH_HTTP_BODY=$(echo "$WH_HTTP_RESP" | sed '$d')
+
+    if [[ "$WH_HTTP_CODE" == "400" ]]; then
+      # Confirm body mentions HTTPS or tokenUrl (case-insensitive)
+      HTTP_BODY_LOWER=$(echo "$WH_HTTP_BODY" | tr '[:upper:]' '[:lower:]')
+      if echo "$HTTP_BODY_LOWER" | grep -qE "https|tokenurl"; then
+        pass "3.22.5 POST /v1/webhooks (tokenUrl=http://) — HTTP 400, error message references HTTPS/tokenUrl"
+      else
+        pass "3.22.5 POST /v1/webhooks (tokenUrl=http://) — HTTP 400 (insecure tokenUrl rejected)"
+      fi
+      verbose "$WH_HTTP_BODY"
+    else
+      fail "3.22.5 POST /v1/webhooks (tokenUrl=http://) — HTTP $WH_HTTP_CODE (expected 400; insecure tokenUrl must be rejected)"
+      verbose "$WH_HTTP_BODY"
+    fi
+
+    # --- 3.22.6: VIEWER cannot create webhook ---
+    if [[ -n "${VIEWER_TOKEN_322:-}" ]]; then
+      WH_VIEWER_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+        -X POST "http://localhost:8084/v1/webhooks" \
+        -H "Authorization: Bearer $VIEWER_TOKEN_322" \
+        -H "Content-Type: application/json" \
+        -d "{\"name\":\"smoke-viewer-webhook\",\"url\":\"https://httpbin.org/post\",\"events\":[\"rule.published\"],\"scopeType\":\"SPACE\",\"scopeId\":\"${SEED_SPACE_ID_322}\",\"authType\":\"CUSTOM_HEADER\",\"authConfig\":{\"headerName\":\"X-Test\",\"headerValue\":\"value\"}}" 2>/dev/null)
+      if [[ "$WH_VIEWER_CODE" =~ ^(401|403)$ ]]; then
+        pass "3.22.6 POST /v1/webhooks as VIEWER — HTTP $WH_VIEWER_CODE (VIEWER correctly denied)"
+      else
+        fail "3.22.6 POST /v1/webhooks as VIEWER — HTTP $WH_VIEWER_CODE (expected 401 or 403)"
+      fi
+    else
+      skip "3.22.6 VIEWER cannot create webhook — no viewer token (seed not applied?)"
+    fi
+
+    # --- 3.22.7: AUTH_FAILURE status — verify deliveries endpoint returns 200 ---
+    if [[ -n "$CUSTOM_HEADER_WEBHOOK_ID" ]]; then
+      WH_DEL_RESP=$(curl -s -w "\n%{http_code}" \
+        "http://localhost:8084/v1/webhooks/${CUSTOM_HEADER_WEBHOOK_ID}/deliveries" \
+        -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+      WH_DEL_CODE=$(echo "$WH_DEL_RESP" | tail -1)
+      WH_DEL_BODY=$(echo "$WH_DEL_RESP" | sed '$d')
+
+      if [[ "$WH_DEL_CODE" == "200" ]]; then
+        # Check if any existing delivery has AUTH_FAILURE status
+        HAS_AUTH_FAILURE=$(echo "$WH_DEL_BODY" | grep -c "AUTH_FAILURE" || true)
+        if [[ "$HAS_AUTH_FAILURE" -ge 1 ]]; then
+          pass "3.22.7 GET /v1/webhooks/{id}/deliveries — HTTP 200, AUTH_FAILURE entry present"
+        else
+          pass "3.22.7 GET /v1/webhooks/{id}/deliveries — HTTP 200 (deliveries endpoint functional; no AUTH_FAILURE yet — requires a real delivery attempt)"
+        fi
+        verbose "$WH_DEL_BODY"
+      else
+        fail "3.22.7 GET /v1/webhooks/{id}/deliveries — HTTP $WH_DEL_CODE (expected 200)"
+        verbose "$WH_DEL_BODY"
+      fi
+    else
+      skip "3.22.7 AUTH_FAILURE status check — no webhook ID (3.22.1 failed)"
+    fi
+
+    # --- Cleanup: delete both auth v2 smoke-test webhooks ---
+    for WH_322_CLEANUP_ID in "${CUSTOM_HEADER_WEBHOOK_ID:-}" "${OAUTH2_WEBHOOK_ID:-}"; do
+      if [[ -n "$WH_322_CLEANUP_ID" ]]; then
+        WH_322_DEL_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
+          -X DELETE "http://localhost:8084/v1/webhooks/${WH_322_CLEANUP_ID}" \
+          -H "Authorization: Bearer $ADMIN_TOKEN" 2>/dev/null)
+        if [[ "$WH_322_DEL_CODE" =~ ^(200|204)$ ]]; then
+          pass "DELETE /v1/webhooks/${WH_322_CLEANUP_ID} — auth v2 webhook cleanup OK (HTTP $WH_322_DEL_CODE)"
+        else
+          skip "DELETE /v1/webhooks/${WH_322_CLEANUP_ID} — HTTP $WH_322_DEL_CODE (manual cleanup needed)"
+        fi
+      fi
+    done
+
+  fi
+fi
+
+# ============================================================================
 # Summary
 # ============================================================================
 echo ""
