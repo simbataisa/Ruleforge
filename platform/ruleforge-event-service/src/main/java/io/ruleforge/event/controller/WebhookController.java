@@ -257,6 +257,9 @@ public class WebhookController {
             if (req.getClientId() == null || req.getClientId().isBlank()) {
                 throw new IllegalArgumentException("clientId is required for OAuth2 auth type");
             }
+            if (req.getClientSecret() == null || req.getClientSecret().isBlank()) {
+                throw new IllegalArgumentException("clientSecret is required for OAuth2 auth type");
+            }
         }
     }
 
