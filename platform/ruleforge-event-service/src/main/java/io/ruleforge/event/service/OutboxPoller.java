@@ -167,6 +167,22 @@ public class OutboxPoller {
         // HTTP delivery — outside any transaction
         WebhookDispatcher.DeliveryResult result = webhookDispatcher.deliverDirect(webhook, entry);
 
+        // Auth failure: permanent, no retry, does not trip circuit breaker
+        if (result.authFailure()) {
+            log.error("Auth failure for outbox entry {} (webhook {}): {}, marking AUTH_FAILURE",
+                    entry.getId(), webhook.getId(), result.errorMessage());
+            updateResultAuthFailure(entry, result.errorMessage());
+            return;
+        }
+
+        // Permanent failures (e.g., credential decrypt error) must not be retried
+        if (result.permanent()) {
+            log.error("Permanent failure for outbox entry {} (webhook {}): {}, marking DLQ",
+                    entry.getId(), webhook.getId(), result.errorMessage());
+            updateResultDlq(entry, result.errorMessage());
+            return;
+        }
+
         // Transaction 3: persist outcome
         updateResult(entry, webhook, result);
     }
@@ -279,6 +295,18 @@ public class OutboxPoller {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void updateResultDlq(WebhookOutboxEntity entry, String reason) {
         entry.setStatus("DLQ");
+        entry.setLastError(reason);
+        outboxRepository.save(entry);
+    }
+
+    /**
+     * Transaction 3 (AUTH_FAILURE path): mark outbox entry as AUTH_FAILURE.
+     * Does NOT increment webhook consecutiveFailures — auth failures are a configuration
+     * problem, not a delivery reliability problem, and must not trip the circuit breaker.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void updateResultAuthFailure(WebhookOutboxEntity entry, String reason) {
+        entry.setStatus("AUTH_FAILURE");
         entry.setLastError(reason);
         outboxRepository.save(entry);
     }

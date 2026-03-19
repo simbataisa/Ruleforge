@@ -1,0 +1,276 @@
+# Agent Handoff Log: RuleForge
+
+> Updated by each agent after completing their phase deliverables.
+> The next agent reads the most recent entry before starting work.
+> Full per-epic detail is in `docs/.bmad/handoff-log.md`.
+
+---
+
+## Handoff #7 — 2026-03-19
+**From:** Tech Lead
+**To:** Product Owner
+**Phase:** Phase 5 Complete — Epic 5: Webhooks Authentication Enhancement
+
+### Completed Deliverables
+- [x] Section 3.21 smoke tests (7 tests) → `scripts/smoke-test.sh`
+  - 3.21.1: POST /v1/webhooks authType=API_KEY — id + authType in response
+  - 3.21.2: GET response does not expose plaintext apiKey credential
+  - 3.21.3: GET /v1/webhooks/{id}/metrics (OWNER → 200, fields validated)
+  - 3.21.4: GET /v1/webhooks/{id}/metrics (EDITOR → 200)
+  - 3.21.5: GET /v1/webhooks/{id}/metrics (VIEWER → 401/403 denied)
+  - 3.21.6: PUT /v1/webhooks/{id} update authConfig → 200
+  - 3.21.7: POST /v1/webhooks authType=BASIC_AUTH → authType in response
+- [x] Release readiness → `docs/reviews/release-readiness-webhooks-auth.md` — **Go/No-Go: ✅ GO**
+
+### Key Decisions Made
+- All 8 Epic 5 stories (014–021) verified complete against acceptance criteria
+- Security properties confirmed: AES-256-GCM at rest, credentials never returned in GET responses, decrypt failures → DLQ without retry (permanent=true)
+- RBAC confirmed: VIEWER denied metrics (403), OWNER-only auth config edit in UI
+- Cross-tenant isolation confirmed: all 3 metrics queries include orgId parameter
+- Pre-deploy checklist documented in release readiness doc
+
+### Open Questions for Next Agent
+- [ ] `WEBHOOK_CREDENTIAL_KEY` env var — generate a production-strength key (32+ bytes base64) and document in `.env.example` or `scripts/start-local.sh` before production deploy
+- [ ] Webhook Health Badge lazy-loading — deferred perf improvement for orgs with >50 webhooks; consider in next performance epic
+- [ ] `secret` column removal — retained for transition; schedule removal in a future v2 cleanup migration
+- [ ] Signing secret generated for all auth types — cosmetic UX cleanup deferred to v2
+
+### Risks / Watch-outs
+- `WEBHOOK_CREDENTIAL_KEY` must be set before production deploy; if missing or <32 bytes the event-service will fail to start
+- V050 → V051 → V052 must be applied in order; Flyway enforces this automatically, but ensure no manual skips
+- `WebhookCredentialMigrationService` runs on startup and encrypts any legacy `secret` values — verify startup log confirms migration complete before directing live traffic
+
+### Next Agent's Starting Point
+Epic 5 is fully shipped. Read `docs/reviews/release-readiness-webhooks-auth.md` for the pre-deploy checklist, then work with DevOps to generate and document the `WEBHOOK_CREDENTIAL_KEY` before next production deployment. When ready to plan the next epic, start with `docs/prd-webhooks-auth.md` v2 scope items (OAuth 2.0, Custom Header, bulk metrics endpoint) as candidate backlog.
+
+---
+
+## Handoff #6 — 2026-03-18
+**From:** Backend Engineer + Frontend Engineer
+**To:** Tech Lead
+**Phase:** Phase 4 Complete — Epic 5: Webhooks Authentication Enhancement
+
+### Completed Deliverables
+- [x] DB migrations → `db/migrations/V050__webhook_auth_config.sql`, `V051__migrate_existing_webhook_secrets.sql`, `V052__webhook_deliveries_metrics_columns.sql`
+- [x] `WebhookAuthType` enum → `...event/model/WebhookAuthType.java`
+- [x] `WebhookAuthConfig` sealed model → `...event/model/WebhookAuthConfig.java`
+- [x] `CredentialEncryptionService` (AES-256-GCM) → `...event/service/CredentialEncryptionService.java`
+- [x] `WebhookCredentialMigrationService` (startup migration) → `...event/service/WebhookCredentialMigrationService.java`
+- [x] Auth injector strategy package (6 injectors + registry) → `...event/delivery/`
+- [x] `WebhookMetricsService` + `WebhookMetricsDto` → `...event/service/WebhookMetricsService.java`
+- [x] Updated `WebhookEntity`, `WebhookDeliveryEntity`, `WebhookDto`, `CreateWebhookRequest`, `UpdateWebhookRequest`
+- [x] Updated `WebhookService`, `WebhookDispatcher`, `WebhookController`, `WebhookRepository`, `WebhookDeliveryRepository`
+- [x] `WebhookAuthConfigForm.tsx` (5-type auth form) → `frontend/src/features/webhooks/components/`
+- [x] `WebhookRetryConfigForm.tsx` → `frontend/src/features/webhooks/components/`
+- [x] `WebhookHealthBadge.tsx` → `frontend/src/features/webhooks/components/`
+- [x] `WebhookMetricsTab.tsx` (Recharts, 7-day timeline) → `frontend/src/features/webhooks/components/`
+- [x] Updated `CreateWebhookModal`, `WebhookSettingsTab`, `WebhookDetailPage`, `WebhookListPage`
+- [x] Updated `webhooks.api.ts` (auth + retry + metrics hooks)
+- [x] Unit tests: `CredentialEncryptionServiceTest` (8), `WebhookAuthInjectorTest` (5), `WebhookMetricsServiceTest` (3)
+- [x] Pre-existing test fixes: `RuleLifecycleConsumerTest`, `SolverServiceTest`, `AuthServiceTest`
+
+### Key Decisions Made
+- `DeliveryResult` record gained `boolean permanent` field — credential decrypt errors return `permanent=true`, `OutboxPoller` routes to DLQ immediately without retry
+- `WebhookCredentialDecryptionException` simplified to single `(String message, Throwable cause)` + `(String message)` constructors — removed ambiguous `webhookId`-prefixed variant
+- `WebhookDeliveryRepository` all 3 metrics queries now include `orgId` parameter for full tenant isolation
+- `V052` migration: `org_id` backfilled from `webhooks` table + `NOT NULL` enforced after backfill
+- `@PreAuthorize("hasAnyRole('OWNER', 'EDITOR')")` on `getMetrics()` — `@EnableMethodSecurity` added to `SecurityConfig`
+- Auth Edit/Save buttons in `WebhookSettingsTab` gated on `isOwner` (not `!isViewer`) — matches story spec
+- `CreateWebhookResponse.secret` → `secretOnCreation` — matches backend `WebhookDto` field name; fixes broken one-time secret copy flow
+- `WebhookEntity.toString()` override added — `authConfig` and `secret` excluded
+
+### Open Questions for Next Agent
+- [ ] Smoke test Section 3.20 — write tests for webhook auth flow (create with API_KEY, deliver, verify header injected)
+- [ ] `WEBHOOK_CREDENTIAL_KEY` env var — document a generated dev key in `scripts/start-local.sh` or `.env.example`
+- [ ] `WebhookHealthBadge` fires N parallel metrics requests on list page — consider lazy-loading badges for org with >50 webhooks (minor perf risk, deferred)
+- [ ] Signing secret still generated for all auth types (not just `SIGNING_SECRET`) — cosmetic UX cleanup deferred to v2
+
+### Risks / Watch-outs
+- `WebhookCredentialMigrationService` runs at startup — if `WEBHOOK_CREDENTIAL_KEY` is missing or <32 bytes, event service fails to start. Default dev key in `application.yml` prevents this locally; ensure prod env var is set before deploy.
+- Story 016 auth injector registry uses Spring auto-discovery (`List<WebhookAuthInjector>`) — adding a new auth type only requires a new `@Component` class.
+- V050–V052 migrations must be applied in order; V052 drops and recreates an index from V050 that referenced a non-existent column.
+- All pre-existing tests updated: `RuleLifecycleConsumer` refactored to `AuditEventProcessor`, `SolverService` gained `AbTestRouter` dep, `RegisterRequest` gained `organizationName` field — all tests now green.
+
+### Next Agent's Starting Point
+Read `docs/stories/story-014` through `story-021` acceptance criteria. Run `./scripts/smoke-test.sh` first to confirm baseline health. Then write Section 3.20 smoke tests for webhook auth flow, generate `release-readiness-webhooks-auth.md`, and log Handoff #7.
+
+---
+
+## Handoff #5 — 2026-03-18
+**From:** Tech Lead (Epic 5 Stories)
+**To:** Backend Engineer + Frontend Engineer (parallel)
+**Phase:** Phase 4 Ready — Epic 5: Webhooks Authentication Enhancement
+
+### Completed Deliverables
+- [x] Project Brief → `docs/project-brief-webhooks-auth.md`
+- [x] PRD → `docs/prd-webhooks-auth.md` (8 stories, RICE scored, MVP + v1 scope)
+- [x] Solution Architecture → `docs/architecture/solution-architecture-webhooks-auth.md`
+- [x] ADR-007: Credential Encryption → `docs/architecture/adr/ADR-007-webhook-credential-encryption.md`
+- [x] ADR-008: Auth Injection Strategy → `docs/architecture/adr/ADR-008-webhook-auth-injection-strategy.md`
+- [x] ADR-009: Metrics Storage → `docs/architecture/adr/ADR-009-webhook-metrics-storage.md`
+- [x] UI Spec → `docs/ux/ui-spec-webhooks-auth.md`
+- [x] Story 014: DB Schema (Backend) → `docs/stories/story-014-webhook-auth-db-schema.md`
+- [x] Story 015: CredentialEncryptionService (Backend) → `docs/stories/story-015-webhook-credential-encryption.md`
+- [x] Story 016: Auth Injection Strategy (Backend) → `docs/stories/story-016-webhook-auth-injection.md`
+- [x] Story 017: API Contract (Backend) → `docs/stories/story-017-webhook-api-contract.md`
+- [x] Story 018: Metrics Endpoint (Backend) → `docs/stories/story-018-webhook-metrics-endpoint.md`
+- [x] Story 019: Auth Form Frontend → `docs/stories/story-019-webhook-frontend-auth-form.md`
+- [x] Story 020: Settings Tab Auth Edit (Frontend) → `docs/stories/story-020-webhook-settings-auth-edit.md`
+- [x] Story 021: Metrics UI (Frontend) → `docs/stories/story-021-webhook-metrics-ui.md`
+
+### Key Decisions Made
+- AES-256-GCM credential encryption; key from `WEBHOOK_CREDENTIAL_KEY` env var (ADR-007)
+- Strategy pattern for auth injection — zero changes to `WebhookDeliveryService` when adding new types (ADR-008)
+- On-demand SQL aggregate for metrics — no background job, compound index handles scale (ADR-009)
+- OAuth 2.0 + Custom Header deferred to v2 (PO decision; too complex for MVP sprint)
+- Backward compat: POST with `secret` (no `authType`) infers `SIGNING_SECRET` — zero breaking changes
+- `secret` column NOT dropped in this epic — removed in v2 after transition period
+
+### Sprint Plan
+- **Sprint 5.1:** Stories 014, 015, 016, 017, 019 (backend foundation + core auth types + frontend form)
+- **Sprint 5.3:** Stories 018, 020, 021 (metrics endpoint + settings edit + metrics UI)
+
+### Open Questions for Next Agent
+- [ ] Smoke test Section 3.20 needed — Backend Engineer to add after Stories 016+017 pass
+- [ ] `WEBHOOK_CREDENTIAL_KEY` env var value for local dev `.env` file — DevOps/TL to generate and document
+- [ ] `date-fns` dependency — Frontend Engineer to confirm it's already in `package.json` before Story 021
+
+### Risks / Watch-outs
+- `WebhookCredentialMigrationService` runs at startup — if `WEBHOOK_CREDENTIAL_KEY` is missing, service fails to start. Default dev key in `application.yml` prevents this locally; ensure production env var is set before deploy.
+- Story 016 depends on Story 015 — backend engineer must complete them in order.
+- Frontend Stories 019 and 020 reuse `WebhookAuthConfigForm` — implement 019 first.
+
+### Next Agent's Starting Point
+Backend Engineer: start with Story 014 (schema migration), then 015 (encryption), then 016 (injection), then 017 (API contract).
+Frontend Engineer: wait for Story 017 backend to be deployed/stubbed, then implement Story 019 first (auth form in create modal), then 020 (settings tab), then 021 (metrics).
+
+---
+
+## Handoff #4 — 2026-03-15
+**From:** Tech Lead (Release Review)
+**To:** Next Epic / Product Owner
+**Phase:** Phase 4 Complete — Epic 4: Space-Rule Assignment
+
+### Completed Deliverables
+- [x] `AssignRulesModal` → `frontend/src/features/spaces/components/AssignRulesModal.tsx`
+- [x] `AssignToSpaceModal` → `frontend/src/features/rules/components/AssignToSpaceModal.tsx`
+- [x] `SpaceDetailPage` — replaced "Create Rule" with "Assign Rules"
+- [x] `RuleListPage` — added "Assign to Space" single + bulk action
+- [x] `BatchActionBar` — bulk assign capability
+- [x] Smoke test Section 3.19 — 3/3 new tests pass
+- [x] Release readiness → `docs/reviews/release-readiness-space-assignment.md`
+
+### Key Decisions Made
+- Spaces are assignment-only containers — no rule creation from space context (ADR-006)
+- `PATCH /rules/{id}/move` reused for assignment — zero new backend code
+- Bulk assignment uses `Promise.allSettled` over N sequential PATCHes (acceptable for N ≤ 50)
+- `CreateRuleModal` NOT deleted — still used by RuleListPage
+
+### Open Questions for Next Agent
+- [ ] Bulk assignment endpoint for N > 50 rules deferred — consider in next performance epic
+- [ ] Bulk assignment partial-failure handling: toast only; no transactionality
+
+### Risks / Watch-outs
+- No backend changes in this epic — zero migration risk
+- VIEWER role cannot access Assign controls (RBAC enforced via `currentUser.role !== 'VIEWER'`)
+
+### Next Agent's Starting Point
+Read `docs/project-brief-space-assignment.md` for context, then review `docs/.bmad/handoff-log.md` for full epic history before starting the next epic.
+
+---
+
+## Handoff #3 — 2026-03-15
+**From:** Tech Lead (Release Review)
+**To:** Tech Lead (Epic 4)
+**Phase:** Phase 4 Complete — Epic 3: Space Context Banners + Rules Proxy Fix
+
+### Completed Deliverables
+- [x] Space context banners on `SpaceDetailPage` (Sandbox vs. Production detection)
+- [x] Vite proxy fix for space-scoped rules endpoint
+- [x] Smoke test Section 3.18 — 4/4 new tests pass
+- [x] Release readiness → `docs/reviews/release-readiness-space-banners.md`
+
+### Key Decisions Made
+- Sandbox detection via `space.name === "Sandbox"` — no DB migration (ADR-005)
+- Vite proxy fix applied to `frontend/vite.config.ts`
+
+### Risks / Watch-outs
+- Name-based sandbox detection is fragile if admin renames the space; accepted trade-off
+
+---
+
+## Handoff #2 — 2026-03-14
+**From:** Tech Lead (Release Review)
+**To:** Business Analyst (Epic 3)
+**Phase:** Phase 4 Complete — Epic 2: Space-Scoped Rule Management
+
+### Completed Deliverables
+- [x] `PATCH /rules/{id}/move` endpoint (backend) → management-service
+- [x] `SpaceDetailPage` with rule list, move/copy modals
+- [x] `MoveRuleModal`, `CopyRuleModal` → `frontend/src/features/spaces/components/`
+- [x] `useMoveRule`, `useCopyRule` hooks
+- [x] Smoke test Section 3.17 — 9/9 new tests pass
+- [x] Release readiness → `docs/reviews/release-readiness-spaces-rules.md`
+
+### Key Decisions Made
+- Use `GET /spaces/{spaceId}/rules` (not `GET /rules?spaceId=...`) for space-scoped lists (ADR-003)
+- Dedicated `PATCH /rules/{id}/move` for moves — preserves history + UUID (ADR-004)
+- auth-service counts rules via real-time SQL COUNT from shared DB (ADR-002)
+
+### Risks / Watch-outs
+- auth-service queries `rules` table directly — if services ever split to separate DBs, this breaks
+
+---
+
+## Handoff #1 — 2026-03-14
+**From:** Tech Lead (Release Review)
+**To:** Business Analyst (Epic 2)
+**Phase:** Phase 4 Complete — Epic 1: Spaces Page Features
+
+### Completed Deliverables
+- [x] `SpaceEntity`, `SpaceDto`, `SpaceService`, `SpaceRepository`, `SpaceController` (backend)
+- [x] `SlugUtils` + migration V047 (slug column)
+- [x] `SpaceListPage`, `SpaceDetailPage`, `SpaceSettingsPage` (frontend)
+- [x] `org.api.ts` space CRUD hooks
+- [x] `OrgSettingsPage` wired to org update API
+- [x] Smoke test Section 3.16 — all tests pass
+- [x] Release readiness → `docs/reviews/release-readiness.md`
+
+### Key Decisions Made
+- Slug stored in DB at write time, not computed on-the-fly (ADR-001)
+- ruleCount via real-time SQL COUNT JOIN — no denormalization (ADR-002)
+- auth-service owns space CRUD (existing code pattern)
+- Cascade delete: space deletion blocks if rules exist (warn user)
+
+### Risks / Watch-outs
+- Slug regenerated on rename — could break existing bookmarks (accepted for v1)
+- UNIQUE(org_id, slug) constraint → 409 on collision
+
+---
+
+## Log Template (for future handoffs)
+
+```
+## Handoff #[N] — [Date]
+**From:** [Agent Name]
+**To:** [Agent Name]
+**Phase:** [Phase N — Name]
+
+### Completed Deliverables
+- [ ] [Artifact 1] → `[path]`
+- [ ] [Artifact 2] → `[path]`
+
+### Key Decisions Made
+- [Decision 1 and rationale]
+- [Decision 2 and rationale]
+
+### Open Questions for Next Agent
+- [ ] [Question 1]
+- [ ] [Question 2]
+
+### Risks / Watch-outs
+- [Risk 1]
+
+### Next Agent's Starting Point
+Read `[key artifact]` first, then focus on `[specific task]`.
+```
