@@ -59,19 +59,22 @@ public class WebhookService {
     private final SsrfGuard ssrfGuard;
     private final AuditEventService auditEventService;
     private final CredentialEncryptionService credentialEncryptionService;
+    private final OAuth2TokenCacheService oauth2TokenCacheService;
 
     public WebhookService(WebhookRepository webhookRepository,
                           WebhookDeliveryRepository webhookDeliveryRepository,
                           ObjectMapper objectMapper,
                           SsrfGuard ssrfGuard,
                           AuditEventService auditEventService,
-                          CredentialEncryptionService credentialEncryptionService) {
+                          CredentialEncryptionService credentialEncryptionService,
+                          OAuth2TokenCacheService oauth2TokenCacheService) {
         this.webhookRepository = webhookRepository;
         this.webhookDeliveryRepository = webhookDeliveryRepository;
         this.objectMapper = objectMapper;
         this.ssrfGuard = ssrfGuard;
         this.auditEventService = auditEventService;
         this.credentialEncryptionService = credentialEncryptionService;
+        this.oauth2TokenCacheService = oauth2TokenCacheService;
     }
 
     @Transactional
@@ -134,6 +137,9 @@ public class WebhookService {
         // Apply auth config if provided
         if (request.authType() != null || request.authConfig() != null) {
             resolveAndEncryptAuthConfig(request.authType(), request.authConfig(), entity);
+            // Evict the OAuth2 token cache whenever auth config changes so the dispatcher
+            // fetches a fresh token with the new credentials on next delivery.
+            oauth2TokenCacheService.evict(orgId, webhookId);
         }
 
         // Apply retry config if provided
@@ -360,9 +366,24 @@ public class WebhookService {
                 }
                 config = new WebhookAuthConfig.CustomHeader(authConfigRequest.getHeaderName(), authConfigRequest.getHeaderValue());
             }
+            case OAUTH2_CLIENT_CREDENTIALS -> {
+                if (authConfigRequest.getTokenUrl() == null || authConfigRequest.getTokenUrl().isBlank()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "authConfig.tokenUrl is required for OAUTH2_CLIENT_CREDENTIALS auth type");
+                }
+                if (authConfigRequest.getClientId() == null || authConfigRequest.getClientId().isBlank()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "authConfig.clientId is required for OAUTH2_CLIENT_CREDENTIALS auth type");
+                }
+                if (authConfigRequest.getClientSecret() == null || authConfigRequest.getClientSecret().isBlank()) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "authConfig.clientSecret is required for OAUTH2_CLIENT_CREDENTIALS auth type");
+                }
+                config = new WebhookAuthConfig.OAuth2ClientCredentials(
+                        authConfigRequest.getTokenUrl(),
+                        authConfigRequest.getClientId(),
+                        authConfigRequest.getClientSecret(),
+                        authConfigRequest.getScope());
+            }
             default -> {
-                // OAUTH2_CLIENT_CREDENTIALS and future types: store raw config if available
-                config = new WebhookAuthConfig.None();
+                // Future auth types: store nothing
                 entity.setAuthConfig(null);
                 return;
             }
@@ -441,6 +462,21 @@ public class WebhookService {
                     }
                 }
                 builder.headerValue("[REDACTED]");
+            }
+            case OAUTH2_CLIENT_CREDENTIALS -> {
+                if (entity.getAuthConfig() != null) {
+                    try {
+                        WebhookAuthConfig cfg = credentialEncryptionService.decrypt(entity.getAuthConfig(), entity.getAuthType());
+                        if (cfg instanceof WebhookAuthConfig.OAuth2ClientCredentials oauth2) {
+                            builder.tokenUrl(oauth2.tokenUrl());
+                            builder.clientId(oauth2.clientId());
+                            builder.scope(oauth2.scope());
+                        }
+                    } catch (Exception e) {
+                        log.warn("Could not decrypt auth config for webhook {} to get OAuth2 fields", entity.getId());
+                    }
+                }
+                builder.clientSecret("[REDACTED]");
             }
             default -> { return null; }
         }

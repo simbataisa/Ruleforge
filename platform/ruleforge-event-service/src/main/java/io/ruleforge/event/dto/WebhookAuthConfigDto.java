@@ -12,6 +12,11 @@ public class WebhookAuthConfigDto {
     private String token;
     private String secret;
     private String headerValue;
+    // OAuth2 fields — tokenUrl, clientId, scope are not masked; clientSecret is masked
+    private String tokenUrl;
+    private String clientId;
+    private String clientSecret;
+    private String scope;
 
     public WebhookAuthConfigDto() {}
 
@@ -23,6 +28,10 @@ public class WebhookAuthConfigDto {
         this.token = builder.token;
         this.secret = builder.secret;
         this.headerValue = builder.headerValue;
+        this.tokenUrl = builder.tokenUrl;
+        this.clientId = builder.clientId;
+        this.clientSecret = builder.clientSecret;
+        this.scope = builder.scope;
     }
 
     public static Builder builder() { return new Builder(); }
@@ -35,6 +44,10 @@ public class WebhookAuthConfigDto {
         private String token;
         private String secret;
         private String headerValue;
+        private String tokenUrl;
+        private String clientId;
+        private String clientSecret;
+        private String scope;
 
         public Builder headerName(String headerName) { this.headerName = headerName; return this; }
         public Builder username(String username) { this.username = username; return this; }
@@ -43,6 +56,10 @@ public class WebhookAuthConfigDto {
         public Builder token(String token) { this.token = token; return this; }
         public Builder secret(String secret) { this.secret = secret; return this; }
         public Builder headerValue(String headerValue) { this.headerValue = headerValue; return this; }
+        public Builder tokenUrl(String tokenUrl) { this.tokenUrl = tokenUrl; return this; }
+        public Builder clientId(String clientId) { this.clientId = clientId; return this; }
+        public Builder clientSecret(String clientSecret) { this.clientSecret = clientSecret; return this; }
+        public Builder scope(String scope) { this.scope = scope; return this; }
         public WebhookAuthConfigDto build() { return new WebhookAuthConfigDto(this); }
     }
 
@@ -66,4 +83,16 @@ public class WebhookAuthConfigDto {
 
     public String getHeaderValue() { return headerValue; }
     public void setHeaderValue(String headerValue) { this.headerValue = headerValue; }
+
+    public String getTokenUrl() { return tokenUrl; }
+    public void setTokenUrl(String tokenUrl) { this.tokenUrl = tokenUrl; }
+
+    public String getClientId() { return clientId; }
+    public void setClientId(String clientId) { this.clientId = clientId; }
+
+    public String getClientSecret() { return clientSecret; }
+    public void setClientSecret(String clientSecret) { this.clientSecret = clientSecret; }
+
+    public String getScope() { return scope; }
+    public void setScope(String scope) { this.scope = scope; }
 }

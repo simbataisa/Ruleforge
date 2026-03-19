@@ -8,6 +8,11 @@ public class WebhookAuthConfigRequest {
     private String token;
     private String headerValue;
     private String secret;
+    // OAuth2 client credentials fields
+    private String tokenUrl;
+    private String clientId;
+    private String clientSecret;
+    private String scope;
 
     public String getHeaderName() { return headerName; }
     public void setHeaderName(String headerName) { this.headerName = headerName; }
@@ -29,4 +34,16 @@ public class WebhookAuthConfigRequest {
 
     public String getSecret() { return secret; }
     public void setSecret(String secret) { this.secret = secret; }
+
+    public String getTokenUrl() { return tokenUrl; }
+    public void setTokenUrl(String tokenUrl) { this.tokenUrl = tokenUrl; }
+
+    public String getClientId() { return clientId; }
+    public void setClientId(String clientId) { this.clientId = clientId; }
+
+    public String getClientSecret() { return clientSecret; }
+    public void setClientSecret(String clientSecret) { this.clientSecret = clientSecret; }
+
+    public String getScope() { return scope; }
+    public void setScope(String scope) { this.scope = scope; }
 }
