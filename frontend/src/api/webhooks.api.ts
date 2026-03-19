@@ -6,6 +6,36 @@ export type WebhookScopeType = 'ORG' | 'SPACE' | 'FOLDER' | 'RULE';
 
 export type CircuitStatus = 'CLOSED' | 'OPEN';
 
+export type WebhookAuthType =
+  | 'NONE'
+  | 'SIGNING_SECRET'
+  | 'API_KEY'
+  | 'BASIC_AUTH'
+  | 'BEARER_TOKEN'
+  | 'CUSTOM_HEADER'
+  | 'OAUTH2_CLIENT_CREDENTIALS';
+
+export interface WebhookAuthConfig {
+  headerName?: string;
+  apiKey?: string;
+  username?: string;
+  password?: string;
+  token?: string;
+  secret?: string;
+  headerValue?: string;
+  tokenUrl?: string;
+  clientId?: string;
+  clientSecret?: string;
+  scope?: string;
+}
+
+export interface WebhookRetryConfig {
+  initialDelaySeconds?: number;
+  backoffMultiplier?: number;
+  maxAttempts?: number;
+  retryOnStatusCodes?: number[];
+}
+
 export interface Webhook {
   id: string;
   url: string;
@@ -21,6 +51,9 @@ export interface Webhook {
   circuitStatus: CircuitStatus;
   consecutiveFailures: number;
   createdBy?: string;
+  authType?: WebhookAuthType;
+  authConfig?: WebhookAuthConfig;
+  retryConfig?: WebhookRetryConfig;
 }
 
 export interface WebhookDelivery {
@@ -57,11 +90,14 @@ export interface CreateWebhookRequest {
   scopeType: WebhookScopeType;
   scopeId: string;
   name?: string;
+  authType?: WebhookAuthType;
+  authConfig?: WebhookAuthConfig;
+  retryConfig?: WebhookRetryConfig;
 }
 
 export interface CreateWebhookResponse {
   webhook: Webhook;
-  secret: string;
+  secretOnCreation: string;
 }
 
 export function useWebhooks() {
@@ -101,7 +137,7 @@ export function useCreateWebhook() {
 export function useUpdateWebhook() {
   const queryClient = useQueryClient();
   return useMutation({
-    mutationFn: async ({ id, ...data }: { id: string; url: string; events: string[]; active: boolean; name?: string }) => {
+    mutationFn: async ({ id, ...data }: { id: string; url?: string; events?: string[]; active?: boolean; name?: string; authType?: WebhookAuthType; authConfig?: WebhookAuthConfig; retryConfig?: WebhookRetryConfig }) => {
       const res = await apiClient.put<ApiResponse<Webhook>>(`/webhooks/${id}`, data);
       return res.data.data;
     },
@@ -211,5 +247,35 @@ export function useRetryOutboxEntry() {
       queryClient.invalidateQueries({ queryKey: ['webhook-outbox', vars.webhookId] });
       queryClient.invalidateQueries({ queryKey: ['webhook-deliveries', vars.webhookId] });
     },
+  });
+}
+
+export interface DeliveryTimelineEntry {
+  date: string;
+  success: number;
+  failed: number;
+}
+
+export interface WebhookMetrics {
+  webhookId: string;
+  period: string;
+  successRate: number;
+  totalDeliveries: number;
+  successDeliveries: number;
+  failedDeliveries: number;
+  dlqDepth: number;
+  avgLatencyMs: number | null;
+  deliveryTimeline: DeliveryTimelineEntry[];
+}
+
+export function useWebhookMetrics(webhookId: string) {
+  return useQuery({
+    queryKey: ['webhooks', webhookId, 'metrics'],
+    queryFn: async () => {
+      const res = await apiClient.get<ApiResponse<WebhookMetrics>>(`/webhooks/${webhookId}/metrics`);
+      return res.data.data;
+    },
+    staleTime: 60_000,
+    enabled: !!webhookId,
   });
 }

@@ -5,23 +5,28 @@ import io.ruleforge.common.dto.PageResponse;
 import io.ruleforge.common.tenant.TenantContext;
 import io.ruleforge.event.dto.CreateWebhookRequest;
 import io.ruleforge.event.dto.UpdateWebhookRequest;
+import io.ruleforge.event.dto.WebhookAuthConfigRequest;
 import io.ruleforge.event.dto.WebhookDeliveryDto;
 import io.ruleforge.event.dto.WebhookDto;
+import io.ruleforge.event.dto.WebhookMetricsDto;
 import io.ruleforge.event.dto.WebhookOutboxDto;
 import io.ruleforge.event.entity.WebhookDeliveryEntity;
 import io.ruleforge.event.entity.WebhookEntity;
 import io.ruleforge.event.entity.WebhookOutboxEntity;
+import io.ruleforge.event.model.WebhookAuthType;
 import io.ruleforge.event.model.WebhookScopeType;
 import io.ruleforge.event.repository.WebhookDeliveryRepository;
 import io.ruleforge.event.repository.WebhookOutboxRepository;
 import io.ruleforge.event.repository.WebhookRepository;
 import io.ruleforge.event.service.SsrfGuard;
 import io.ruleforge.event.service.WebhookDispatcher;
+import io.ruleforge.event.service.WebhookMetricsService;
 import io.ruleforge.event.service.WebhookOutboxService;
 import io.ruleforge.event.service.WebhookService;
 
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -53,6 +58,7 @@ public class WebhookController {
     private final WebhookRepository webhookRepository;
     private final WebhookOutboxService webhookOutboxService;
     private final SsrfGuard ssrfGuard;
+    private final WebhookMetricsService webhookMetricsService;
 
     public WebhookController(WebhookService webhookService,
                              WebhookDispatcher webhookDispatcher,
@@ -60,7 +66,8 @@ public class WebhookController {
                              WebhookOutboxRepository webhookOutboxRepository,
                              WebhookRepository webhookRepository,
                              WebhookOutboxService webhookOutboxService,
-                             SsrfGuard ssrfGuard) {
+                             SsrfGuard ssrfGuard,
+                             WebhookMetricsService webhookMetricsService) {
         this.webhookService = webhookService;
         this.webhookDispatcher = webhookDispatcher;
         this.webhookDeliveryRepository = webhookDeliveryRepository;
@@ -68,6 +75,7 @@ public class WebhookController {
         this.webhookRepository = webhookRepository;
         this.webhookOutboxService = webhookOutboxService;
         this.ssrfGuard = ssrfGuard;
+        this.webhookMetricsService = webhookMetricsService;
     }
 
     @ExceptionHandler(IllegalArgumentException.class)
@@ -78,6 +86,7 @@ public class WebhookController {
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
     public ApiResponse<WebhookDto> createWebhook(@Valid @RequestBody CreateWebhookRequest request) {
+        validateAuthConfig(request.authType(), request.authConfig());
         UUID orgId = TenantContext.get().orgId();
         UUID userId = TenantContext.get().userId();
         WebhookDto webhook = webhookService.createWebhook(orgId, userId, request);
@@ -103,6 +112,7 @@ public class WebhookController {
     @PutMapping("/{id}")
     public ApiResponse<WebhookDto> updateWebhook(@PathVariable UUID id,
                                                   @Valid @RequestBody UpdateWebhookRequest request) {
+        validateAuthConfig(request.authType(), request.authConfig());
         UUID orgId = TenantContext.get().orgId();
         WebhookDto webhook = webhookService.updateWebhook(orgId, id, request);
         return ApiResponse.ok(webhook, "Webhook updated successfully");
@@ -155,6 +165,9 @@ public class WebhookController {
         delivery.setStatusCode(result.statusCode());
         delivery.setResponseBody(result.responseBody());
         delivery.setSuccess(result.success());
+        String status = result.success() ? "SUCCESS" : (result.authFailure() ? "AUTH_FAILURE" : "FAILED");
+        delivery.setStatus(status);
+        delivery.setAttemptedAt(Instant.now());
         delivery.setDeliveredAt(Instant.now());
         WebhookDeliveryEntity saved = webhookDeliveryRepository.save(delivery);
 
@@ -164,6 +177,7 @@ public class WebhookController {
                 saved.getEventType(),
                 saved.getStatusCode(),
                 saved.isSuccess(),
+                saved.getStatus(),
                 saved.getDeliveredAt()
         );
         return ApiResponse.ok(dto, result.success() ? "Test delivery successful" : "Test delivery failed");
@@ -174,6 +188,13 @@ public class WebhookController {
         UUID orgId = TenantContext.get().orgId();
         WebhookDto webhook = webhookService.resetCircuit(orgId, id);
         return ApiResponse.ok(webhook, "Circuit breaker reset successfully");
+    }
+
+    @GetMapping("/{id}/metrics")
+    @PreAuthorize("hasAnyRole('OWNER', 'EDITOR')")
+    public ApiResponse<WebhookMetricsDto> getMetrics(@PathVariable UUID id) {
+        UUID orgId = TenantContext.get().orgId();
+        return ApiResponse.ok(webhookMetricsService.getMetrics(id, orgId));
     }
 
     @PostMapping("/{id}/rotate-secret")
@@ -214,6 +235,32 @@ public class WebhookController {
         // a race condition with OutboxPoller claiming the entry between find and save.
         WebhookOutboxEntity saved = webhookOutboxService.resetForRetry(outboxId, id);
         return ApiResponse.ok(toOutboxDto(saved), "Outbox entry queued for retry");
+    }
+
+    /**
+     * Validates the auth config for security constraints before persisting.
+     * For OAUTH2_CLIENT_CREDENTIALS: tokenUrl must use HTTPS and must not resolve to a
+     * private/loopback address (SSRF guard); clientId must be present.
+     */
+    private void validateAuthConfig(WebhookAuthType authType, WebhookAuthConfigRequest req) {
+        if (authType == null) return;
+        if (authType == WebhookAuthType.OAUTH2_CLIENT_CREDENTIALS) {
+            if (req == null) {
+                throw new IllegalArgumentException("authConfig is required when authType is OAUTH2_CLIENT_CREDENTIALS");
+            }
+            String tokenUrl = req.getTokenUrl();
+            if (tokenUrl == null || !tokenUrl.startsWith("https://")) {
+                throw new IllegalArgumentException("tokenUrl must use HTTPS for OAuth2 auth type");
+            }
+            // SSRF check on the token URL — ssrfGuard.validate() throws IllegalArgumentException if blocked
+            ssrfGuard.validate(tokenUrl);
+            if (req.getClientId() == null || req.getClientId().isBlank()) {
+                throw new IllegalArgumentException("clientId is required for OAuth2 auth type");
+            }
+            if (req.getClientSecret() == null || req.getClientSecret().isBlank()) {
+                throw new IllegalArgumentException("clientSecret is required for OAuth2 auth type");
+            }
+        }
     }
 
     private WebhookOutboxDto toOutboxDto(WebhookOutboxEntity entity) {
