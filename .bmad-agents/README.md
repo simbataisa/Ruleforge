@@ -6,16 +6,16 @@ A complete set of 10 specialized AI agent skills implementing the **BMAD Method*
 
 | Agent                    | Skill Directory              | BMAD Phase     | Role                                                         |
 | ------------------------ | ---------------------------- | -------------- | ------------------------------------------------------------ |
-| **Business Analyst**     | `bmad-business-analyst/`     | Analysis       | Problem exploration, stakeholder analysis, project brief     |
-| **Product Owner**        | `bmad-product-owner/`        | Planning       | PRD, backlog prioritization, artifact alignment              |
-| **Solution Architect**   | `bmad-solution-architect/`   | Solutioning    | Service decomposition, API contracts, data models, ADRs      |
-| **Enterprise Architect** | `bmad-enterprise-architect/` | Solutioning    | Cloud infra, compliance, observability, CI/CD, FinOps        |
-| **UX/UI Designer**       | `bmad-ux-ui-designer/`       | Solutioning    | Personas, journeys, wireframes, design system, accessibility |
-| **Tech Lead**            | `bmad-tech-lead/`            | All Phases     | Orchestration, code review, risk, release readiness          |
-| **Tester & QE**          | `bmad-tester-qe/`            | All Phases     | Test strategy, quality gates, security testing               |
-| **Backend Engineer**     | `bmad-backend-engineer/`     | Implementation | APIs, data layers, event-driven services                     |
-| **Frontend Engineer**    | `bmad-frontend-engineer/`    | Implementation | React/TypeScript, state management, a11y                     |
-| **Mobile Engineer**      | `bmad-mobile-engineer/`      | Implementation | iOS, Android, React Native, Flutter                          |
+| **Business Analyst**     | `business-analyst/`     | Analysis       | Problem exploration, stakeholder analysis, project brief     |
+| **Product Owner**        | `product-owner/`        | Planning       | PRD, backlog prioritization, artifact alignment              |
+| **Solution Architect**   | `solution-architect/`   | Solutioning    | Service decomposition, API contracts, data models, ADRs      |
+| **Enterprise Architect** | `enterprise-architect/` | Solutioning    | Cloud infra, compliance, observability, CI/CD, FinOps        |
+| **UX/UI Designer**       | `ux-designer/`       | Solutioning    | Personas, journeys, wireframes, design system, accessibility |
+| **Tech Lead**            | `tech-lead/`            | All Phases     | Orchestration, code review, risk, release readiness          |
+| **Tester & QE**          | `tester-qe/`            | All Phases     | Test strategy, quality gates, security testing               |
+| **Backend Engineer**     | `backend-engineer/`     | Implementation | APIs, data layers, event-driven services                     |
+| **Frontend Engineer**    | `frontend-engineer/`    | Implementation | React/TypeScript, state management, a11y                     |
+| **Mobile Engineer**      | `mobile-engineer/`      | Implementation | iOS, Android, React Native, Flutter                          |
 
 ## BMAD Four-Phase Workflow
 
@@ -71,16 +71,16 @@ cat >> CLAUDE.md << 'EOF'
 This project uses BMAD method agents for structured SDLC. Agent skill definitions
 are in `.bmad-agents/`. When working on:
 
-- Requirements or analysis: read `.bmad-agents/bmad-business-analyst/SKILL.md`
-- Product planning or PRD: read `.bmad-agents/bmad-product-owner/SKILL.md`
-- System architecture: read `.bmad-agents/bmad-solution-architect/SKILL.md`
-- Enterprise/cloud architecture: read `.bmad-agents/bmad-enterprise-architect/SKILL.md`
-- UX/UI design: read `.bmad-agents/bmad-ux-ui-designer/SKILL.md`
-- Technical leadership or code review: read `.bmad-agents/bmad-tech-lead/SKILL.md`
-- Testing or QA: read `.bmad-agents/bmad-tester-qe/SKILL.md`
-- Backend development: read `.bmad-agents/bmad-backend-engineer/SKILL.md`
-- Frontend development: read `.bmad-agents/bmad-frontend-engineer/SKILL.md`
-- Mobile development: read `.bmad-agents/bmad-mobile-engineer/SKILL.md`
+- Requirements or analysis: read `.bmad-agents/business-analyst/SKILL.md`
+- Product planning or PRD: read `.bmad-agents/product-owner/SKILL.md`
+- System architecture: read `.bmad-agents/solution-architect/SKILL.md`
+- Enterprise/cloud architecture: read `.bmad-agents/enterprise-architect/SKILL.md`
+- UX/UI design: read `.bmad-agents/ux-designer/SKILL.md`
+- Technical leadership or code review: read `.bmad-agents/tech-lead/SKILL.md`
+- Testing or QA: read `.bmad-agents/tester-qe/SKILL.md`
+- Backend development: read `.bmad-agents/backend-engineer/SKILL.md`
+- Frontend development: read `.bmad-agents/frontend-engineer/SKILL.md`
+- Mobile development: read `.bmad-agents/mobile-engineer/SKILL.md`
 
 Always read `.bmad-agents/BMAD-SHARED-CONTEXT.md` first for the overall workflow
 and artifact structure. All artifacts go in `docs/` per the BMAD directory convention.
@@ -97,16 +97,16 @@ To install, copy each agent folder into your workspace's skill directory:
 
 ```bash
 # Cowork manages the .skills/skills/ path within your selected folder
-cp -r bmad-sdlc-agents/bmad-business-analyst/ .skills/skills/bmad-business-analyst/
-cp -r bmad-sdlc-agents/bmad-product-owner/ .skills/skills/bmad-product-owner/
-cp -r bmad-sdlc-agents/bmad-solution-architect/ .skills/skills/bmad-solution-architect/
-cp -r bmad-sdlc-agents/bmad-enterprise-architect/ .skills/skills/bmad-enterprise-architect/
-cp -r bmad-sdlc-agents/bmad-ux-ui-designer/ .skills/skills/bmad-ux-ui-designer/
-cp -r bmad-sdlc-agents/bmad-tech-lead/ .skills/skills/bmad-tech-lead/
-cp -r bmad-sdlc-agents/bmad-tester-qe/ .skills/skills/bmad-tester-qe/
-cp -r bmad-sdlc-agents/bmad-backend-engineer/ .skills/skills/bmad-backend-engineer/
-cp -r bmad-sdlc-agents/bmad-frontend-engineer/ .skills/skills/bmad-frontend-engineer/
-cp -r bmad-sdlc-agents/bmad-mobile-engineer/ .skills/skills/bmad-mobile-engineer/
+cp -r bmad-sdlc-agents/business-analyst/ .skills/skills/business-analyst/
+cp -r bmad-sdlc-agents/product-owner/ .skills/skills/product-owner/
+cp -r bmad-sdlc-agents/solution-architect/ .skills/skills/solution-architect/
+cp -r bmad-sdlc-agents/enterprise-architect/ .skills/skills/enterprise-architect/
+cp -r bmad-sdlc-agents/ux-designer/ .skills/skills/ux-designer/
+cp -r bmad-sdlc-agents/tech-lead/ .skills/skills/tech-lead/
+cp -r bmad-sdlc-agents/tester-qe/ .skills/skills/tester-qe/
+cp -r bmad-sdlc-agents/backend-engineer/ .skills/skills/backend-engineer/
+cp -r bmad-sdlc-agents/frontend-engineer/ .skills/skills/frontend-engineer/
+cp -r bmad-sdlc-agents/mobile-engineer/ .skills/skills/mobile-engineer/
 ```
 
 Once installed, skills auto-trigger when your prompts match their description keywords.
@@ -123,9 +123,9 @@ Cursor uses `.cursor/rules/` for project-level rules and supports `.cursorrules`
 mkdir -p .cursor/rules/
 
 # Copy each agent as a separate rule file
-for agent in bmad-business-analyst bmad-product-owner bmad-solution-architect \
-  bmad-enterprise-architect bmad-ux-ui-designer bmad-tech-lead bmad-tester-qe \
-  bmad-backend-engineer bmad-frontend-engineer bmad-mobile-engineer; do
+for agent in business-analyst product-owner solution-architect \
+  enterprise-architect ux-designer tech-lead tester-qe \
+  backend-engineer frontend-engineer mobile-engineer; do
   cp "bmad-sdlc-agents/$agent/SKILL.md" ".cursor/rules/$agent.md"
 done
 
@@ -194,7 +194,7 @@ done
 cp bmad-sdlc-agents/BMAD-SHARED-CONTEXT.md .github/prompts/bmad-shared-context.prompt.md
 ```
 
-Reference agents in Copilot Chat with `#bmad-backend-engineer` or by mentioning the prompt file.
+Reference agents in Copilot Chat with `#backend-engineer` or by mentioning the prompt file.
 
 **Option B: Single instructions file**
 
@@ -256,16 +256,16 @@ cat >> GEMINI.md << 'EOF'
 Agent skill definitions are in `.bmad-agents/`. Read the relevant SKILL.md
 before performing that role. Available agents:
 
-- Business Analyst: `.bmad-agents/bmad-business-analyst/SKILL.md`
-- Product Owner: `.bmad-agents/bmad-product-owner/SKILL.md`
-- Solution Architect: `.bmad-agents/bmad-solution-architect/SKILL.md`
-- Enterprise Architect: `.bmad-agents/bmad-enterprise-architect/SKILL.md`
-- UX/UI Designer: `.bmad-agents/bmad-ux-ui-designer/SKILL.md`
-- Tech Lead: `.bmad-agents/bmad-tech-lead/SKILL.md`
-- Tester & QE: `.bmad-agents/bmad-tester-qe/SKILL.md`
-- Backend Engineer: `.bmad-agents/bmad-backend-engineer/SKILL.md`
-- Frontend Engineer: `.bmad-agents/bmad-frontend-engineer/SKILL.md`
-- Mobile Engineer: `.bmad-agents/bmad-mobile-engineer/SKILL.md`
+- Business Analyst: `.bmad-agents/business-analyst/SKILL.md`
+- Product Owner: `.bmad-agents/product-owner/SKILL.md`
+- Solution Architect: `.bmad-agents/solution-architect/SKILL.md`
+- Enterprise Architect: `.bmad-agents/enterprise-architect/SKILL.md`
+- UX/UI Designer: `.bmad-agents/ux-designer/SKILL.md`
+- Tech Lead: `.bmad-agents/tech-lead/SKILL.md`
+- Tester & QE: `.bmad-agents/tester-qe/SKILL.md`
+- Backend Engineer: `.bmad-agents/backend-engineer/SKILL.md`
+- Frontend Engineer: `.bmad-agents/frontend-engineer/SKILL.md`
+- Mobile Engineer: `.bmad-agents/mobile-engineer/SKILL.md`
 EOF
 
 cp -r bmad-sdlc-agents/ .bmad-agents/
@@ -303,8 +303,8 @@ cat > .aider.conf.yml << 'EOF'
 read:
   - .bmad-agents/BMAD-SHARED-CONTEXT.md
   # Add specific agents as needed:
-  # - .bmad-agents/bmad-backend-engineer/SKILL.md
-  # - .bmad-agents/bmad-tech-lead/SKILL.md
+  # - .bmad-agents/backend-engineer/SKILL.md
+  # - .bmad-agents/tech-lead/SKILL.md
 EOF
 
 cp -r bmad-sdlc-agents/ .bmad-agents/
@@ -313,7 +313,7 @@ cp -r bmad-sdlc-agents/ .bmad-agents/
 Or load agents dynamically per session:
 
 ```bash
-aider --read .bmad-agents/bmad-backend-engineer/SKILL.md src/
+aider --read .bmad-agents/backend-engineer/SKILL.md src/
 ```
 
 ---
@@ -401,7 +401,7 @@ The example project is an **Enterprise Order Management System** — a microserv
 #### Prompt 1 — Business Analyst: Create the Project Brief
 
 ```
-Read `.bmad-agents/BMAD-SHARED-CONTEXT.md` and `.bmad-agents/bmad-business-analyst/SKILL.md`.
+Read `.bmad-agents/BMAD-SHARED-CONTEXT.md` and `.bmad-agents/business-analyst/SKILL.md`.
 
 Act as the BMAD Business Analyst.
 
@@ -431,7 +431,7 @@ Also initialize `docs/.bmad/handoff-log.md` with the first entry.
 #### Prompt 2 — Product Owner: Create the PRD
 
 ```
-Read `.bmad-agents/bmad-product-owner/SKILL.md`.
+Read `.bmad-agents/product-owner/SKILL.md`.
 
 Act as the BMAD Product Owner. Read `docs/project-brief.md` produced by the BA.
 
@@ -476,7 +476,7 @@ changelog section. Update the handoff log.
 #### Prompt 3 — Solution Architect: Design the System
 
 ```
-Read `.bmad-agents/bmad-solution-architect/SKILL.md`.
+Read `.bmad-agents/solution-architect/SKILL.md`.
 
 Act as the BMAD Solution Architect. Read `docs/prd.md`.
 
@@ -506,7 +506,7 @@ Log the handoff in `docs/.bmad/handoff-log.md`.
 #### Prompt 4 — Enterprise Architect: Cloud & Infrastructure
 
 ```
-Read `.bmad-agents/bmad-enterprise-architect/SKILL.md`.
+Read `.bmad-agents/enterprise-architect/SKILL.md`.
 
 Act as the BMAD Enterprise Architect. Read `docs/prd.md` and
 `docs/architecture/solution-architecture.md`.
@@ -532,7 +532,7 @@ Log the handoff.
 #### Prompt 5 — UX/UI Designer: Design the Experience
 
 ```
-Read `.bmad-agents/bmad-ux-ui-designer/SKILL.md`.
+Read `.bmad-agents/ux-designer/SKILL.md`.
 
 Act as the BMAD UX/UI Designer. Read `docs/prd.md` and
 `docs/architecture/solution-architecture.md`.
@@ -582,7 +582,7 @@ loop in the handoff log.
 #### Prompt 6 — Tech Lead: Refine Stories
 
 ```
-Read `.bmad-agents/bmad-tech-lead/SKILL.md`.
+Read `.bmad-agents/tech-lead/SKILL.md`.
 
 Act as the BMAD Tech Lead. Read all artifacts:
 - `docs/prd.md`
@@ -637,7 +637,7 @@ Update the handoff log.
 #### Prompt 7 — Backend Engineer: Implement Order Service
 
 ```
-Read `.bmad-agents/bmad-backend-engineer/SKILL.md`.
+Read `.bmad-agents/backend-engineer/SKILL.md`.
 
 Act as the BMAD Backend Engineer. Read:
 - `docs/stories/epic-1/story-1.1.md` (Create Order API)
@@ -662,7 +662,7 @@ When done, mark the Definition of Done items as complete in the story files.
 #### Prompt 8 — Frontend Engineer: Implement Order Dashboard
 
 ```
-Read `.bmad-agents/bmad-frontend-engineer/SKILL.md`.
+Read `.bmad-agents/frontend-engineer/SKILL.md`.
 
 Act as the BMAD Frontend Engineer. Read:
 - `docs/stories/epic-1/story-1.3.md` (Order List View)
@@ -690,7 +690,7 @@ Update Definition of Done in the story file.
 #### Prompt 9 — Mobile Engineer: Implement Order Notifications
 
 ```
-Read `.bmad-agents/bmad-mobile-engineer/SKILL.md`.
+Read `.bmad-agents/mobile-engineer/SKILL.md`.
 
 Act as the BMAD Mobile Engineer. Read:
 - `docs/stories/epic-1/story-1.6.md` (Mobile push for order status)
@@ -714,7 +714,7 @@ Update Definition of Done in the story file.
 #### Prompt 10 — Tester & QE: Test Strategy and Execution
 
 ```
-Read `.bmad-agents/bmad-tester-qe/SKILL.md`.
+Read `.bmad-agents/tester-qe/SKILL.md`.
 
 Act as the BMAD Tester & QE. Read all artifacts:
 - `docs/prd.md`
@@ -909,14 +909,14 @@ Before assuming each role, read that agent's SKILL.md from `.bmad-agents/`.
 ## Execution Plan — Follow These Phases In Order
 
 ### PHASE 1: ANALYSIS (Business Analyst)
-Read `.bmad-agents/bmad-business-analyst/SKILL.md`. Act as the Business Analyst.
+Read `.bmad-agents/business-analyst/SKILL.md`. Act as the Business Analyst.
 - Create `docs/project-brief.md` using `templates/project-brief-template.md`
 - Include: problem statement, stakeholder analysis, scope, requirements, risks, success KPIs
 - Initialize `docs/.bmad/handoff-log.md`
 - When done, state: "BA COMPLETE — handing off to Product Owner"
 
 ### PHASE 2: PLANNING (Product Owner)
-Read `.bmad-agents/bmad-product-owner/SKILL.md`. Act as the Product Owner.
+Read `.bmad-agents/product-owner/SKILL.md`. Act as the Product Owner.
 - Read `docs/project-brief.md`
 - Create `docs/prd.md` using `templates/prd-template.md`
 - Write user stories with Gherkin acceptance criteria for the target epic
@@ -930,7 +930,7 @@ Read `.bmad-agents/bmad-product-owner/SKILL.md`. Act as the Product Owner.
 ### PHASE 3: SOLUTIONING (Solution Architect → Enterprise Architect → UX/UI Designer)
 
 **Step 3a: Solution Architect**
-Read `.bmad-agents/bmad-solution-architect/SKILL.md` AND `references/technology-radar.md`.
+Read `.bmad-agents/solution-architect/SKILL.md` AND `references/technology-radar.md`.
 Act as the Solution Architect.
 - Read `docs/prd.md`
 - Create `docs/architecture/solution-architecture.md`
@@ -945,7 +945,7 @@ Act as the Solution Architect.
 - Log handoff
 
 **Step 3b: Enterprise Architect**
-Read `.bmad-agents/bmad-enterprise-architect/SKILL.md` AND `references/technology-radar.md`.
+Read `.bmad-agents/enterprise-architect/SKILL.md` AND `references/technology-radar.md`.
 Act as the Enterprise Architect.
 - Read `docs/prd.md` and `docs/architecture/solution-architecture.md`
 - **Validate the Solution Architect's technology choices** against enterprise
@@ -958,7 +958,7 @@ Act as the Enterprise Architect.
 - Log handoff
 
 **Step 3c: UX/UI Designer**
-Read `.bmad-agents/bmad-ux-ui-designer/SKILL.md`. Act as the UX/UI Designer.
+Read `.bmad-agents/ux-designer/SKILL.md`. Act as the UX/UI Designer.
 - Read `docs/prd.md` and `docs/architecture/solution-architecture.md`
 - Create: `docs/ux/personas.md`, `docs/ux/user-journeys.md`,
   `docs/ux/information-architecture.md`, `docs/ux/design-system.md`,
@@ -974,7 +974,7 @@ Act as the Solution Architect again. Review UX artifacts against the API contrac
 - Log the feedback loop in the handoff log
 
 **Step 3e: Tech Lead — Story Refinement**
-Read `.bmad-agents/bmad-tech-lead/SKILL.md`. Act as the Tech Lead.
+Read `.bmad-agents/tech-lead/SKILL.md`. Act as the Tech Lead.
 - Read all Phase 2-3 artifacts
 - Create implementation stories in `docs/stories/` using `templates/story-template.md`
 - Each story must include: Gherkin acceptance criteria, technical implementation notes,
@@ -990,7 +990,7 @@ Read `.bmad-agents/bmad-tech-lead/SKILL.md`. Act as the Tech Lead.
 ### PHASE 4: IMPLEMENTATION (Engineers + QE in parallel, then review loops)
 
 **Step 4a: Backend Engineer**
-Read `.bmad-agents/bmad-backend-engineer/SKILL.md`. Act as the Backend Engineer.
+Read `.bmad-agents/backend-engineer/SKILL.md`. Act as the Backend Engineer.
 - Read relevant backend stories from `docs/stories/`
 - Implement: project scaffolding, API endpoints, business logic, database schema/migrations,
   event publishing, structured logging, health checks
@@ -999,7 +999,7 @@ Read `.bmad-agents/bmad-backend-engineer/SKILL.md`. Act as the Backend Engineer.
 - Mark Definition of Done items complete in story files
 
 **Step 4b: Frontend Engineer**
-Read `.bmad-agents/bmad-frontend-engineer/SKILL.md`. Act as the Frontend Engineer.
+Read `.bmad-agents/frontend-engineer/SKILL.md`. Act as the Frontend Engineer.
 - Read relevant frontend stories + `docs/ux/ui-spec.md` + `docs/ux/design-system.md`
 - Implement: design system tokens, UI components, all screen states (loading, empty,
   populated, error, partial), responsive layouts, keyboard shortcuts, accessibility
@@ -1007,13 +1007,13 @@ Read `.bmad-agents/bmad-frontend-engineer/SKILL.md`. Act as the Frontend Enginee
 - Follow coding standards. Mark Definition of Done items complete.
 
 **Step 4c: Mobile Engineer**
-Read `.bmad-agents/bmad-mobile-engineer/SKILL.md`. Act as the Mobile Engineer.
+Read `.bmad-agents/mobile-engineer/SKILL.md`. Act as the Mobile Engineer.
 - Read relevant mobile stories + UX specs
 - Implement: platform-specific code, push notifications, offline support, deep linking
 - Write unit tests. Mark Definition of Done items complete.
 
 **Step 4d: Tester & QE — Test Strategy + Test Cases**
-Read `.bmad-agents/bmad-tester-qe/SKILL.md`. Act as the Tester & QE.
+Read `.bmad-agents/tester-qe/SKILL.md`. Act as the Tester & QE.
 - Read all artifacts: PRD, architecture, UX specs, stories
 - Create `docs/test-plans/test-strategy.md` using `templates/test-strategy-template.md`
 - Create test cases in `docs/test-plans/test-cases/`:

@@ -3,9 +3,11 @@ import { Copy, Check, Building2, Package, Folder, FileText } from 'lucide-react'
 import { Modal } from '@/shared/components/Modal';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
-import { useCreateWebhook, type WebhookScopeType } from '@/api/webhooks.api';
+import { useCreateWebhook, type WebhookScopeType, type WebhookAuthType, type WebhookAuthConfig, type WebhookRetryConfig } from '@/api/webhooks.api';
 import { useOrgSpaces, useOrganization } from '@/api/org.api';
 import { useToastStore } from '@/stores/toast.store';
+import { WebhookAuthConfigForm } from './WebhookAuthConfigForm';
+import { WebhookRetryConfigForm } from './WebhookRetryConfigForm';
 
 const AVAILABLE_EVENTS = [
   'rule.created',
@@ -71,6 +73,12 @@ export function CreateWebhookModal({ onClose, onSuccess }: Props) {
   const [selectedEvents, setSelectedEvents] = useState<string[]>([]);
   const [active, setActive] = useState(true);
 
+  // Auth & retry state
+  const [authType, setAuthType] = useState<WebhookAuthType>('NONE');
+  const [authConfig, setAuthConfig] = useState<Partial<WebhookAuthConfig>>({});
+  const [retryConfig, setRetryConfig] = useState<Partial<WebhookRetryConfig>>({});
+  const [authError, setAuthError] = useState<string | null>(null);
+
   // Secret reveal state
   const [newSecret, setNewSecret] = useState('');
   const [copied, setCopied] = useState(false);
@@ -98,8 +106,23 @@ export function CreateWebhookModal({ onClose, onSuccess }: Props) {
     return true;
   };
 
+  const validateAuth = (): string | null => {
+    if (authType === 'API_KEY' && !authConfig.apiKey?.trim()) return 'API Key is required';
+    if (authType === 'BASIC_AUTH' && !authConfig.username?.trim()) return 'Username is required';
+    if (authType === 'BASIC_AUTH' && !authConfig.password?.trim()) return 'Password is required';
+    if (authType === 'BEARER_TOKEN' && !authConfig.token?.trim()) return 'Token is required';
+    return null;
+  };
+
   const handleSubmit = () => {
     if (!scopeType) return;
+
+    const authValidationError = validateAuth();
+    if (authValidationError) {
+      setAuthError(authValidationError);
+      return;
+    }
+    setAuthError(null);
 
     const data = {
       url,
@@ -108,12 +131,15 @@ export function CreateWebhookModal({ onClose, onSuccess }: Props) {
       scopeType,
       scopeId: scopeType === 'ORG' && organization?.id ? organization.id : scopeId,
       ...(name ? { name } : {}),
+      authType,
+      ...(authType !== 'NONE' && { authConfig }),
+      ...(Object.keys(retryConfig).length > 0 && { retryConfig }),
     };
 
     createWebhook.mutate(data, {
       onSuccess: (result) => {
         // result is CreateWebhookResponse { webhook, secret }
-        const secret = result?.secret ?? '';
+        const secret = result?.secretOnCreation ?? '';
         if (secret) {
           setNewSecret(secret);
           setStep('secret');
@@ -137,7 +163,15 @@ export function CreateWebhookModal({ onClose, onSuccess }: Props) {
       });
   };
 
+  const resetAuthState = () => {
+    setAuthType('NONE');
+    setAuthConfig({});
+    setRetryConfig({});
+    setAuthError(null);
+  };
+
   const handleSecretDismiss = () => {
+    resetAuthState();
     addToast({ type: 'success', title: 'Webhook created successfully' });
     onSuccess();
   };
@@ -306,6 +340,27 @@ export function CreateWebhookModal({ onClose, onSuccess }: Props) {
             <span className="font-medium text-gray-700">Active</span>
           </label>
         </div>
+
+        {/* Authentication */}
+        <div className="border-t pt-4">
+          <p className="text-sm font-medium text-gray-900 mb-3">Authentication</p>
+          <WebhookAuthConfigForm
+            authType={authType}
+            authConfig={authConfig}
+            onChange={(type, config) => {
+              setAuthType(type);
+              setAuthConfig(config);
+              setAuthError(null);
+            }}
+          />
+          {authError && <p className="text-sm text-red-600 mt-2">{authError}</p>}
+        </div>
+
+        {/* Retry config */}
+        <WebhookRetryConfigForm
+          retryConfig={retryConfig}
+          onChange={setRetryConfig}
+        />
       </div>
     </Modal>
   );

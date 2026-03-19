@@ -1,5 +1,6 @@
 package io.ruleforge.event.dto;
 
+import io.ruleforge.event.model.WebhookAuthType;
 import io.ruleforge.event.model.WebhookScopeType;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
@@ -14,5 +15,8 @@ public record CreateWebhookRequest(
         @NotNull WebhookScopeType scopeType,
         @NotNull UUID scopeId,
         String name,
-        Boolean active
+        Boolean active,
+        WebhookAuthType authType,
+        WebhookAuthConfigRequest authConfig,
+        WebhookRetryConfigRequest retryConfig
 ) {}

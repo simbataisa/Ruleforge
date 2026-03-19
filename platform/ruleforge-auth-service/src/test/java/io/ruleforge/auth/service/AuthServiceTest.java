@@ -49,7 +49,7 @@ class AuthServiceTest {
 
     @Test
     void register_createsUserOrgAndMember() {
-        RegisterRequest request = new RegisterRequest("user@test.com", "password123", "Test User");
+        RegisterRequest request = new RegisterRequest("user@test.com", "password123", "Test User", null);
 
         when(userRepository.existsByEmail("user@test.com")).thenReturn(false);
         when(passwordEncoder.encode("password123")).thenReturn("hashed");
@@ -86,7 +86,7 @@ class AuthServiceTest {
 
     @Test
     void register_throwsConflictWhenEmailExists() {
-        RegisterRequest request = new RegisterRequest("existing@test.com", "password123", "Test User");
+        RegisterRequest request = new RegisterRequest("existing@test.com", "password123", "Test User", null);
         when(userRepository.existsByEmail("existing@test.com")).thenReturn(true);
 
         assertThrows(ConflictException.class, () -> authService.register(request));

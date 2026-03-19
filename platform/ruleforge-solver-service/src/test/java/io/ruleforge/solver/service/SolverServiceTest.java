@@ -22,6 +22,8 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import java.util.Optional;
+
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
@@ -37,6 +39,7 @@ class SolverServiceTest {
     @Mock private RuleCacheService cacheService;
     @Mock private RuleForgeEngine engine;
     @Mock private EventPublisher eventPublisher;
+    @Mock private AbTestRouter abTestRouter;
 
     private SolverService solverService;
 
@@ -46,7 +49,8 @@ class SolverServiceTest {
 
     @BeforeEach
     void setUp() {
-        solverService = new SolverService(cacheService, engine, eventPublisher);
+        solverService = new SolverService(cacheService, engine, eventPublisher, abTestRouter);
+        lenient().when(abTestRouter.route(any())).thenReturn(Optional.empty());
         TenantContext.set(new TenantContext.TenantInfo(orgId, spaceId, userId, "SOLVER"));
     }
 
@@ -70,7 +74,7 @@ class SolverServiceTest {
                 List.of(),
                 null
         );
-        when(compiledRule.evaluate(any(WorkingMemory.class))).thenReturn(engineResult);
+        when(engine.evaluate(any(CompiledRule.class), any(WorkingMemory.class))).thenReturn(engineResult);
 
         SolveRequest request = new SolveRequest(Map.of("age", 30), null, null);
         SolveResponse response = solverService.solve(ruleId, null, request);
@@ -91,7 +95,7 @@ class SolverServiceTest {
         when(cacheService.getCompiledRule(ruleId, null)).thenReturn(compiledRule);
 
         RuleResult engineResult = RuleResult.empty();
-        when(compiledRule.evaluate(any(WorkingMemory.class))).thenReturn(engineResult);
+        when(engine.evaluate(any(CompiledRule.class), any(WorkingMemory.class))).thenReturn(engineResult);
 
         SolveRequest request = new SolveRequest(Map.of("key", "value"), null, null);
         solverService.solve(ruleId, null, request);
@@ -109,7 +113,7 @@ class SolverServiceTest {
         when(cacheService.getCompiledRule(ruleId, 3)).thenReturn(compiledRule);
 
         RuleResult engineResult = RuleResult.empty();
-        when(compiledRule.evaluate(any(WorkingMemory.class))).thenReturn(engineResult);
+        when(engine.evaluate(any(CompiledRule.class), any(WorkingMemory.class))).thenReturn(engineResult);
 
         SolveRequest request = new SolveRequest(Map.of("x", 1), null, null);
         solverService.solve(ruleId, 3, request);
@@ -136,7 +140,7 @@ class SolverServiceTest {
                 List.of(matchedRule),
                 null
         );
-        when(compiledRule.evaluate(any(WorkingMemory.class))).thenReturn(engineResult);
+        when(engine.evaluate(any(CompiledRule.class), any(WorkingMemory.class))).thenReturn(engineResult);
 
         SolveRequest request = new SolveRequest(Map.of("age", 30), null, null);
         SolveResponse response = solverService.solve(ruleId, null, request);

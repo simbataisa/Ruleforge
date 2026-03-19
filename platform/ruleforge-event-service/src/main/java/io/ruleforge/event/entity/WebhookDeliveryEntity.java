@@ -42,6 +42,15 @@ public class WebhookDeliveryEntity {
     @Column(name = "delivered_at", nullable = false)
     private Instant deliveredAt;
 
+    @Column(name = "org_id")
+    private UUID orgId;
+
+    @Column(name = "attempted_at")
+    private Instant attemptedAt;
+
+    @Column(name = "status", nullable = false)
+    private String status = "SUCCESS";
+
     public WebhookDeliveryEntity() {}
 
     public UUID getId() { return id; }
@@ -67,4 +76,13 @@ public class WebhookDeliveryEntity {
 
     public Instant getDeliveredAt() { return deliveredAt; }
     public void setDeliveredAt(Instant deliveredAt) { this.deliveredAt = deliveredAt; }
+
+    public UUID getOrgId() { return orgId; }
+    public void setOrgId(UUID orgId) { this.orgId = orgId; }
+
+    public Instant getAttemptedAt() { return attemptedAt; }
+    public void setAttemptedAt(Instant attemptedAt) { this.attemptedAt = attemptedAt; }
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 }

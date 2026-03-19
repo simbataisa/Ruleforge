@@ -15,15 +15,17 @@ import { WebhookScopeBadge } from '@/features/webhooks/components/WebhookScopeBa
 import { WebhookDeliveryLogsTab } from '@/features/webhooks/components/WebhookDeliveryLogsTab';
 import { WebhookSecurityTab } from '@/features/webhooks/components/WebhookSecurityTab';
 import { WebhookSettingsTab } from '@/features/webhooks/components/WebhookSettingsTab';
+import { WebhookMetricsTab } from '@/features/webhooks/components/WebhookMetricsTab';
 import { useToastStore } from '@/stores/toast.store';
 
-type Tab = 'overview' | 'deliveries' | 'security' | 'settings';
+type Tab = 'overview' | 'deliveries' | 'security' | 'settings' | 'metrics';
 
 const TABS: { id: Tab; label: string }[] = [
   { id: 'overview', label: 'Overview' },
   { id: 'deliveries', label: 'Delivery Logs' },
   { id: 'security', label: 'Security' },
   { id: 'settings', label: 'Settings' },
+  { id: 'metrics', label: 'Metrics' },
 ];
 
 function StatCard({ label, value, className = '' }: { label: string; value: string | number; className?: string }) {
@@ -294,6 +296,10 @@ export function WebhookDetailPage() {
             }}
             onDeleted={() => navigate('/webhooks')}
           />
+        )}
+
+        {activeTab === 'metrics' && (
+          <WebhookMetricsTab webhookId={webhook.id} />
         )}
       </div>
     </div>

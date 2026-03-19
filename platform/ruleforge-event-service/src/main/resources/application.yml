@@ -39,3 +39,9 @@ app:
     secret: "dGhpcyBpcyBhIHZlcnkgbG9uZyBzZWNyZXQga2V5IGZvciBITUFDLVNIQTUxMiB0aGF0IG11c3QgYmUgYXQgbGVhc3QgNjQgYnl0ZXMgbG9uZw=="
     access-token-validity-ms: 900000
     refresh-token-validity-ms: 604800000
+
+ruleforge:
+  webhook:
+    # CHANGE IN PRODUCTION — use WEBHOOK_CREDENTIAL_KEY env var (32-byte base64-encoded AES-256 key)
+    # Generate: openssl rand -base64 32
+    credential-key: ${WEBHOOK_CREDENTIAL_KEY:Y2hhbmdlbWVpbnByb2R1Y3Rpb24zMmJ5dGVza2V5YWFh}

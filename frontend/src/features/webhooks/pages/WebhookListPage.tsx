@@ -11,6 +11,7 @@ import {
   type Webhook,
 } from '@/api/webhooks.api';
 import { WebhookScopeBadge } from '@/features/webhooks/components/WebhookScopeBadge';
+import { WebhookHealthBadge } from '@/features/webhooks/components/WebhookHealthBadge';
 import { CreateWebhookModal } from '@/features/webhooks/components/CreateWebhookModal';
 
 function formatDate(dateStr: string): string {
@@ -75,6 +76,11 @@ export function WebhookListPage() {
           </Badge>
         );
       },
+    },
+    {
+      key: 'health',
+      header: 'Health',
+      render: (w: Webhook) => <WebhookHealthBadge webhookId={w.id} />,
     },
     {
       key: 'createdAt',

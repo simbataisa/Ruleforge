@@ -20,5 +20,8 @@ public record WebhookDto(
         int consecutiveFailures,
         OffsetDateTime lastDeliveredAt,
         String secretOnCreation,
-        Instant createdAt
+        Instant createdAt,
+        String authType,
+        WebhookAuthConfigDto authConfig,
+        WebhookRetryConfigDto retryConfig
 ) {}
