@@ -18,6 +18,8 @@ const AUTH_TYPE_OPTIONS: Array<{ value: WebhookAuthType; label: string; descript
   { value: 'API_KEY', label: 'API Key', description: 'Sends a key in a custom header (e.g., X-API-Key).' },
   { value: 'BASIC_AUTH', label: 'Basic Auth', description: 'Sends username and password via Authorization: Basic.' },
   { value: 'BEARER_TOKEN', label: 'Bearer Token', description: 'Sends a static token via Authorization: Bearer.' },
+  { value: 'CUSTOM_HEADER', label: 'Custom Header', description: 'Sends any value in a header you specify. Flexible — for proprietary API auth.' },
+  { value: 'OAUTH2_CLIENT_CREDENTIALS', label: 'OAuth 2.0 (Client Credentials)', description: 'Fetches a Bearer token automatically using client credentials. For Salesforce, Azure AD, Okta, and similar.' },
 ];
 
 interface PasswordInputProps {
@@ -198,6 +200,96 @@ export function WebhookAuthConfigForm({ authType, authConfig, onChange, disabled
           <p className="text-xs text-gray-500">
             Adds <code className="rounded bg-gray-100 px-1">X-RuleForge-Signature</code> header to each request using HMAC-SHA256.
           </p>
+        </>
+      )}
+
+      {authType === 'CUSTOM_HEADER' && (
+        <>
+          <Input
+            id="custom-header-name"
+            label="Header Name"
+            value={authConfig.headerName ?? 'X-Custom-Header'}
+            onChange={(e) => update({ headerName: e.target.value })}
+            placeholder="e.g. X-Service-Auth"
+            disabled={disabled}
+          />
+          <p className="mt-1 text-xs text-gray-500">
+            The exact header name your API expects (case-sensitive).
+          </p>
+          <div>
+            <label htmlFor="custom-header-value" className="mb-1.5 block text-sm font-medium text-gray-700">
+              Header Value *
+            </label>
+            <PasswordInput
+              id="custom-header-value"
+              value={authConfig.headerValue ?? ''}
+              onChange={(v) => update({ headerValue: v })}
+              placeholder="Enter header value"
+              disabled={disabled}
+              ariaLabel="Header Value"
+            />
+            <p className="mt-1 text-xs text-gray-500">Stored encrypted. Never shown after saving.</p>
+          </div>
+        </>
+      )}
+
+      {authType === 'OAUTH2_CLIENT_CREDENTIALS' && (
+        <>
+          <div>
+            <Input
+              id="oauth2-token-url"
+              label="Token URL"
+              type="url"
+              value={authConfig.tokenUrl ?? ''}
+              onChange={(e) => update({ tokenUrl: e.target.value })}
+              placeholder="https://auth.example.com/oauth/token"
+              disabled={disabled}
+            />
+            {authConfig.tokenUrl && !authConfig.tokenUrl.startsWith('https://') && (
+              <p className="mt-1 text-xs text-amber-600" role="alert">⚠️ Must use HTTPS.</p>
+            )}
+          </div>
+          <Input
+            id="oauth2-client-id"
+            label="Client ID"
+            value={authConfig.clientId ?? ''}
+            onChange={(e) => update({ clientId: e.target.value })}
+            disabled={disabled}
+            autoComplete="off"
+          />
+          <div>
+            <label htmlFor="oauth2-client-secret" className="mb-1.5 block text-sm font-medium text-gray-700">
+              Client Secret *
+            </label>
+            <PasswordInput
+              id="oauth2-client-secret"
+              value={authConfig.clientSecret ?? ''}
+              onChange={(v) => update({ clientSecret: v })}
+              placeholder="Enter client secret"
+              disabled={disabled}
+              ariaLabel="Client Secret"
+            />
+            <p className="mt-1 text-xs text-gray-500">Stored encrypted. Never shown after saving.</p>
+          </div>
+          <Input
+            id="oauth2-scope"
+            label="Scope"
+            value={authConfig.scope ?? ''}
+            onChange={(e) => update({ scope: e.target.value })}
+            placeholder="e.g. webhooks:write api:read"
+            disabled={disabled}
+          />
+          <details className="mt-1">
+            <summary className="cursor-pointer text-xs text-gray-500 hover:text-gray-700">
+              ▶ Where to find these values
+            </summary>
+            <div className="mt-2 rounded-md bg-gray-50 p-3 text-xs text-gray-500 space-y-1">
+              <p><strong>Salesforce:</strong> Setup → Apps → Connected App → Consumer Key/Secret; Token URL: https://login.salesforce.com/services/oauth2/token</p>
+              <p><strong>Azure AD:</strong> App registrations → Certificates &amp; secrets; Token URL: https://login.microsoftonline.com/&#123;tenant&#125;/oauth2/v2.0/token</p>
+              <p><strong>Okta:</strong> Applications → API services; Token URL: https://&#123;domain&#125;/oauth2/default/v1/token</p>
+              <p><strong>Google:</strong> Service Account → Keys; Token URL: https://oauth2.googleapis.com/token</p>
+            </div>
+          </details>
         </>
       )}
 

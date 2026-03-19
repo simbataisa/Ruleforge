@@ -3,8 +3,16 @@ import { AlertTriangle } from 'lucide-react';
 import { Button } from '@/shared/components/Button';
 import { Input } from '@/shared/components/Input';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
-import { useUpdateWebhook, useDeleteWebhook, type Webhook } from '@/api/webhooks.api';
+import {
+  useUpdateWebhook,
+  useDeleteWebhook,
+  type Webhook,
+  type WebhookAuthType,
+  type WebhookAuthConfig,
+} from '@/api/webhooks.api';
 import { useToastStore } from '@/stores/toast.store';
+import { useAuthStore } from '@/stores/auth.store';
+import { WebhookAuthConfigForm } from './WebhookAuthConfigForm';
 
 const AVAILABLE_EVENTS = [
   'rule.created',
@@ -20,10 +28,65 @@ interface Props {
   onDeleted: () => void;
 }
 
+/** Strip credential fields that are empty so we don't overwrite existing values. */
+function buildAuthConfigPayload(
+  authType: WebhookAuthType,
+  authConfig: Partial<WebhookAuthConfig>,
+): Partial<WebhookAuthConfig> {
+  const result: Partial<WebhookAuthConfig> = {};
+
+  if (authType === 'API_KEY') {
+    if (authConfig.headerName) result.headerName = authConfig.headerName;
+    if (authConfig.apiKey) result.apiKey = authConfig.apiKey;
+  } else if (authType === 'BASIC_AUTH') {
+    if (authConfig.username) result.username = authConfig.username;
+    if (authConfig.password) result.password = authConfig.password;
+  } else if (authType === 'BEARER_TOKEN') {
+    if (authConfig.token) result.token = authConfig.token;
+  } else if (authType === 'SIGNING_SECRET') {
+    if (authConfig.secret) result.secret = authConfig.secret;
+  } else if (authType === 'CUSTOM_HEADER') {
+    if (authConfig.headerName) result.headerName = authConfig.headerName;
+    if (authConfig.headerValue) result.headerValue = authConfig.headerValue;
+  } else if (authType === 'OAUTH2_CLIENT_CREDENTIALS') {
+    if (authConfig.tokenUrl) result.tokenUrl = authConfig.tokenUrl;
+    if (authConfig.clientId) result.clientId = authConfig.clientId;
+    if (authConfig.clientSecret) result.clientSecret = authConfig.clientSecret;
+    if (authConfig.scope) result.scope = authConfig.scope;
+  }
+
+  return result;
+}
+
+function authTypeSummary(authType: WebhookAuthType | undefined, authConfig: WebhookAuthConfig | undefined, isRestricted: boolean): string {
+  const masked = isRestricted ? '[Restricted]' : '••••••••••••';
+
+  switch (authType) {
+    case 'NONE':
+    case undefined:
+      return 'None — No authentication';
+    case 'SIGNING_SECRET':
+      return `Signing Secret · Secret: ${masked}`;
+    case 'API_KEY':
+      return `API Key · Header: ${authConfig?.headerName ?? 'X-API-Key'} · Key: ${masked}`;
+    case 'BASIC_AUTH':
+      return `Basic Auth · Username: ${authConfig?.username ?? '—'} · Password: ${masked}`;
+    case 'BEARER_TOKEN':
+      return `Bearer Token · Token: ${masked}`;
+    case 'CUSTOM_HEADER':
+      return `Custom Header · Header: ${authConfig?.headerName ?? '—'} · Value: ${masked}`;
+    case 'OAUTH2_CLIENT_CREDENTIALS':
+      return `OAuth 2.0 · Token URL: ${authConfig?.tokenUrl ?? '—'} · Client ID: ${authConfig?.clientId ?? '—'} · Secret: ${masked}`;
+    default:
+      return String(authType);
+  }
+}
+
 export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
   const addToast = useToastStore((s) => s.addToast);
   const updateWebhook = useUpdateWebhook();
   const deleteWebhook = useDeleteWebhook();
+  const currentUser = useAuthStore((s) => s.user);
 
   const [name, setName] = useState(webhook.name ?? '');
   const [url, setUrl] = useState(webhook.url);
@@ -31,12 +94,36 @@ export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
   const [active, setActive] = useState(webhook.active);
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
 
+  // Inline rotate state for credential fields
+  const [rotatingField, setRotatingField] = useState<string | null>(null);
+  const [rotateValue, setRotateValue] = useState('');
+
+  // Auth section state
+  const [authEditMode, setAuthEditMode] = useState(false);
+  const [editAuthType, setEditAuthType] = useState<WebhookAuthType>(webhook.authType ?? 'NONE');
+  const [editAuthConfig, setEditAuthConfig] = useState<Partial<WebhookAuthConfig>>({
+    headerName: webhook.authConfig?.headerName,
+    username: webhook.authConfig?.username,
+    // Credential fields (secret, apiKey, password, token, headerValue) intentionally left blank
+  });
+
+  const isViewer = currentUser?.role === 'VIEWER';
+  const isOwner = currentUser?.role === 'OWNER';
+
   // Sync when webhook changes
   useEffect(() => {
     setName(webhook.name ?? '');
     setUrl(webhook.url);
     setSelectedEvents(webhook.events);
     setActive(webhook.active);
+    setEditAuthType(webhook.authType ?? 'NONE');
+    setEditAuthConfig({
+      headerName: webhook.authConfig?.headerName,
+      username: webhook.authConfig?.username,
+    });
+    setAuthEditMode(false);
+    setRotatingField(null);
+    setRotateValue('');
   }, [webhook.id, webhook.updatedAt]);
 
   const toggleEvent = (event: string) => {
@@ -62,6 +149,42 @@ export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
           onUpdated();
         },
         onError: () => addToast({ type: 'error', title: 'Failed to update webhook' }),
+      },
+    );
+  };
+
+  const handleSaveAuth = () => {
+    const authConfigPayload = buildAuthConfigPayload(editAuthType, editAuthConfig);
+    updateWebhook.mutate(
+      { id: webhook.id, authType: editAuthType, authConfig: authConfigPayload },
+      {
+        onSuccess: () => {
+          addToast({ type: 'success', title: 'Webhook updated' });
+          setAuthEditMode(false);
+          onUpdated();
+        },
+        onError: () => addToast({ type: 'error', title: 'Failed to update authentication' }),
+      },
+    );
+  };
+
+  const handleAuthChange = (authType: WebhookAuthType, authConfig: Partial<WebhookAuthConfig>) => {
+    setEditAuthType(authType);
+    setEditAuthConfig(authConfig);
+  };
+
+  const handleRotateSave = (field: keyof WebhookAuthConfig) => {
+    const authConfigPayload: Partial<WebhookAuthConfig> = { [field]: rotateValue };
+    updateWebhook.mutate(
+      { id: webhook.id, authType: webhook.authType, authConfig: authConfigPayload },
+      {
+        onSuccess: () => {
+          addToast({ type: 'success', title: 'Credential updated' });
+          setRotatingField(null);
+          setRotateValue('');
+          onUpdated();
+        },
+        onError: () => addToast({ type: 'error', title: 'Failed to update credential' }),
       },
     );
   };
@@ -143,6 +266,147 @@ export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
             Save Changes
           </Button>
         </div>
+      </div>
+
+      {/* Authentication card */}
+      <div className="rounded-lg border border-gray-200 p-5 space-y-4">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-900">Authentication</h3>
+          {isOwner && !authEditMode && (
+            <Button variant="outline" size="sm" onClick={() => setAuthEditMode(true)}>
+              Edit
+            </Button>
+          )}
+        </div>
+
+        {authEditMode ? (
+          <div className="space-y-4">
+            <WebhookAuthConfigForm
+              authType={editAuthType}
+              authConfig={editAuthConfig}
+              onChange={handleAuthChange}
+              disabled={updateWebhook.isPending}
+            />
+            <p className="text-xs text-gray-400">
+              Leave credential fields blank to keep current values.
+            </p>
+            <div className="flex justify-end gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  setAuthEditMode(false);
+                  setEditAuthType(webhook.authType ?? 'NONE');
+                  setEditAuthConfig({
+                    headerName: webhook.authConfig?.headerName,
+                    username: webhook.authConfig?.username,
+                  });
+                }}
+                disabled={updateWebhook.isPending}
+              >
+                Cancel
+              </Button>
+              {isOwner && (
+                <Button
+                  size="sm"
+                  onClick={handleSaveAuth}
+                  loading={updateWebhook.isPending}
+                  disabled={updateWebhook.isPending}
+                >
+                  Save
+                </Button>
+              )}
+            </div>
+          </div>
+        ) : (
+          <>
+            {(webhook.authType !== 'CUSTOM_HEADER' && webhook.authType !== 'OAUTH2_CLIENT_CREDENTIALS') && (
+              <p className="text-sm text-gray-700">
+                {authTypeSummary(webhook.authType, webhook.authConfig, isViewer)}
+              </p>
+            )}
+
+            {webhook.authType === 'CUSTOM_HEADER' && (
+              <div className="space-y-2 text-sm text-gray-700">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium w-28 shrink-0">Header Name:</span>
+                  <span>{webhook.authConfig?.headerName ?? '—'}</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="font-medium w-28 shrink-0">Header Value:</span>
+                  {rotatingField === 'headerValue' ? (
+                    <div className="flex items-center gap-2 flex-1">
+                      <input
+                        type="password"
+                        value={rotateValue}
+                        onChange={(e) => setRotateValue(e.target.value)}
+                        placeholder="Enter new header value"
+                        autoComplete="new-password"
+                        className="block flex-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                      <Button size="sm" onClick={() => handleRotateSave('headerValue')} loading={updateWebhook.isPending} disabled={!rotateValue || updateWebhook.isPending}>Save</Button>
+                      <Button size="sm" variant="outline" onClick={() => { setRotatingField(null); setRotateValue(''); }} disabled={updateWebhook.isPending}>Cancel</Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-gray-400">[REDACTED]</span>
+                      {isOwner && (
+                        <Button size="sm" variant="outline" onClick={() => { setRotatingField('headerValue'); setRotateValue(''); }}>
+                          Rotate Value ↺
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {webhook.authType === 'OAUTH2_CLIENT_CREDENTIALS' && (
+              <div className="space-y-2 text-sm text-gray-700">
+                <div className="flex items-center gap-2">
+                  <span className="font-medium w-28 shrink-0">Token URL:</span>
+                  <span className="break-all">{webhook.authConfig?.tokenUrl ?? '—'}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="font-medium w-28 shrink-0">Client ID:</span>
+                  <span>{webhook.authConfig?.clientId ?? '—'}</span>
+                </div>
+                <div className="flex items-start gap-2">
+                  <span className="font-medium w-28 shrink-0">Client Secret:</span>
+                  {rotatingField === 'clientSecret' ? (
+                    <div className="flex items-center gap-2 flex-1">
+                      <input
+                        type="password"
+                        value={rotateValue}
+                        onChange={(e) => setRotateValue(e.target.value)}
+                        placeholder="Enter new client secret"
+                        autoComplete="new-password"
+                        className="block flex-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                      />
+                      <Button size="sm" onClick={() => handleRotateSave('clientSecret')} loading={updateWebhook.isPending} disabled={!rotateValue || updateWebhook.isPending}>Save</Button>
+                      <Button size="sm" variant="outline" onClick={() => { setRotatingField(null); setRotateValue(''); }} disabled={updateWebhook.isPending}>Cancel</Button>
+                    </div>
+                  ) : (
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-gray-400">[REDACTED]</span>
+                      {isOwner && (
+                        <Button size="sm" variant="outline" onClick={() => { setRotatingField('clientSecret'); setRotateValue(''); }}>
+                          Rotate Secret ↺
+                        </Button>
+                      )}
+                    </div>
+                  )}
+                </div>
+                {webhook.authConfig?.scope && (
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium w-28 shrink-0">Scope:</span>
+                    <span>{webhook.authConfig.scope}</span>
+                  </div>
+                )}
+              </div>
+            )}
+          </>
+        )}
       </div>
 
       {/* Danger Zone */}
