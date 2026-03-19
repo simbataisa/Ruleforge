@@ -243,8 +243,11 @@ public class WebhookController {
      * private/loopback address (SSRF guard); clientId must be present.
      */
     private void validateAuthConfig(WebhookAuthType authType, WebhookAuthConfigRequest req) {
-        if (authType == null || req == null) return;
+        if (authType == null) return;
         if (authType == WebhookAuthType.OAUTH2_CLIENT_CREDENTIALS) {
+            if (req == null) {
+                throw new IllegalArgumentException("authConfig is required when authType is OAUTH2_CLIENT_CREDENTIALS");
+            }
             String tokenUrl = req.getTokenUrl();
             if (tokenUrl == null || !tokenUrl.startsWith("https://")) {
                 throw new IllegalArgumentException("tokenUrl must use HTTPS for OAuth2 auth type");

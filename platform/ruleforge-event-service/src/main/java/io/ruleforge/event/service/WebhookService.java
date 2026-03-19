@@ -136,10 +136,16 @@ public class WebhookService {
 
         // Apply auth config if provided
         if (request.authType() != null || request.authConfig() != null) {
+            // Evict OAuth2 token cache only when the current or new auth type is OAUTH2_CLIENT_CREDENTIALS
+            WebhookAuthType previousAuthType = entity.getAuthType();
+            WebhookAuthType newAuthType = request.authType() != null ? request.authType() : previousAuthType;
+
             resolveAndEncryptAuthConfig(request.authType(), request.authConfig(), entity);
-            // Evict the OAuth2 token cache whenever auth config changes so the dispatcher
-            // fetches a fresh token with the new credentials on next delivery.
-            oauth2TokenCacheService.evict(orgId, webhookId);
+
+            if (previousAuthType == WebhookAuthType.OAUTH2_CLIENT_CREDENTIALS
+                    || newAuthType == WebhookAuthType.OAUTH2_CLIENT_CREDENTIALS) {
+                oauth2TokenCacheService.evict(orgId, webhookId);
+            }
         }
 
         // Apply retry config if provided
@@ -369,6 +375,9 @@ public class WebhookService {
             case OAUTH2_CLIENT_CREDENTIALS -> {
                 if (authConfigRequest.getTokenUrl() == null || authConfigRequest.getTokenUrl().isBlank()) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "authConfig.tokenUrl is required for OAUTH2_CLIENT_CREDENTIALS auth type");
+                }
+                if (!authConfigRequest.getTokenUrl().startsWith("https://")) {
+                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "authConfig.tokenUrl must use HTTPS for OAUTH2_CLIENT_CREDENTIALS auth type");
                 }
                 if (authConfigRequest.getClientId() == null || authConfigRequest.getClientId().isBlank()) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "authConfig.clientId is required for OAUTH2_CLIENT_CREDENTIALS auth type");
