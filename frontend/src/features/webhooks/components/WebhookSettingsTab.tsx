@@ -159,7 +159,7 @@ export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
       { id: webhook.id, authType: editAuthType, authConfig: authConfigPayload },
       {
         onSuccess: () => {
-          addToast({ type: 'success', title: 'Webhook updated' });
+          addToast({ type: 'success', title: 'Authentication updated' });
           setAuthEditMode(false);
           onUpdated();
         },
@@ -179,7 +179,7 @@ export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
       { id: webhook.id, authType: webhook.authType, authConfig: authConfigPayload },
       {
         onSuccess: () => {
-          addToast({ type: 'success', title: 'Credential updated' });
+          addToast({ type: 'success', title: 'Authentication updated' });
           setRotatingField(null);
           setRotateValue('');
           onUpdated();
@@ -327,83 +327,91 @@ export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
             )}
 
             {webhook.authType === 'CUSTOM_HEADER' && (
-              <div className="space-y-2 text-sm text-gray-700">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium w-28 shrink-0">Header Name:</span>
-                  <span>{webhook.authConfig?.headerName ?? '—'}</span>
+              isViewer ? (
+                <p className="text-sm text-gray-700">Authentication: Custom Header</p>
+              ) : (
+                <div className="space-y-2 text-sm text-gray-700">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium w-28 shrink-0">Header Name:</span>
+                    <span>{webhook.authConfig?.headerName ?? '—'}</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-medium w-28 shrink-0">Header Value:</span>
+                    {rotatingField === 'headerValue' ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <input
+                          type="password"
+                          value={rotateValue}
+                          onChange={(e) => setRotateValue(e.target.value)}
+                          placeholder="Enter new header value"
+                          autoComplete="new-password"
+                          className="block flex-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <Button size="sm" onClick={() => handleRotateSave('headerValue')} loading={updateWebhook.isPending} disabled={!rotateValue || updateWebhook.isPending}>Save</Button>
+                        <Button size="sm" variant="outline" onClick={() => { setRotatingField(null); setRotateValue(''); }} disabled={updateWebhook.isPending}>Cancel</Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-gray-400">[REDACTED]</span>
+                        {isOwner && (
+                          <Button size="sm" variant="outline" onClick={() => { setRotatingField('headerValue'); setRotateValue(''); }}>
+                            Rotate Value ↺
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
                 </div>
-                <div className="flex items-start gap-2">
-                  <span className="font-medium w-28 shrink-0">Header Value:</span>
-                  {rotatingField === 'headerValue' ? (
-                    <div className="flex items-center gap-2 flex-1">
-                      <input
-                        type="password"
-                        value={rotateValue}
-                        onChange={(e) => setRotateValue(e.target.value)}
-                        placeholder="Enter new header value"
-                        autoComplete="new-password"
-                        className="block flex-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                      <Button size="sm" onClick={() => handleRotateSave('headerValue')} loading={updateWebhook.isPending} disabled={!rotateValue || updateWebhook.isPending}>Save</Button>
-                      <Button size="sm" variant="outline" onClick={() => { setRotatingField(null); setRotateValue(''); }} disabled={updateWebhook.isPending}>Cancel</Button>
-                    </div>
-                  ) : (
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-gray-400">[REDACTED]</span>
-                      {isOwner && (
-                        <Button size="sm" variant="outline" onClick={() => { setRotatingField('headerValue'); setRotateValue(''); }}>
-                          Rotate Value ↺
-                        </Button>
-                      )}
-                    </div>
-                  )}
-                </div>
-              </div>
+              )
             )}
 
             {webhook.authType === 'OAUTH2_CLIENT_CREDENTIALS' && (
-              <div className="space-y-2 text-sm text-gray-700">
-                <div className="flex items-center gap-2">
-                  <span className="font-medium w-28 shrink-0">Token URL:</span>
-                  <span className="break-all">{webhook.authConfig?.tokenUrl ?? '—'}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="font-medium w-28 shrink-0">Client ID:</span>
-                  <span>{webhook.authConfig?.clientId ?? '—'}</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <span className="font-medium w-28 shrink-0">Client Secret:</span>
-                  {rotatingField === 'clientSecret' ? (
-                    <div className="flex items-center gap-2 flex-1">
-                      <input
-                        type="password"
-                        value={rotateValue}
-                        onChange={(e) => setRotateValue(e.target.value)}
-                        placeholder="Enter new client secret"
-                        autoComplete="new-password"
-                        className="block flex-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
-                      />
-                      <Button size="sm" onClick={() => handleRotateSave('clientSecret')} loading={updateWebhook.isPending} disabled={!rotateValue || updateWebhook.isPending}>Save</Button>
-                      <Button size="sm" variant="outline" onClick={() => { setRotatingField(null); setRotateValue(''); }} disabled={updateWebhook.isPending}>Cancel</Button>
-                    </div>
-                  ) : (
+              isViewer ? (
+                <p className="text-sm text-gray-700">Authentication: OAuth 2.0 Client Credentials</p>
+              ) : (
+                <div className="space-y-2 text-sm text-gray-700">
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium w-28 shrink-0">Token URL:</span>
+                    <span className="break-all">{webhook.authConfig?.tokenUrl ?? '—'}</span>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="font-medium w-28 shrink-0">Client ID:</span>
+                    <span>{webhook.authConfig?.clientId ?? '—'}</span>
+                  </div>
+                  <div className="flex items-start gap-2">
+                    <span className="font-medium w-28 shrink-0">Client Secret:</span>
+                    {rotatingField === 'clientSecret' ? (
+                      <div className="flex items-center gap-2 flex-1">
+                        <input
+                          type="password"
+                          value={rotateValue}
+                          onChange={(e) => setRotateValue(e.target.value)}
+                          placeholder="Enter new client secret"
+                          autoComplete="new-password"
+                          className="block flex-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                        />
+                        <Button size="sm" onClick={() => handleRotateSave('clientSecret')} loading={updateWebhook.isPending} disabled={!rotateValue || updateWebhook.isPending}>Save</Button>
+                        <Button size="sm" variant="outline" onClick={() => { setRotatingField(null); setRotateValue(''); }} disabled={updateWebhook.isPending}>Cancel</Button>
+                      </div>
+                    ) : (
+                      <div className="flex items-center gap-2">
+                        <span className="font-mono text-gray-400">[REDACTED]</span>
+                        {isOwner && (
+                          <Button size="sm" variant="outline" onClick={() => { setRotatingField('clientSecret'); setRotateValue(''); }}>
+                            Rotate Secret ↺
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                  {webhook.authConfig?.scope && (
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-gray-400">[REDACTED]</span>
-                      {isOwner && (
-                        <Button size="sm" variant="outline" onClick={() => { setRotatingField('clientSecret'); setRotateValue(''); }}>
-                          Rotate Secret ↺
-                        </Button>
-                      )}
+                      <span className="font-medium w-28 shrink-0">Scope:</span>
+                      <span>{webhook.authConfig.scope}</span>
                     </div>
                   )}
                 </div>
-                {webhook.authConfig?.scope && (
-                  <div className="flex items-center gap-2">
-                    <span className="font-medium w-28 shrink-0">Scope:</span>
-                    <span>{webhook.authConfig.scope}</span>
-                  </div>
-                )}
-              </div>
+              )
             )}
           </>
         )}
