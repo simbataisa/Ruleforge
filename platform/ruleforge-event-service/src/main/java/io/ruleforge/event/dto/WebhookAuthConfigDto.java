@@ -1,20 +1,27 @@
 package io.ruleforge.event.dto;
 
 import com.fasterxml.jackson.annotation.JsonInclude;
+import com.fasterxml.jackson.annotation.JsonProperty;
 
 @JsonInclude(JsonInclude.Include.NON_NULL)
 public class WebhookAuthConfigDto {
     private String headerName;   // not masked
     private String username;     // not masked
     // All credential fields masked to [REDACTED] in response
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String apiKey;
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String password;
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String token;
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String secret;
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String headerValue;
     // OAuth2 fields — tokenUrl, clientId, scope are not masked; clientSecret is masked
     private String tokenUrl;
     private String clientId;
+    @JsonProperty(access = JsonProperty.Access.READ_ONLY)
     private String clientSecret;
     private String scope;
 

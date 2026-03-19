@@ -376,8 +376,9 @@ public class WebhookService {
                 if (authConfigRequest.getTokenUrl() == null || authConfigRequest.getTokenUrl().isBlank()) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "authConfig.tokenUrl is required for OAUTH2_CLIENT_CREDENTIALS auth type");
                 }
+                // Defense-in-depth: controller validates first; this guards non-API call paths
                 if (!authConfigRequest.getTokenUrl().startsWith("https://")) {
-                    throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "authConfig.tokenUrl must use HTTPS for OAUTH2_CLIENT_CREDENTIALS auth type");
+                    throw new IllegalArgumentException("tokenUrl must use HTTPS");
                 }
                 if (authConfigRequest.getClientId() == null || authConfigRequest.getClientId().isBlank()) {
                     throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "authConfig.clientId is required for OAUTH2_CLIENT_CREDENTIALS auth type");
@@ -391,11 +392,7 @@ public class WebhookService {
                         authConfigRequest.getClientSecret(),
                         authConfigRequest.getScope());
             }
-            default -> {
-                // Future auth types: store nothing
-                entity.setAuthConfig(null);
-                return;
-            }
+            default -> throw new IllegalStateException("Unhandled auth type: " + authType);
         }
         entity.setAuthConfig(credentialEncryptionService.encrypt(config));
     }
