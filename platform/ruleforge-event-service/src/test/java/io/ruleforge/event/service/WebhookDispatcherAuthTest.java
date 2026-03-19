@@ -107,6 +107,33 @@ class WebhookDispatcherAuthTest {
     }
 
     // ------------------------------------------------------------------
+    // Test: deliverTestPayload — injector throws WebhookAuthException
+    // ------------------------------------------------------------------
+
+    @Test
+    void deliverTestPayload_whenInjectorThrowsWebhookAuthException_returnsAuthFailureResult() {
+        WebhookEntity webhook = buildWebhook();
+        webhook.setAuthConfig("some-encrypted-blob");
+
+        WebhookAuthConfig.BearerToken authConfig = new WebhookAuthConfig.BearerToken("bad-token");
+        when(credentialEncryptionService.decrypt(any(), eq(WebhookAuthType.BEARER_TOKEN)))
+                .thenReturn(authConfig);
+
+        WebhookAuthInjector injector = mock(WebhookAuthInjector.class);
+        doThrow(new WebhookAuthException("Token validation failed"))
+                .when(injector).injectAuth(any(HttpHeaders.class), any(WebhookAuthConfig.class), any(byte[].class));
+        when(webhookAuthInjectorRegistry.getFor(WebhookAuthType.BEARER_TOKEN)).thenReturn(injector);
+
+        Map<String, Object> testPayload = Map.of("event", "webhook.test", "data", "sample");
+        WebhookDispatcher.DeliveryResult result = dispatcher.deliverTestPayload(webhook, testPayload);
+
+        assertTrue(result.authFailure(), "authFailure must be true when injector throws WebhookAuthException");
+        assertTrue(result.permanent(), "permanent must be true for auth failures");
+        assertFalse(result.success(), "success must be false for auth failures");
+        verifyNoInteractions(webhookClient);
+    }
+
+    // ------------------------------------------------------------------
     // Test: normal success path — authFailure defaults to false
     // ------------------------------------------------------------------
 
