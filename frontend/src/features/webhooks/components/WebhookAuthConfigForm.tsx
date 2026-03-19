@@ -31,7 +31,7 @@ interface PasswordInputProps {
   ariaLabel?: string;
 }
 
-function PasswordInput({ id, value, onChange, placeholder, disabled, ariaLabel }: PasswordInputProps) {
+export function PasswordInput({ id, value, onChange, placeholder, disabled, ariaLabel }: PasswordInputProps) {
   const [visible, setVisible] = useState(false);
 
   const show = () => {

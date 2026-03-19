@@ -12,7 +12,7 @@ import {
 } from '@/api/webhooks.api';
 import { useToastStore } from '@/stores/toast.store';
 import { useAuthStore } from '@/stores/auth.store';
-import { WebhookAuthConfigForm } from './WebhookAuthConfigForm';
+import { WebhookAuthConfigForm, PasswordInput } from './WebhookAuthConfigForm';
 
 const AVAILABLE_EVENTS = [
   'rule.created',
@@ -109,6 +109,8 @@ export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
 
   const isViewer = currentUser?.role === 'VIEWER';
   const isOwner = currentUser?.role === 'OWNER';
+  const isEditor = currentUser?.role === 'EDITOR';
+  const canEdit = isOwner || isEditor;
 
   // Sync when webhook changes
   useEffect(() => {
@@ -272,7 +274,7 @@ export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
       <div className="rounded-lg border border-gray-200 p-5 space-y-4">
         <div className="flex items-center justify-between">
           <h3 className="text-sm font-semibold text-gray-900">Authentication</h3>
-          {isOwner && !authEditMode && (
+          {canEdit && !authEditMode && (
             <Button variant="outline" size="sm" onClick={() => setAuthEditMode(true)}>
               Edit
             </Button>
@@ -306,7 +308,7 @@ export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
               >
                 Cancel
               </Button>
-              {isOwner && (
+              {canEdit && (
                 <Button
                   size="sm"
                   onClick={handleSaveAuth}
@@ -339,13 +341,12 @@ export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
                     <span className="font-medium w-28 shrink-0">Header Value:</span>
                     {rotatingField === 'headerValue' ? (
                       <div className="flex items-center gap-2 flex-1">
-                        <input
-                          type="password"
+                        <PasswordInput
+                          id="rotate-header-value"
                           value={rotateValue}
-                          onChange={(e) => setRotateValue(e.target.value)}
+                          onChange={(v) => setRotateValue(v)}
                           placeholder="Enter new header value"
-                          autoComplete="new-password"
-                          className="block flex-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          ariaLabel="New header value"
                         />
                         <Button size="sm" onClick={() => handleRotateSave('headerValue')} loading={updateWebhook.isPending} disabled={!rotateValue || updateWebhook.isPending}>Save</Button>
                         <Button size="sm" variant="outline" onClick={() => { setRotatingField(null); setRotateValue(''); }} disabled={updateWebhook.isPending}>Cancel</Button>
@@ -353,7 +354,7 @@ export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
                     ) : (
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-gray-400">[REDACTED]</span>
-                        {isOwner && (
+                        {canEdit && (
                           <Button size="sm" variant="outline" onClick={() => { setRotatingField('headerValue'); setRotateValue(''); }}>
                             Rotate Value ↺
                           </Button>
@@ -382,13 +383,12 @@ export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
                     <span className="font-medium w-28 shrink-0">Client Secret:</span>
                     {rotatingField === 'clientSecret' ? (
                       <div className="flex items-center gap-2 flex-1">
-                        <input
-                          type="password"
+                        <PasswordInput
+                          id="rotate-client-secret"
                           value={rotateValue}
-                          onChange={(e) => setRotateValue(e.target.value)}
+                          onChange={(v) => setRotateValue(v)}
                           placeholder="Enter new client secret"
-                          autoComplete="new-password"
-                          className="block flex-1 rounded-lg border border-gray-300 bg-white px-3 py-1.5 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500"
+                          ariaLabel="New client secret"
                         />
                         <Button size="sm" onClick={() => handleRotateSave('clientSecret')} loading={updateWebhook.isPending} disabled={!rotateValue || updateWebhook.isPending}>Save</Button>
                         <Button size="sm" variant="outline" onClick={() => { setRotatingField(null); setRotateValue(''); }} disabled={updateWebhook.isPending}>Cancel</Button>
@@ -396,7 +396,7 @@ export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
                     ) : (
                       <div className="flex items-center gap-2">
                         <span className="font-mono text-gray-400">[REDACTED]</span>
-                        {isOwner && (
+                        {canEdit && (
                           <Button size="sm" variant="outline" onClick={() => { setRotatingField('clientSecret'); setRotateValue(''); }}>
                             Rotate Secret ↺
                           </Button>
