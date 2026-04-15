@@ -346,9 +346,11 @@ main() {
       ok "Frontend dependencies installed"
     fi
 
-    if command -v pip3 &>/dev/null && [[ -f "$PROJECT_ROOT/ai-service/requirements.txt" ]]; then
+    if command -v python3 &>/dev/null && [[ -f "$PROJECT_ROOT/ai-service/requirements.txt" ]]; then
       info "Installing AI service dependencies..."
-      (cd "$PROJECT_ROOT/ai-service" && pip3 install -r requirements.txt -q)
+      (cd "$PROJECT_ROOT/ai-service" \
+        && python3 -m venv .venv \
+        && .venv/bin/pip install -r requirements.txt -q)
       ok "AI service dependencies installed"
     fi
   else
@@ -387,7 +389,7 @@ main() {
   # --- AI Service (optional) ---
   if command -v python3 &>/dev/null && [[ -f "$PROJECT_ROOT/ai-service/requirements.txt" ]]; then
     info "Starting AI service..."
-    (cd "$PROJECT_ROOT/ai-service" && python3 -m uvicorn app.main:app --host 0.0.0.0 --port 8000 \
+    (cd "$PROJECT_ROOT/ai-service" && .venv/bin/python -m uvicorn app.main:app --host 0.0.0.0 --port 8000 \
       > "$LOGS_DIR/ai-service.log" 2>&1) &
     save_pid "ai-service" $!
     wait_for_http "ai-service" 8000 "/health" || true

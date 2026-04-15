@@ -4,7 +4,7 @@ ALTER TABLE webhooks
     ADD COLUMN IF NOT EXISTS auth_config TEXT;
 
 ALTER TABLE webhooks
-    ADD CONSTRAINT IF NOT EXISTS chk_auth_type CHECK (
+    ADD CONSTRAINT chk_auth_type CHECK (
         auth_type IN ('NONE', 'SIGNING_SECRET', 'API_KEY', 'BASIC_AUTH',
                       'BEARER_TOKEN', 'CUSTOM_HEADER', 'OAUTH2_CLIENT_CREDENTIALS')
     );
@@ -17,8 +17,6 @@ ALTER TABLE webhooks
 
 CREATE INDEX IF NOT EXISTS idx_webhooks_auth_type ON webhooks(auth_type);
 
-ALTER TABLE outbox_events
+ALTER TABLE webhook_outbox
     ADD COLUMN IF NOT EXISTS next_retry_at TIMESTAMPTZ;
 
-CREATE INDEX IF NOT EXISTS idx_webhook_deliveries_metrics
-    ON webhook_deliveries(webhook_id, org_id, attempted_at, status);
