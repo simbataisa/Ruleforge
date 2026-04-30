@@ -359,3 +359,137 @@ This is called once and results mapped by spaceId in the service layer.
 
 **Status:** COMPLETE — Handoff to Enterprise Architect and UX Designer
 **Solution Architect Sign-Off:** BMAD SA Agent, 2026-03-14
+
+---
+
+# Brownfield Solution Architecture Onboard Snapshot
+
+> **Status:** Draft — auto-seeded by /solution-architect:onboard. Source: code structure + controller mappings as of 2026-04-30. Owner: Solution Architect
+
+This snapshot preserves the existing Spaces Page architecture above and records repo-wide solution architecture signals discovered during brownfield onboarding. It is descriptive, not yet authoritative for future refactoring decisions.
+
+## 1. Service Decomposition
+
+Detected pattern: Microservices platform plus embeddable engine modules and SDKs.
+
+| Component | Source | Language / Runtime | Boundary |
+|---|---|---|---|
+| `platform/ruleforge-auth-service` | Gradle module | Java 21 / Spring Boot 3.3 | Auth, orgs, members, spaces, API keys, SSO |
+| `platform/ruleforge-management-service` | Gradle module | Java 21 / Spring Boot 3.3 | Rules, folders, versions, approvals, tags, import/export |
+| `platform/ruleforge-solver-service` | Gradle module | Java 21 / Spring Boot 3.3 | Runtime rule execution and bulk solving |
+| `platform/ruleforge-event-service` | Gradle module | Java 21 / Spring Boot 3.3 | Audit, notifications, webhook delivery, webhook metrics |
+| `platform/ruleforge-analytics-service` | Gradle module | Java 21 / Spring Boot 3.3 | Decision analytics and AB test reporting |
+| `platform/ruleforge-scheduler-service` | Gradle module | Java 21 / Spring Boot 3.3 | Schedules, workflow triggers, holiday calendars |
+| `platform/ruleforge-connector-service` | Gradle module | Java 21 / Spring Boot 3.3 | External data connectors and internal enrichment |
+| `platform/ruleforge-common` | Gradle module | Java 21 | Shared security, event, tenant, and API utilities |
+| `engine/ruleforge-*` | Gradle composite build | Java 21 | Embeddable rule engine packages; `ruleforge-core` has minimal dependency constraints |
+| `frontend` | `package.json` | React 18 / TypeScript / Vite | Browser application |
+| `ai-service` | `pyproject.toml` | Python / FastAPI | AI-assisted rule generation and suggestions |
+| `sdks/sdk-java`, `sdks/sdk-node`, `sdks/sdk-python` | SDK manifests | Java, TypeScript, Python | External client SDKs |
+
+Boundary rationale: [populate] Confirm whether shared PostgreSQL plus RLS remains the intended coupling model for all service boundaries, especially as webhook, analytics, and scheduler workflows grow.
+
+## 2. API Contracts
+
+No OpenAPI, Swagger, proto, GraphQL, or AsyncAPI contract files were detected. The API surface below is inferred from Spring controller mappings and should be formalized before external SDK or partner commitments.
+
+| API | Endpoint / Resource | Style | Spec source | Status |
+|---|---|---|---|---|
+| API-001 | `/v1/auth/*` | REST | `platform/ruleforge-auth-service/.../AuthController.java` | Inferred from code |
+| API-002 | `/v1/users/*` | REST | `platform/ruleforge-auth-service/.../UserController.java` | Inferred from code |
+| API-003 | `/v1/organizations/*` and `/v1/organizations/current/*` | REST | `platform/ruleforge-auth-service/.../*Org*Controller.java` | Inferred from code |
+| API-004 | `/v1/spaces/{spaceId}/api-keys`, `/v1/api-keys/*` | REST | `platform/ruleforge-auth-service/.../ApiKeyController.java` | Inferred from code |
+| API-005 | `/v1/sso/*` and `/internal/api-keys/validate` | REST | `platform/ruleforge-auth-service/.../SsoController.java`, `InternalController.java` | Inferred from code |
+| API-006 | `/v1/spaces/{spaceId}/rules`, `/v1/rules/*` | REST | `platform/ruleforge-management-service/.../RuleController.java` | Inferred from code |
+| API-007 | `/v1/rules/{ruleId}/versions/*` | REST | `platform/ruleforge-management-service/.../VersionController.java` | Inferred from code |
+| API-008 | `/v1/folders/*`, `/v1/spaces/{spaceId}/folders` | REST | `platform/ruleforge-management-service/.../FolderController.java` | Inferred from code |
+| API-009 | `/v1/approval-requests/*`, `/v1/spaces/{spaceId}/approval-settings` | REST | `platform/ruleforge-management-service/.../*Approval*Controller.java` | Inferred from code |
+| API-010 | `/v1/rules/{ruleId}/ab-tests/*`, `/v1/tags`, rule tags | REST | `platform/ruleforge-management-service/.../AbTestController.java`, `TagController.java` | Inferred from code |
+| API-011 | `/v1/solve/*` | REST | `platform/ruleforge-solver-service/.../SolverController.java` | Inferred from code |
+| API-012 | `/v1/audit/*`, `/v1/events/stream`, `/v1/webhooks/*` | REST / SSE | `platform/ruleforge-event-service/.../*Controller.java` | Inferred from code |
+| API-013 | `/v1/analytics/*` | REST | `platform/ruleforge-analytics-service/.../AnalyticsController.java` | Inferred from code |
+| API-014 | `/v1/schedules/*`, `/v1/workflows/*`, `/v1/holiday-calendars/*` | REST | `platform/ruleforge-scheduler-service/.../*Controller.java` | Inferred from code |
+| API-015 | `/v1/connectors/*`, `/internal/enrich` | REST | `platform/ruleforge-connector-service/.../*Controller.java` | Inferred from code |
+
+## 3. Data Model Summary
+
+Migration strategy detected: Flyway SQL migrations in `db/migrations/`, with PostgreSQL 16 and RLS policies. Local development service configs also reference `ddl-auto: update`; production ownership should remain with Flyway migrations.
+
+| Entity | Source | Owner service | Notes |
+|---|---|---|---|
+| Organization, user, member, team | `V001`, `V002`, `V004`, `V005` | auth-service | Tenant and identity foundation |
+| Space, folder, rule, rule version | `V003`, `V006`, `V007`, `V008`, `V047` | auth-service / management-service | Core rule authoring hierarchy |
+| API key, SSO config | `V009`, `V016` | auth-service | Machine auth and enterprise identity |
+| Tag, rule tag | `V010`, `V033` | management-service | Rule discovery metadata |
+| Audit event, notification | `V011`, `V032`, `V038`, `V046` | event-service | Audit trail and user notifications |
+| Webhook, webhook outbox, webhook delivery metrics | `V012`, `V048`, `V050`, `V052` | event-service | Outbound integration delivery and auth |
+| Connector | `V013` | connector-service | External data enrichment connections |
+| Schedule, schedule run, workflow, workflow run | `V014`, `V015`, `V042`, `V043`, `V044` | scheduler-service | Timed and workflow execution |
+| AB test | `V017` | management-service / analytics-service | Experiment routing and analytics |
+| Approval request, approval assignee, approval settings, comments | `V023`, `V031`, `V034`, `V036` | management-service | Rule approval workflows |
+| Rule sample input | `V026`, `V028` | management-service | Rule test fixtures |
+| Holiday calendar, holiday entry | `V045` | scheduler-service | Schedule exception handling |
+
+## 4. Integration Patterns
+
+- Kafka 3.7 is used for rule lifecycle, execution, activity, and system events; producers live in shared common code and consumers exist in solver, analytics, and event services.
+- Redis 7 is used for distributed caching, AB test routing cache, audit/webhook related storage, and OAuth2 webhook token caching.
+- Quartz powers scheduler-service job execution.
+- Webhook delivery uses an outbox pattern with retry semantics and circuit/reset operations.
+- Server-Sent Events are exposed at `/v1/events/stream` for notifications.
+- [populate] Define sync vs async boundaries, retry budgets, idempotency keys, dead-letter handling, and replay ownership per topic/outbox.
+
+## 5. External Integrations
+
+| Integration | Purpose | Direction | Failure mode |
+|---|---|---|---|
+| PostgreSQL | System of record and RLS enforcement | Internal dependency | Request failure, degraded writes/reads |
+| Kafka | Domain event stream and analytics feed | Internal dependency | Delayed consumers, event loss risk if producer/outbox contracts drift |
+| Redis | L2 cache, token cache, routing cache | Internal dependency | Cache miss fallback, token refetch, possible latency increase |
+| Elasticsearch | Decision log analytics | Internal dependency | Analytics degradation, search/reporting gaps |
+| MinIO / S3 | Rule exports and batch artifacts | Internal or external storage | Export/import artifact failure |
+| Kong | Production API gateway | Inbound infrastructure | Routing, CORS, or rate-limit failures |
+| Webhook targets | Customer outbound integrations | Outbound HTTP | Retry exhaustion, AUTH_FAILURE, circuit breaker trips |
+| OAuth2 token endpoints | Webhook auth token acquisition | Outbound HTTP | Auth failure status prevents retry storms |
+| Anthropic / LLM provider | AI rule assistance | Outbound API | AI feature degradation; core rule execution should remain available |
+| JDBC / HTTP / Redis connector targets | Data enrichment | Outbound data access | Connector test/fetch failures; rule execution may need fallback behavior |
+
+## 6. Authentication & Authorization
+
+Detected auth model: JWT bearer auth using shared Spring Security filters, API keys for machine access, PostgreSQL RLS via `app.current_org_id`, role-based org membership checks, and optional SAML/OIDC SSO configuration. Webhook auth supports bearer/basic/custom header/OAuth2-style outbound credential injection.
+
+[populate] Confirm token lifetime, refresh behavior, API key scoping, service-to-service auth, and whether authorization remains role-based or evolves toward permission/policy-based authz.
+
+## 7. Caching
+
+Detected cache layers: Caffeine L1 in JVMs, Redis L2 distributed cache, PostgreSQL source of truth, and Redis-backed OAuth2 token cache for webhooks.
+
+[populate] Document cache keys, invalidation events, TTLs, stampede protection, and degradation behavior when Redis is unavailable.
+
+## 8. Observability Hooks
+
+Detected hooks: Spring Actuator health/info endpoints, service log files under `logs/`, Kafka-backed audit events, analytics ingestion, and selected cache stats through actuator configuration.
+
+[populate] Metrics and tracing remain under-specified. Decide Prometheus/Grafana, OpenTelemetry trace propagation, correlation IDs, and alert thresholds for webhook delivery, solve latency, scheduler lag, Kafka consumer lag, and auth failures.
+
+## 9. ADRs Relevant to This Solution
+
+- [ADR-001: Slug Generation Strategy for Spaces](adr/ADR-001-slug-generation.md)
+- [ADR-002: ruleCount Computation Strategy](adr/ADR-002-rulecount-strategy.md)
+- [ADR-003: Space-Scoped Rule API](adr/ADR-003-space-scoped-rule-api.md)
+- [ADR-004: Move/Copy Rules](adr/ADR-004-move-copy-rules.md)
+- [ADR-005: Sandbox Detection by Name](adr/ADR-005-sandbox-detection-by-name.md)
+- [ADR-006: Assign-vs-Create Separation](adr/ADR-006-assign-vs-create-separation.md)
+- [ADR-007: Webhook Credential Encryption](adr/ADR-007-webhook-credential-encryption.md)
+- [ADR-008: Webhook Auth Injection Strategy](adr/ADR-008-webhook-auth-injection-strategy.md)
+- [ADR-009: Webhook Metrics Storage](adr/ADR-009-webhook-metrics-storage.md)
+- [ADR-010: OAuth2 Token Caching Strategy](adr/ADR-010-oauth2-token-caching-strategy.md)
+- [ADR Index](adr/ADR-INDEX.md)
+
+## 10. Open Questions for the SA
+
+- Service decomposition: keep current microservices + shared database pattern, or refactor boundaries around ownership of data and events?
+- API versioning policy: continue URL path versioning only, or add header/content-type version negotiation for SDK compatibility?
+- Cross-service transactions: how is consistency enforced across shared tables, Kafka events, outbox delivery, and scheduler workflows?
+- Caching invalidation strategy: which service owns invalidation for rule definitions, webhook OAuth2 tokens, AB test routing, and analytics projections?
+- Contract governance: should Spring controller mappings be promoted to OpenAPI specs and used as SDK generation sources?

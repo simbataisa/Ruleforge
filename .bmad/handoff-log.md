@@ -33,6 +33,11 @@ child file from the template, and updates this index. To log manually, copy
 
 | # | Date | From → To | Phase | Summary | File |
 |---|------|-----------|-------|---------|------|
+| 013 | 2026-04-30 | `ux-designer` → next | design-system render | Rendered `docs/ux/DESIGN.html`; lint evidence at `docs/ux/.lint/latest.json` (0 errors, 0 warnings) | [→ view](handoffs/013-2026-04-30-ux-designer→next.md) |
+| 012 | 2026-04-30 | `ux-designer` → next | onboard | Seeded docs/ux/DESIGN.md (Stitch) + personas/journeys; existing UI specs preserved | [→ view](handoffs/012-2026-04-30-ux-designer→next.md) |
+| 011 | 2026-04-30 | `solution-architect` → `tech-lead` | onboard | Seeded repo-wide solution architecture snapshot (11 service/runtime areas, 15 inferred API groups, 12 data entity groups) | [→ view](handoffs/011-2026-04-30-solution-architect→tech-lead.md) |
+| 010 | 2026-04-30 | `enterprise-architect` → `solution-architect` | onboard | Scanned enterprise architecture signals; existing EA doc preserved; 0 starter ADRs | [→ view](handoffs/010-2026-04-30-enterprise-architect→solution-architect.md) |
+| 009 | 2026-04-30 | `bmad` → next | onboard | Onboarded brownfield project: RuleForge (Java 21/Spring Boot + React/TypeScript + FastAPI) | [→ view](handoffs/009-2026-04-30-bmad→next.md) |
 | 008 | 2026-03-19 | `tl` → `be`+`fe` | Phase 4 Ready — Epic 6: Webhook Auth v2 (OAuth 2.0 & Custom Header) | 6 stories (022–027); no DB migration; Redis token cache; AUTH_FAILURE status | [→ view](handoffs/008-2026-03-19-tl→be.md) |
 | 007 | 2026-03-19 | `tl` → `po` | Phase 5 Complete — Epic 5: Webhooks Authentication Enhancement | All 8 Epic 5 stories (014–021) verified complete against acceptance criteria | [→ view](handoffs/007-2026-03-19-tl→po.md) |
 | 006 | 2026-03-18 | `ba` → `tl` | Phase 4 Complete — Epic 5: Webhooks Authentication Enhancement | `DeliveryResult` record gained `boolean permanent` field — credential decrypt er… | [→ view](handoffs/006-2026-03-18-ba→tl.md) |

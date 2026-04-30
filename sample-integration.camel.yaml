@@ -1,0 +1,20 @@
+- route:
+    id: route3850
+    from:
+      id: from7fe8
+      uri: timer
+      parameters:
+        period: "1000"
+        timerName: yaml
+      steps:
+        - convertHeaderTo:
+            id: convertHeaderTo9891
+        - setBody:
+            id: setBodyff90
+            expression:
+              simple:
+                id: simpleeeb4
+                expression: Hello Camel from ${routeId}
+        - log:
+            id: log2617
+            message: ${body}
