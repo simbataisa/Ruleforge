@@ -90,7 +90,7 @@ export function ImportRuleModal({ spaceId, createdBy, onClose, onSuccess }: Impo
             <div>
               <FileJson className="h-8 w-8 text-gray-400 mx-auto mb-2" />
               <p className="text-sm text-gray-600 font-medium">
-                Click to select or drag & drop a JSON file
+                Click to select or drag &amp; drop a JSON file
               </p>
               <p className="text-xs text-gray-400 mt-1">
                 Accepts .json files exported from RuleForge

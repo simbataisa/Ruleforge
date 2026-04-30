@@ -9,8 +9,13 @@ const MAX_RETRIES = 3;
 const RETRY_BASE_DELAY = 1000;
 
 function getCookieValue(name: string): string | null {
-  const match = document.cookie.match(new RegExp('(?:^|; )' + name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '=([^;]*)'));
-  return match ? decodeURIComponent(match[1]) : null;
+  for (const cookie of document.cookie.split(';')) {
+    const [cookieName, ...valueParts] = cookie.trim().split('=');
+    if (cookieName === name) {
+      return decodeURIComponent(valueParts.join('='));
+    }
+  }
+  return null;
 }
 
 export const apiClient = axios.create({

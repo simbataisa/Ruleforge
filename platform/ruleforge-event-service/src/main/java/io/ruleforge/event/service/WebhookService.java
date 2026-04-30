@@ -19,6 +19,8 @@ import io.ruleforge.event.model.WebhookAuthConfig;
 import io.ruleforge.event.model.WebhookAuthType;
 import io.ruleforge.event.model.WebhookScopeType;
 import io.ruleforge.event.repository.WebhookDeliveryRepository;
+import io.ruleforge.event.repository.MemberLookupRepository;
+import io.ruleforge.event.repository.SpaceLookupRepository;
 import io.ruleforge.event.repository.WebhookRepository;
 
 import io.ruleforge.common.tenant.TenantContext;
@@ -60,6 +62,8 @@ public class WebhookService {
     private final AuditEventService auditEventService;
     private final CredentialEncryptionService credentialEncryptionService;
     private final OAuth2TokenCacheService oauth2TokenCacheService;
+    private final MemberLookupRepository memberLookupRepository;
+    private final SpaceLookupRepository spaceLookupRepository;
 
     public WebhookService(WebhookRepository webhookRepository,
                           WebhookDeliveryRepository webhookDeliveryRepository,
@@ -67,7 +71,9 @@ public class WebhookService {
                           SsrfGuard ssrfGuard,
                           AuditEventService auditEventService,
                           CredentialEncryptionService credentialEncryptionService,
-                          OAuth2TokenCacheService oauth2TokenCacheService) {
+                          OAuth2TokenCacheService oauth2TokenCacheService,
+                          MemberLookupRepository memberLookupRepository,
+                          SpaceLookupRepository spaceLookupRepository) {
         this.webhookRepository = webhookRepository;
         this.webhookDeliveryRepository = webhookDeliveryRepository;
         this.objectMapper = objectMapper;
@@ -75,12 +81,19 @@ public class WebhookService {
         this.auditEventService = auditEventService;
         this.credentialEncryptionService = credentialEncryptionService;
         this.oauth2TokenCacheService = oauth2TokenCacheService;
+        this.memberLookupRepository = memberLookupRepository;
+        this.spaceLookupRepository = spaceLookupRepository;
     }
 
     @Transactional
     public WebhookDto createWebhook(UUID orgId, UUID userId, CreateWebhookRequest request) {
         // Validate URL for SSRF before saving
         ssrfGuard.validate(request.url());
+
+        UUID targetOrgId = resolveAndAuthorizeCreateScope(orgId, request);
+        // BUGFIX QE-E6-004: webhooks.created_by references members.id, not JWT users.id.
+        UUID memberId = memberLookupRepository.findMemberId(targetOrgId, userId)
+                .orElseThrow(() -> new AccessDeniedException("User is not a member of the webhook organization"));
 
         WebhookEntity entity = new WebhookEntity();
         entity.setName(request.name());
@@ -89,15 +102,11 @@ public class WebhookService {
         entity.setUrl(request.url());
         entity.setEvents(serializeEvents(request.events()));
         entity.setActive(request.active() != null ? request.active() : true);
-        entity.setCreatedBy(userId);
+        entity.setCreatedBy(memberId);
 
         // Resolve orgId: for ORG scope, scopeId IS the orgId.
         // For other scopes, use the orgId from TenantContext.
-        if (request.scopeType() == WebhookScopeType.ORG) {
-            entity.setOrgId(request.scopeId());
-        } else {
-            entity.setOrgId(orgId);
-        }
+        entity.setOrgId(targetOrgId);
 
         String secret = generateSecret();
         entity.setSecret(secret);
@@ -114,6 +123,34 @@ public class WebhookService {
 
         // Return DTO with secret visible on creation
         return toDto(saved, secret);
+    }
+
+    private UUID resolveAndAuthorizeCreateScope(UUID orgId, CreateWebhookRequest request) {
+        String role = TenantContext.get() != null ? TenantContext.get().role() : null;
+        if (role == null || !EDITOR_PLUS_ROLES.contains(role)) {
+            throw new AccessDeniedException("EDITOR or higher role required to create webhook");
+        }
+
+        if (request.scopeType() == WebhookScopeType.ORG) {
+            if (!Set.of("OWNER", "ADMIN").contains(role)) {
+                throw new AccessDeniedException("OWNER or ADMIN role required to create organization webhook");
+            }
+            if (!orgId.equals(request.scopeId())) {
+                throw new AccessDeniedException("Organization webhook scope must match the authenticated organization");
+            }
+            return request.scopeId();
+        }
+
+        if (request.scopeType() == WebhookScopeType.SPACE) {
+            UUID spaceOrgId = spaceLookupRepository.findOrgId(request.scopeId())
+                    .orElseThrow(() -> new EntityNotFoundException("Space", request.scopeId().toString()));
+            if (!orgId.equals(spaceOrgId)) {
+                throw new AccessDeniedException("Space does not belong to the authenticated organization");
+            }
+            return orgId;
+        }
+
+        return orgId;
     }
 
     @Transactional

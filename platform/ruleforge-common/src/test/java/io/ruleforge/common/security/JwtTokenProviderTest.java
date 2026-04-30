@@ -43,6 +43,22 @@ class JwtTokenProviderTest {
     }
 
     @Test
+    void generateAccessToken_acceptsLocalDevSecretMarker() {
+        JwtTokenProvider localDevProvider = new JwtTokenProvider(
+                "local-dev-jwt-secret-minimum-64-bytes-change-before-production-000000000000000000",
+                ACCESS_TTL,
+                REFRESH_TTL);
+        UUID userId = UUID.randomUUID();
+        UUID orgId = UUID.randomUUID();
+
+        String token = localDevProvider.generateAccessToken(userId, orgId, "dev@example.com", "OWNER");
+
+        assertTrue(localDevProvider.validateToken(token));
+        assertEquals(userId, localDevProvider.getUserIdFromToken(token));
+        assertEquals(orgId, localDevProvider.getOrgIdFromToken(token));
+    }
+
+    @Test
     void generateRefreshToken_containsMinimalClaims() {
         UUID userId = UUID.randomUUID();
 

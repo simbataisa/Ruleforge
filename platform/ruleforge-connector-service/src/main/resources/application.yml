@@ -23,10 +23,10 @@ management:
 
 app:
   jwt:
-    secret: "dGhpcyBpcyBhIHZlcnkgbG9uZyBzZWNyZXQga2V5IGZvciBITUFDLVNIQTUxMiB0aGF0IG11c3QgYmUgYXQgbGVhc3QgNjQgYnl0ZXMgbG9uZw=="
+    secret: ${RULEFORGE_JWT_SECRET:local-dev-jwt-secret-minimum-64-bytes-change-before-production-000000000000000000}
     access-token-validity-ms: 900000
     refresh-token-validity-ms: 604800000
 
 ruleforge:
   encryption:
-    secret-key: ZGVmYXVsdC1kZXYta2V5LTMyLWJ5dGVzLS0tLS0=
+    secret-key: ${RULEFORGE_CONNECTOR_ENCRYPTION_KEY:local-dev-connector-credential-key}

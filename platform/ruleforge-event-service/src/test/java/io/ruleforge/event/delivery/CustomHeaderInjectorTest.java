@@ -6,6 +6,8 @@ import io.ruleforge.event.model.WebhookAuthType;
 import org.junit.jupiter.api.Test;
 import org.springframework.http.HttpHeaders;
 
+import java.util.List;
+
 import static org.assertj.core.api.Assertions.*;
 
 class CustomHeaderInjectorTest {
@@ -15,6 +17,16 @@ class CustomHeaderInjectorTest {
     @Test
     void supportedType_isCustomHeader() {
         assertThat(injector.supportedType()).isEqualTo(WebhookAuthType.CUSTOM_HEADER);
+    }
+
+    @Test
+    void registryReturnsCustomHeaderInjector() {
+        WebhookAuthInjectorRegistry registry = new WebhookAuthInjectorRegistry(List.of(
+                new NoneAuthInjector(),
+                injector
+        ));
+
+        assertThat(registry.getFor(WebhookAuthType.CUSTOM_HEADER)).isSameAs(injector);
     }
 
     @Test

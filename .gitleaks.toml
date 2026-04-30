@@ -1,0 +1,23 @@
+title = "RuleForge gitleaks configuration"
+
+[extend]
+useDefault = true
+
+[[allowlists]]
+description = "Generated build outputs and runtime logs are derived artifacts, not source of truth."
+paths = [
+  '''(^|/)build/''',
+  '''(^|/)bin/''',
+  '''^logs/''',
+  '''(^|/)node_modules/''',
+  '''^frontend/dist/''',
+  '''^sdks/sdk-node/dist/''',
+  '''^docs/security/\.scan/'''
+]
+
+[[allowlists]]
+description = "Documentation contains redacted/example auth payload field names."
+paths = [
+  '''^docs/auth-guide\.md$''',
+  '''^docs/architecture/solution-architecture-webhooks-auth\.md$'''
+]

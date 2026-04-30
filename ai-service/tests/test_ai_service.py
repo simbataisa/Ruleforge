@@ -5,6 +5,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.main import app
+from app.services.llm_client import llm_client as app_llm_client
 
 client = TestClient(app)
 
@@ -17,8 +18,18 @@ def test_health():
     assert "llm_configured" in data
 
 
+def test_cors_uses_explicit_localhost_origin_with_credentials():
+    middleware = next(
+        item for item in app.user_middleware if item.cls.__name__ == "CORSMiddleware"
+    )
+
+    assert "*" not in middleware.kwargs["allow_origins"]
+    assert "http://localhost:3000" in middleware.kwargs["allow_origins"]
+    assert middleware.kwargs["allow_credentials"] is True
+
+
 def test_generate_rule_no_api_key():
-    with patch("app.services.llm_client.llm_client.is_configured", False):
+    with patch("app.services.llm_client.settings.anthropic_api_key", ""):
         resp = client.post(
             "/v1/ai/generate-rule",
             json={
@@ -77,17 +88,14 @@ async def test_generate_rule():
     }
 
     mock_response = _mock_tool_response(tool_output)
+    mock_client = MagicMock()
+    mock_client.messages = MagicMock()
+    mock_client.messages.create = AsyncMock(return_value=mock_response)
 
     with (
-        patch("app.services.llm_client.llm_client.is_configured", True),
-        patch(
-            "app.services.llm_client.llm_client.client",
-            new_callable=lambda: MagicMock,
-        ) as mock_client,
+        patch("app.services.llm_client.settings.anthropic_api_key", "test-key"),
+        patch.object(app_llm_client, "_client", mock_client),
     ):
-        mock_client.messages = MagicMock()
-        mock_client.messages.create = AsyncMock(return_value=mock_response)
-
         resp = client.post(
             "/v1/ai/generate-rule",
             json={
@@ -107,17 +115,14 @@ async def test_explain_rule():
     explanation = "# Loan Approval Rule\nThis rule checks loan amounts and routes large loans to manual review."
 
     mock_response = _mock_text_response(explanation)
+    mock_client = MagicMock()
+    mock_client.messages = MagicMock()
+    mock_client.messages.create = AsyncMock(return_value=mock_response)
 
     with (
-        patch("app.services.llm_client.llm_client.is_configured", True),
-        patch(
-            "app.services.llm_client.llm_client.client",
-            new_callable=lambda: MagicMock,
-        ) as mock_client,
+        patch("app.services.llm_client.settings.anthropic_api_key", "test-key"),
+        patch.object(app_llm_client, "_client", mock_client),
     ):
-        mock_client.messages = MagicMock()
-        mock_client.messages.create = AsyncMock(return_value=mock_response)
-
         resp = client.post(
             "/v1/ai/explain-rule",
             json={
@@ -145,17 +150,14 @@ async def test_optimize_rule():
     }
 
     mock_response = _mock_tool_response(tool_output)
+    mock_client = MagicMock()
+    mock_client.messages = MagicMock()
+    mock_client.messages.create = AsyncMock(return_value=mock_response)
 
     with (
-        patch("app.services.llm_client.llm_client.is_configured", True),
-        patch(
-            "app.services.llm_client.llm_client.client",
-            new_callable=lambda: MagicMock,
-        ) as mock_client,
+        patch("app.services.llm_client.settings.anthropic_api_key", "test-key"),
+        patch.object(app_llm_client, "_client", mock_client),
     ):
-        mock_client.messages = MagicMock()
-        mock_client.messages.create = AsyncMock(return_value=mock_response)
-
         resp = client.post(
             "/v1/ai/optimize-rule",
             json={"rule_id": "rule-123", "decision_logs": []},
@@ -182,17 +184,14 @@ async def test_generate_test_data():
     }
 
     mock_response = _mock_tool_response(tool_output)
+    mock_client = MagicMock()
+    mock_client.messages = MagicMock()
+    mock_client.messages.create = AsyncMock(return_value=mock_response)
 
     with (
-        patch("app.services.llm_client.llm_client.is_configured", True),
-        patch(
-            "app.services.llm_client.llm_client.client",
-            new_callable=lambda: MagicMock,
-        ) as mock_client,
+        patch("app.services.llm_client.settings.anthropic_api_key", "test-key"),
+        patch.object(app_llm_client, "_client", mock_client),
     ):
-        mock_client.messages = MagicMock()
-        mock_client.messages.create = AsyncMock(return_value=mock_response)
-
         resp = client.post(
             "/v1/ai/generate-test-data",
             json={
@@ -210,7 +209,7 @@ async def test_generate_test_data():
 async def test_detect_conflicts_insufficient_rules():
     """Test conflict detection with rules that can't be fetched."""
     with (
-        patch("app.services.llm_client.llm_client.is_configured", True),
+        patch("app.services.llm_client.settings.anthropic_api_key", "test-key"),
         patch("app.services.conflict_detector._fetch_rule", new_callable=AsyncMock, return_value=None),
     ):
         resp = client.post(

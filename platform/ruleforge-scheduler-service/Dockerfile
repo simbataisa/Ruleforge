@@ -1,9 +1,16 @@
 FROM eclipse-temurin:21-jre-alpine AS runtime
 
+RUN addgroup -S ruleforge && adduser -S ruleforge -G ruleforge
+
 WORKDIR /app
 
-COPY build/libs/*.jar app.jar
+COPY --chown=ruleforge:ruleforge build/libs/*.jar app.jar
 
 EXPOSE 8086
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
+    CMD wget -q --spider http://127.0.0.1:8086/actuator/health || exit 1
+
+USER ruleforge
 
 ENTRYPOINT ["java", "-jar", "app.jar"]

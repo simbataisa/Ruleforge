@@ -49,7 +49,7 @@ describe('WebhookAuthConfigForm — OAuth 2.0', () => {
 
   it('shows HTTPS warning when tokenUrl starts with http://', () => {
     renderForm('OAUTH2_CLIENT_CREDENTIALS', { tokenUrl: 'http://insecure.example.com/token' });
-    expect(screen.getByRole('alert')).toHaveTextContent('Must use HTTPS');
+    expect(screen.getByRole('alert')).toHaveTextContent('Token URL must use HTTPS');
   });
 
   it('does not show HTTPS warning for valid https:// tokenUrl', () => {

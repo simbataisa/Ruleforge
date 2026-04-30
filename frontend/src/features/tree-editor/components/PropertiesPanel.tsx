@@ -192,7 +192,7 @@ export function PropertiesPanel() {
               className="block w-full rounded-md border-gray-300 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 text-xs font-mono"
             />
             <p className="mt-1 text-xs text-gray-400">
-              Use && for AND, || for OR. Connect two children: first edge = true, second = false.
+              Use &amp;&amp; for AND, || for OR. Connect two children: first edge = true, second = false.
             </p>
           </div>
         )}

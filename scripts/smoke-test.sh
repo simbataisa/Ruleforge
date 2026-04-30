@@ -1212,7 +1212,7 @@ if [[ "$QUICK" == "false" ]]; then
 
     if [[ "$WH_CREATE_CODE" =~ ^(200|201)$ ]]; then
       WH_ID=$(echo "$WH_CREATE_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('id',''))" 2>/dev/null || echo "")
-      WH_SECRET=$(echo "$WH_CREATE_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('data',d).get('secret',''))" 2>/dev/null || echo "")
+      WH_SECRET=$(echo "$WH_CREATE_BODY" | python3 -c "import sys,json; d=json.load(sys.stdin); data=d.get('data',d); print(data.get('secretOnCreation') or data.get('secret',''))" 2>/dev/null || echo "")
       if [[ -n "$WH_ID" && -n "$WH_SECRET" ]]; then
         pass "POST /v1/webhooks (scopeType=SPACE) — HTTP $WH_CREATE_CODE, id and secret returned"
         verbose "webhook_id=${WH_ID}"
@@ -1475,7 +1475,8 @@ try:
     data = d.get('data', d)
     auth_cfg = data.get('authConfig') or {}
     has_auth_type = data.get('authType') == 'API_KEY'
-    api_key_redacted = auth_cfg.get('apiKey') is None
+    api_key = auth_cfg.get('apiKey')
+    api_key_redacted = api_key is None or api_key == '[REDACTED]'
     print('ok' if has_auth_type and api_key_redacted else 'exposed')
 except:
     print('error')
@@ -1483,7 +1484,7 @@ except:
         if [[ "$AUTH_REDACT_CHECK" == "ok" ]]; then
           pass "GET /v1/webhooks/{id} — authType=API_KEY present; apiKey not exposed in response"
         else
-          fail "GET /v1/webhooks/{id} — plaintext credential may be exposed (expected apiKey=null)"
+          fail "GET /v1/webhooks/{id} — plaintext credential may be exposed (expected apiKey absent/null/[REDACTED])"
           verbose "$WH_GET_AUTH_BODY"
         fi
       else
@@ -1508,14 +1509,14 @@ try:
     d = json.load(sys.stdin)
     data = d.get('data', d)
     has_total = 'totalDeliveries' in data
-    has_success = 'successfulDeliveries' in data
-    has_timeline = 'timeline' in data
+    has_success = 'successDeliveries' in data or 'successfulDeliveries' in data
+    has_timeline = 'deliveryTimeline' in data or 'timeline' in data
     print('ok' if has_total and has_success and has_timeline else 'missing')
 except:
     print('missing')
 " 2>/dev/null || echo "missing")
         if [[ "$METRICS_FIELDS" == "ok" ]]; then
-          pass "GET /v1/webhooks/{id}/metrics (OWNER) — HTTP 200, totalDeliveries/successfulDeliveries/timeline present"
+          pass "GET /v1/webhooks/{id}/metrics (OWNER) — HTTP 200, totalDeliveries/successDeliveries/deliveryTimeline present"
         else
           fail "GET /v1/webhooks/{id}/metrics (OWNER) — HTTP 200 but missing expected fields"
           verbose "$WH_METRICS_BODY"
@@ -1620,6 +1621,8 @@ fi
 # 3.22: Webhook Auth v2 — OAuth2 Client Credentials & Custom Header (event-service :8084)
 # ============================================================================
 if [[ "$QUICK" == "false" ]]; then
+  echo ""
+  info "=== Section 3.22: Webhook Auth v2 — OAuth 2.0 & Custom Header ==="
   info "3.22 — Webhook Auth v2 — OAuth2 & Custom Header (event-service :8084)"
 
   EVENT_HEALTH_322=$(curl -sf --max-time 3 "http://localhost:8084/actuator/health" 2>/dev/null | \
@@ -1714,7 +1717,7 @@ if [[ "$QUICK" == "false" ]]; then
       -X POST "http://localhost:8084/v1/webhooks" \
       -H "Authorization: Bearer $ADMIN_TOKEN" \
       -H "Content-Type: application/json" \
-      -d "{\"name\":\"smoke-oauth2-webhook\",\"url\":\"https://httpbin.org/post\",\"events\":[\"rule.published\"],\"scopeType\":\"SPACE\",\"scopeId\":\"${SEED_SPACE_ID_322}\",\"authType\":\"OAUTH2_CLIENT_CREDENTIALS\",\"authConfig\":{\"tokenUrl\":\"https://auth.example.com/oauth/token\",\"clientId\":\"test-client-id\",\"clientSecret\":\"test-client-secret\",\"scope\":\"api:read\"}}" 2>/dev/null)
+      -d "{\"name\":\"smoke-oauth2-webhook\",\"url\":\"https://httpbin.org/post\",\"events\":[\"rule.published\"],\"scopeType\":\"SPACE\",\"scopeId\":\"${SEED_SPACE_ID_322}\",\"authType\":\"OAUTH2_CLIENT_CREDENTIALS\",\"authConfig\":{\"tokenUrl\":\"https://example.com/oauth/token\",\"clientId\":\"test-client-id\",\"clientSecret\":\"test-client-secret\",\"scope\":\"api:read\"}}" 2>/dev/null)
     WH_OA_CODE=$(echo "$WH_OA_RESP" | tail -1)
     WH_OA_BODY=$(echo "$WH_OA_RESP" | sed '$d')
 

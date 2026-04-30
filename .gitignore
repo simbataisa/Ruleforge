@@ -1,6 +1,7 @@
 # Git worktrees
 .worktrees/
 .superpowers/
+.bmad/signals/
 
 # Java / Gradle
 build/
@@ -63,4 +64,6 @@ docker-compose.override.yml
 
 # Misc
 .claude/
+docs/security/.scan/semgrep-home/
+docs/security/.scan/trivy-cache/
 tmp/

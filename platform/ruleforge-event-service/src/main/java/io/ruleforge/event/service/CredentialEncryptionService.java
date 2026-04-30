@@ -10,6 +10,8 @@ import org.springframework.stereotype.Service;
 import javax.crypto.Cipher;
 import javax.crypto.spec.GCMParameterSpec;
 import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.security.SecureRandom;
 import java.util.Base64;
 
@@ -27,13 +29,24 @@ public class CredentialEncryptionService {
     public CredentialEncryptionService(
             @Value("${ruleforge.webhook.credential-key}") String base64Key,
             ObjectMapper objectMapper) {
-        byte[] keyBytes = Base64.getDecoder().decode(base64Key);
+        byte[] keyBytes = decodeKey(base64Key);
         if (keyBytes.length != 32) {
             throw new IllegalArgumentException(
                 "WEBHOOK_CREDENTIAL_KEY must be 32 bytes (256-bit) base64-encoded. Got " + keyBytes.length + " bytes.");
         }
         this.secretKey = new SecretKeySpec(keyBytes, "AES");
         this.objectMapper = objectMapper;
+    }
+
+    private static byte[] decodeKey(String key) {
+        if (key != null && key.startsWith("local-dev-")) {
+            try {
+                return MessageDigest.getInstance("SHA-256").digest(key.getBytes(StandardCharsets.UTF_8));
+            } catch (Exception e) {
+                throw new IllegalStateException("Unable to derive local development credential key", e);
+            }
+        }
+        return Base64.getDecoder().decode(key);
     }
 
     public String encrypt(WebhookAuthConfig config) {

@@ -195,9 +195,11 @@ export const useScorecardEditorStore = create<ScorecardEditorState>((set, get) =
   },
 
   toDefinition: () => {
-    const { baseScore, characteristics } = get();
+    const { baseScore, outputField, reasonCodes, characteristics } = get();
     return {
       baseScore,
+      outputField,
+      reasonCodes,
       strategy: 'ADDITIVE',
       categories: characteristics.map((c) => ({
         name: c.name,

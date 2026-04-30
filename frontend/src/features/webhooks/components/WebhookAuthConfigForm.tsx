@@ -246,7 +246,7 @@ export function WebhookAuthConfigForm({ authType, authConfig, onChange, disabled
               disabled={disabled}
             />
             {authConfig.tokenUrl && !authConfig.tokenUrl.startsWith('https://') && (
-              <p className="mt-1 text-xs text-amber-600" role="alert">⚠️ Must use HTTPS.</p>
+              <p className="mt-1 text-xs text-amber-600" role="alert">⚠️ Token URL must use HTTPS.</p>
             )}
           </div>
           <Input

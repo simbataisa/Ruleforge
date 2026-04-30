@@ -56,6 +56,36 @@ describe('API Client', () => {
     });
   });
 
+  describe('request interceptor - CSRF token', () => {
+    it('reads the CSRF cookie without constructing a RegExp', async () => {
+      Object.defineProperty(document, 'cookie', {
+        configurable: true,
+        value: 'session=abc; XSRF-TOKEN=csrf-token-123',
+      });
+
+      const OriginalRegExp = globalThis.RegExp;
+      vi.stubGlobal('RegExp', vi.fn(() => {
+        throw new Error('RegExp should not be used for cookie parsing');
+      }));
+
+      try {
+        const { apiClient } = await import('./client');
+
+        const interceptors = apiClient.interceptors.request as unknown as {
+          handlers: Array<{ fulfilled: (config: Record<string, unknown>) => Record<string, unknown> }>;
+        };
+        const handler = interceptors.handlers[0].fulfilled;
+
+        const config = { method: 'post', headers: {} as Record<string, string> };
+        const result = handler(config);
+
+        expect((result.headers as Record<string, string>)['X-XSRF-TOKEN']).toBe('csrf-token-123');
+      } finally {
+        vi.stubGlobal('RegExp', OriginalRegExp);
+      }
+    });
+  });
+
   describe('response interceptor - 401 handling', () => {
     it('removes token and redirects on 401', async () => {
       localStorageMock.setItem('ruleforge_token', 'old-token');

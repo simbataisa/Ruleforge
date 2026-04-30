@@ -26,6 +26,7 @@ import io.ruleforge.event.service.WebhookService;
 
 import jakarta.validation.Valid;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.data.domain.Pageable;
 import org.springframework.http.HttpStatus;
@@ -81,6 +82,11 @@ public class WebhookController {
     @ExceptionHandler(IllegalArgumentException.class)
     public ResponseEntity<Map<String, String>> handleIllegalArgument(IllegalArgumentException ex) {
         return ResponseEntity.badRequest().body(Map.of("error", ex.getMessage()));
+    }
+
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<Map<String, String>> handleAccessDenied(AccessDeniedException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("error", ex.getMessage()));
     }
 
     @PostMapping
@@ -252,8 +258,11 @@ public class WebhookController {
             if (tokenUrl == null || !tokenUrl.startsWith("https://")) {
                 throw new IllegalArgumentException("tokenUrl must use HTTPS for OAuth2 auth type");
             }
-            // SSRF check on the token URL — ssrfGuard.validate() throws IllegalArgumentException if blocked
-            ssrfGuard.validate(tokenUrl);
+            try {
+                ssrfGuard.validate(tokenUrl);
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("tokenUrl resolves to a disallowed address", e);
+            }
             if (req.getClientId() == null || req.getClientId().isBlank()) {
                 throw new IllegalArgumentException("clientId is required for OAuth2 auth type");
             }

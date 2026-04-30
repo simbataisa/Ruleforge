@@ -104,6 +104,9 @@ export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
   const [editAuthConfig, setEditAuthConfig] = useState<Partial<WebhookAuthConfig>>({
     headerName: webhook.authConfig?.headerName,
     username: webhook.authConfig?.username,
+    tokenUrl: webhook.authConfig?.tokenUrl,
+    clientId: webhook.authConfig?.clientId,
+    scope: webhook.authConfig?.scope,
     // Credential fields (secret, apiKey, password, token, headerValue) intentionally left blank
   });
 
@@ -122,6 +125,9 @@ export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
     setEditAuthConfig({
       headerName: webhook.authConfig?.headerName,
       username: webhook.authConfig?.username,
+      tokenUrl: webhook.authConfig?.tokenUrl,
+      clientId: webhook.authConfig?.clientId,
+      scope: webhook.authConfig?.scope,
     });
     setAuthEditMode(false);
     setRotatingField(null);
@@ -177,6 +183,13 @@ export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
 
   const handleRotateSave = (field: keyof WebhookAuthConfig) => {
     const authConfigPayload: Partial<WebhookAuthConfig> = { [field]: rotateValue };
+    if (webhook.authType === 'CUSTOM_HEADER') {
+      authConfigPayload.headerName = webhook.authConfig?.headerName ?? 'X-Custom-Header';
+    } else if (webhook.authType === 'OAUTH2_CLIENT_CREDENTIALS') {
+      authConfigPayload.tokenUrl = webhook.authConfig?.tokenUrl;
+      authConfigPayload.clientId = webhook.authConfig?.clientId;
+      if (webhook.authConfig?.scope) authConfigPayload.scope = webhook.authConfig.scope;
+    }
     updateWebhook.mutate(
       { id: webhook.id, authType: webhook.authType, authConfig: authConfigPayload },
       {
@@ -302,6 +315,9 @@ export function WebhookSettingsTab({ webhook, onUpdated, onDeleted }: Props) {
                   setEditAuthConfig({
                     headerName: webhook.authConfig?.headerName,
                     username: webhook.authConfig?.username,
+                    tokenUrl: webhook.authConfig?.tokenUrl,
+                    clientId: webhook.authConfig?.clientId,
+                    scope: webhook.authConfig?.scope,
                   });
                 }}
                 disabled={updateWebhook.isPending}

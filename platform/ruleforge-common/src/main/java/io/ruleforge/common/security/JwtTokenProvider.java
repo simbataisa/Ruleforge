@@ -6,6 +6,8 @@ import io.jsonwebtoken.Jwts;
 
 import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
+import java.nio.charset.StandardCharsets;
+import java.security.MessageDigest;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Date;
@@ -39,15 +41,26 @@ public class JwtTokenProvider {
     private final long refreshTokenValidityMs;
 
     /**
-     * @param base64Secret         Base64-encoded HMAC secret
+     * @param base64Secret         Base64-encoded HMAC secret, or an explicit {@code local-dev-*} marker
      * @param accessTokenValidityMs  Access token TTL in milliseconds
      * @param refreshTokenValidityMs Refresh token TTL in milliseconds
      */
     public JwtTokenProvider(String base64Secret, long accessTokenValidityMs, long refreshTokenValidityMs) {
-        byte[] keyBytes = Base64.getDecoder().decode(base64Secret);
+        byte[] keyBytes = decodeSigningKey(base64Secret);
         this.signingKey = new SecretKeySpec(keyBytes, "HmacSHA512");
         this.accessTokenValidityMs = accessTokenValidityMs;
         this.refreshTokenValidityMs = refreshTokenValidityMs;
+    }
+
+    private static byte[] decodeSigningKey(String secret) {
+        if (secret != null && secret.startsWith("local-dev-")) {
+            try {
+                return MessageDigest.getInstance("SHA-512").digest(secret.getBytes(StandardCharsets.UTF_8));
+            } catch (Exception e) {
+                throw new IllegalStateException("Unable to derive local development JWT signing key", e);
+            }
+        }
+        return Base64.getDecoder().decode(secret);
     }
 
     /**

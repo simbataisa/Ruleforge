@@ -207,6 +207,23 @@ class OAuth2ClientCredentialsInjectorTest {
         MultiValueMap<String, String> form = (MultiValueMap<String, String>) bodyCaptor.getValue();
         assertThat(form.containsKey("scope")).isFalse();
         assertThat(form.getFirst("grant_type")).isEqualTo("client_credentials");
+        assertThat(form.getFirst("client_id")).isEqualTo("clientId");
+        assertThat(form.getFirst("client_secret")).isEqualTo("secret");
+    }
+
+    @Test
+    void smallExpiresIn_usesMinimumTtl() {
+        when(tokenCache.get(orgId, webhookId)).thenReturn(null);
+        doNothing().when(ssrfGuard).validate(anyString());
+
+        setupRestClientMock(Map.of("access_token", "short-lived-token", "expires_in", 30));
+
+        WebhookAuthConfig.OAuth2ClientCredentials config =
+                new WebhookAuthConfig.OAuth2ClientCredentials("https://auth.example.com/token", "clientId", "secret", null);
+
+        injector.injectAuth(new HttpHeaders(), config, new byte[0], orgId, webhookId);
+
+        verify(tokenCache).set(orgId, webhookId, "short-lived-token", 60L);
     }
 
     @Test

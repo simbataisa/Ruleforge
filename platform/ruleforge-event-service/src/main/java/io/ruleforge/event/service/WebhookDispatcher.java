@@ -31,6 +31,7 @@ import java.util.UUID;
 public class WebhookDispatcher {
 
     private static final Logger log = LoggerFactory.getLogger(WebhookDispatcher.class);
+    private static final int MAX_STORED_RESPONSE_BODY_LENGTH = 255;
 
     private final RestClient webhookClient;
     private final ObjectMapper objectMapper;
@@ -244,6 +245,8 @@ public class WebhookDispatcher {
         if (body == null) {
             return null;
         }
-        return body.length() > 1024 ? body.substring(0, 1024) : body;
+        return body.length() > MAX_STORED_RESPONSE_BODY_LENGTH
+                ? body.substring(0, MAX_STORED_RESPONSE_BODY_LENGTH)
+                : body;
     }
 }

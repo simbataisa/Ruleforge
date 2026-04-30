@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/test-utils';
 import { ApprovalQueuePage } from '../ApprovalQueuePage';
@@ -135,8 +135,9 @@ describe('ApprovalQueuePage', () => {
 
   it('shows overdue count when there are overdue requests', () => {
     renderWithProviders(<ApprovalQueuePage />);
-    expect(screen.getByText('1')).toBeInTheDocument(); // 1 overdue
-    expect(screen.getByText('overdue')).toBeInTheDocument();
+    const overdueSpan = screen.getByText('overdue').closest('span');
+    expect(overdueSpan).toBeInTheDocument();
+    expect(within(overdueSpan!).getByText('1')).toBeInTheDocument();
   });
 
   it('renders SLA bar with "Overdue" text for past-deadline requests', () => {
@@ -186,9 +187,13 @@ describe('ApprovalQueuePage', () => {
     expect(screen.getByText('All caught up')).toBeInTheDocument();
   });
 
-  it('shows status filter dropdown', () => {
+  it('shows status filter pills', () => {
     renderWithProviders(<ApprovalQueuePage />);
-    expect(screen.getByText('All Statuses')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'All' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Pending' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Approved' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Rejected' })).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Cancelled' })).toBeInTheDocument();
   });
 
   it('renders rule names in the request list', () => {
