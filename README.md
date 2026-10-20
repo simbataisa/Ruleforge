@@ -393,7 +393,7 @@ Verify the full stack is working:
 
 The smoke test suite validates: infrastructure (5 services), platform services (7 services), frontend, user registration/login, rule CRUD, and rule execution for all 8 rule types.
 
-Expected result on a fresh local stack (Spring Boot 4.1, JDK 21): **117 pass, 1 fail, 7 skip**. The one failure is the known rule-creation issue below; most skips depend on it.
+Expected result on a fresh local stack (Spring Boot 4.1, JDK 21): **126 pass, 0 fail, 2 skip** (MinIO, and the optional "Sandbox" space check).
 
 ## Known Issues
 
@@ -401,7 +401,6 @@ These pre-date the Spring Boot 4 upgrade and are not yet fixed:
 
 | Issue | Impact | Cause |
 | --- | --- | --- |
-| Creating a rule via `POST /v1/spaces/{spaceId}/rules` returns 500 | Rules cannot be created through the API or UI | Migration V007 defines `rules.created_by REFERENCES members(id)`, but `RuleService` stores the user ID, which differs from the member ID |
 | Domain events are never published to Kafka | Audit trail, decision analytics and solver cache invalidation receive no events | `KafkaEventPublisher` is a scanned `@Component` guarded by `@ConditionalOnBean(KafkaTemplate.class)`, which is evaluated before Kafka auto-configuration runs, so `NoOpEventPublisher` is always used |
 | Showcase seed rules (V024, V025) can be missing on a brand-new database | Some smoke tests return 404 | Not yet identified — the files apply cleanly when replayed with `psql` after first boot |
 | MinIO image cannot be pulled | `docker compose up` for the full infra stack fails | `minio/minio:latest` pull is denied; no service uses MinIO |

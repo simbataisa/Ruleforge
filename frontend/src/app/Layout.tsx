@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom';
+import { getRulesListPath } from '@/features/rules/hooks/ruleListUrlState';
 import {
   BookOpen,
   Key,
@@ -73,6 +74,8 @@ export function Layout() {
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
   const navigate = useNavigate();
+  // Re-render on navigation so the Rules link picks up the last list filters
+  useLocation();
   const logout = useAuthStore((s) => s.logout);
   const user = useAuthStore((s) => s.user);
   useCurrentUser();
@@ -147,7 +150,7 @@ export function Layout() {
                 {section.items.map((item) => (
                   <NavLink
                     key={item.to}
-                    to={item.to}
+                    to={item.to === '/rules' ? getRulesListPath() : item.to}
                     end={item.to === '/settings'}
                     onClick={() => setSidebarOpen(false)}
                     className={({ isActive }) =>
