@@ -1,0 +1,388 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "RuleForge Code Dependencies",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1300,
+      650
+    ],
+    "views": [
+      {
+        "id": "engine-core",
+        "label": "Embeddable engine",
+        "focus": [
+          "engines",
+          "core",
+          "packaging"
+        ],
+        "note": "Nine rule-type modules all compile against ruleforge-core, which has no platform dependency."
+      },
+      {
+        "id": "engine-consumers",
+        "label": "Engine consumers",
+        "focus": [
+          "management",
+          "solver",
+          "engines",
+          "core"
+        ],
+        "note": "Only management and solver pull the engine in (via includeBuild Maven coordinates)."
+      },
+      {
+        "id": "shared-kernel",
+        "label": "Shared kernel",
+        "focus": [
+          "auth",
+          "event",
+          "analytics",
+          "scheduler",
+          "connector",
+          "management",
+          "solver",
+          "common"
+        ],
+        "note": "Every service depends on ruleforge-common for tenancy, auth filters, errors and events."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "auth",
+      "type": "security",
+      "label": "auth-service",
+      "sublabel": ":8081 \u00b7 2.9k LOC",
+      "pos": [
+        56,
+        120
+      ],
+      "size": [
+        122,
+        64
+      ]
+    },
+    {
+      "id": "event",
+      "type": "backend",
+      "label": "event-service",
+      "sublabel": ":8084 \u00b7 4.6k LOC",
+      "pos": [
+        192,
+        120
+      ],
+      "size": [
+        122,
+        64
+      ]
+    },
+    {
+      "id": "analytics",
+      "type": "backend",
+      "label": "analytics-service",
+      "sublabel": ":8085 \u00b7 1.2k LOC",
+      "pos": [
+        328,
+        120
+      ],
+      "size": [
+        122,
+        64
+      ]
+    },
+    {
+      "id": "scheduler",
+      "type": "backend",
+      "label": "scheduler-service",
+      "sublabel": ":8086 \u00b7 2.0k LOC",
+      "pos": [
+        464,
+        120
+      ],
+      "size": [
+        122,
+        64
+      ]
+    },
+    {
+      "id": "connector",
+      "type": "backend",
+      "label": "connector-service",
+      "sublabel": ":8087 \u00b7 0.7k LOC",
+      "pos": [
+        600,
+        120
+      ],
+      "size": [
+        122,
+        64
+      ]
+    },
+    {
+      "id": "management",
+      "type": "backend",
+      "label": "management-service",
+      "sublabel": ":8082 \u00b7 6.2k LOC",
+      "pos": [
+        736,
+        120
+      ],
+      "size": [
+        122,
+        64
+      ]
+    },
+    {
+      "id": "solver",
+      "type": "backend",
+      "label": "solver-service",
+      "sublabel": ":8083 \u00b7 1.6k LOC",
+      "pos": [
+        872,
+        120
+      ],
+      "size": [
+        122,
+        64
+      ]
+    },
+    {
+      "id": "common",
+      "type": "backend",
+      "label": "ruleforge-common",
+      "sublabel": "TenantContext \u00b7 JWT/API-key filters \u00b7 GlobalExceptionHandler \u00b7 EventPublisher",
+      "pos": [
+        56,
+        330
+      ],
+      "size": [
+        938,
+        64
+      ],
+      "tag": "shared kernel"
+    },
+    {
+      "id": "engines",
+      "type": "backend",
+      "label": "Rule-type engines",
+      "sublabel": "table \u00b7 tree \u00b7 flow \u00b7 +6 more",
+      "pos": [
+        1064,
+        120
+      ],
+      "size": [
+        180,
+        84
+      ],
+      "tag": "9 modules"
+    },
+    {
+      "id": "core",
+      "type": "database",
+      "label": "ruleforge-core",
+      "sublabel": "WorkingMemory \u00b7 RFL \u00b7 SPI",
+      "pos": [
+        1064,
+        330
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "tag": "slf4j + jackson only"
+    },
+    {
+      "id": "packaging",
+      "type": "external",
+      "label": "starter + ruleforge-all",
+      "sublabel": "Spring auto-config \u00b7 shadow JAR",
+      "pos": [
+        1064,
+        520
+      ],
+      "size": [
+        180,
+        64
+      ],
+      "tag": "packaging"
+    }
+  ],
+  "boundaries": [
+    {
+      "kind": "region",
+      "label": "platform/ \u2014 Spring Boot 3.3 services",
+      "wraps": [
+        "auth",
+        "event",
+        "analytics",
+        "scheduler",
+        "connector",
+        "management",
+        "solver",
+        "common"
+      ]
+    },
+    {
+      "kind": "region",
+      "label": "engine/",
+      "wraps": [
+        "engines",
+        "core",
+        "packaging"
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "auth-common",
+      "from": "auth",
+      "to": "common",
+      "label": "38",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        117,
+        206
+      ]
+    },
+    {
+      "id": "event-common",
+      "from": "event",
+      "to": "common",
+      "label": "30",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        253,
+        206
+      ]
+    },
+    {
+      "id": "analytics-common",
+      "from": "analytics",
+      "to": "common",
+      "label": "4",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        389,
+        206
+      ]
+    },
+    {
+      "id": "scheduler-common",
+      "from": "scheduler",
+      "to": "common",
+      "label": "6",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        525,
+        206
+      ]
+    },
+    {
+      "id": "connector-common",
+      "from": "connector",
+      "to": "common",
+      "label": "4",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        661,
+        206
+      ]
+    },
+    {
+      "id": "management-common",
+      "from": "management",
+      "to": "common",
+      "label": "62",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        797,
+        206
+      ]
+    },
+    {
+      "id": "solver-common",
+      "from": "solver",
+      "to": "common",
+      "label": "14",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        933,
+        206
+      ]
+    },
+    {
+      "id": "management-engines",
+      "from": "management",
+      "to": "engines",
+      "variant": "emphasis",
+      "fromSide": "top",
+      "toSide": "top"
+    },
+    {
+      "id": "solver-engines",
+      "from": "solver",
+      "to": "engines",
+      "variant": "emphasis",
+      "fromSide": "right",
+      "toSide": "left"
+    },
+    {
+      "id": "engines-core",
+      "from": "engines",
+      "to": "core",
+      "label": "~270 imports",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelAt": [
+        1154.0,
+        267
+      ]
+    },
+    {
+      "id": "packaging-core",
+      "from": "packaging",
+      "to": "core",
+      "variant": "dashed",
+      "fromSide": "top",
+      "toSide": "bottom"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "How to read it",
+      "items": [
+        "Arrows = compile-time imports from the GitNexus index (commit d10575e)",
+        "Edge numbers = import statements crossing the module boundary"
+      ]
+    },
+    {
+      "dot": "emerald",
+      "title": "Healthy boundaries",
+      "items": [
+        "engine/ never imports platform/",
+        "ruleforge-core depends only on slf4j + Jackson",
+        "Services never import each other; they talk over HTTP/Kafka"
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Watch",
+      "items": [
+        "management + solver each register all 9 engines",
+        "ruleforge-all omits flow, script, dmn, cep, hierarchy",
+        "starter lacks AutoConfiguration.imports"
+      ]
+    }
+  ]
+}

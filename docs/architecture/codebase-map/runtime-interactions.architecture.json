@@ -1,0 +1,347 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "RuleForge Runtime Interactions",
+    "locale": "en",
+    "quality_profile": "showcase",
+    "viewBox": [
+      1280,
+      650
+    ],
+    "views": [
+      {
+        "id": "authoring",
+        "label": "Rule authoring",
+        "focus": [
+          "frontend",
+          "management",
+          "postgres",
+          "kafka",
+          "solver"
+        ],
+        "note": "Edits land in management, persist to PostgreSQL and fan out on rule.lifecycle to invalidate solver caches."
+      },
+      {
+        "id": "execution",
+        "label": "Rule execution",
+        "focus": [
+          "scheduler",
+          "solver",
+          "auth",
+          "redis",
+          "kafka"
+        ],
+        "note": "Solve calls validate API keys with auth, hit the Redis L2 cache, and publish rule.execution."
+      },
+      {
+        "id": "observability",
+        "label": "Audit and analytics",
+        "focus": [
+          "kafka",
+          "event",
+          "analytics",
+          "postgres",
+          "elastic"
+        ],
+        "note": "event-service and analytics-service consume Kafka to build the audit trail and decision analytics."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "ai",
+      "type": "backend",
+      "label": "ai-service",
+      "sublabel": "FastAPI \u00b7 Anthropic",
+      "pos": [
+        40,
+        110
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "frontend",
+      "type": "frontend",
+      "label": "Web UI",
+      "sublabel": "React 18 \u00b7 Vite :3000",
+      "pos": [
+        40,
+        320
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "management",
+      "type": "backend",
+      "label": "management-service",
+      "sublabel": "rules \u00b7 versions",
+      "pos": [
+        300,
+        320
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": ":8082"
+    },
+    {
+      "id": "postgres",
+      "type": "database",
+      "label": "PostgreSQL 16",
+      "sublabel": "JSONB \u00b7 RLS",
+      "pos": [
+        300,
+        530
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "auth",
+      "type": "security",
+      "label": "auth-service",
+      "sublabel": "JWT \u00b7 API keys",
+      "pos": [
+        560,
+        110
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": ":8081"
+    },
+    {
+      "id": "kafka",
+      "type": "messagebus",
+      "label": "Kafka",
+      "sublabel": "lifecycle \u00b7 execution",
+      "pos": [
+        560,
+        320
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "event",
+      "type": "backend",
+      "label": "event-service",
+      "sublabel": "audit \u00b7 webhooks",
+      "pos": [
+        560,
+        530
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": ":8084"
+    },
+    {
+      "id": "solver",
+      "type": "backend",
+      "label": "solver-service",
+      "sublabel": "L1 + L2 cache",
+      "pos": [
+        820,
+        320
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": ":8083"
+    },
+    {
+      "id": "analytics",
+      "type": "backend",
+      "label": "analytics-service",
+      "sublabel": "decision logs",
+      "pos": [
+        820,
+        530
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": ":8085"
+    },
+    {
+      "id": "scheduler",
+      "type": "backend",
+      "label": "scheduler-service",
+      "sublabel": "Quartz batch",
+      "pos": [
+        1080,
+        110
+      ],
+      "size": [
+        150,
+        64
+      ],
+      "tag": ":8086"
+    },
+    {
+      "id": "redis",
+      "type": "database",
+      "label": "Redis 7",
+      "sublabel": "compiled rule cache",
+      "pos": [
+        1080,
+        320
+      ],
+      "size": [
+        150,
+        64
+      ]
+    },
+    {
+      "id": "elastic",
+      "type": "database",
+      "label": "Elasticsearch 8",
+      "sublabel": "analytics index",
+      "pos": [
+        1080,
+        530
+      ],
+      "size": [
+        150,
+        64
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "ui-management",
+      "from": "frontend",
+      "to": "management",
+      "label": "REST /v1/rules",
+      "variant": "emphasis"
+    },
+    {
+      "id": "ui-ai",
+      "from": "frontend",
+      "to": "ai",
+      "label": "/v1/ai"
+    },
+    {
+      "id": "ai-management",
+      "from": "ai",
+      "to": "management",
+      "label": "GET /v1/rules",
+      "fromSide": "right",
+      "toSide": "top"
+    },
+    {
+      "id": "management-db",
+      "from": "management",
+      "to": "postgres",
+      "label": "JPA",
+      "labelAt": [
+        375,
+        457
+      ]
+    },
+    {
+      "id": "management-lifecycle",
+      "from": "management",
+      "to": "kafka",
+      "label": "rule.lifecycle",
+      "variant": "emphasis"
+    },
+    {
+      "id": "lifecycle-solver",
+      "from": "kafka",
+      "to": "solver",
+      "label": "cache evict",
+      "variant": "dashed"
+    },
+    {
+      "id": "solver-auth",
+      "from": "solver",
+      "to": "auth",
+      "label": "validate API key",
+      "variant": "security",
+      "fromSide": "top",
+      "toSide": "right"
+    },
+    {
+      "id": "scheduler-solver",
+      "from": "scheduler",
+      "to": "solver",
+      "label": "batch solve",
+      "fromSide": "left",
+      "toSide": "top"
+    },
+    {
+      "id": "solver-redis",
+      "from": "solver",
+      "to": "redis",
+      "label": "L2 cache"
+    },
+    {
+      "id": "kafka-event",
+      "from": "kafka",
+      "to": "event",
+      "label": "audit",
+      "variant": "dashed",
+      "labelAt": [
+        635,
+        457
+      ]
+    },
+    {
+      "id": "kafka-analytics",
+      "from": "kafka",
+      "to": "analytics",
+      "label": "rule.execution",
+      "variant": "dashed"
+    },
+    {
+      "id": "event-db",
+      "from": "event",
+      "to": "postgres",
+      "label": "audit_events"
+    },
+    {
+      "id": "analytics-es",
+      "from": "analytics",
+      "to": "elastic",
+      "label": "index"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Not drawn",
+      "items": [
+        "Web UI reaches every service via the Vite proxy (local) or Kong (Docker)",
+        "solver also publishes rule.execution to Kafka",
+        "connector-service (:8087) only makes outbound JDBC/HTTP calls; nothing calls its /internal endpoint"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Gaps",
+      "items": [
+        "Kong has no route to event-service; /v1/webhooks points at management",
+        "user.activity has no producer; system.events and MinIO are unused",
+        "SSO SAML/OIDC handlers are placeholders"
+      ]
+    }
+  ]
+}
