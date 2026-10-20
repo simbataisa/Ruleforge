@@ -25,7 +25,7 @@ cd engine && ./gradlew build        # Build all engine modules
 cd engine && ./gradlew test         # Run engine tests
 cd engine && ./gradlew compileJava  # Compile only (no tests)
 
-# Platform services (Gradle, Spring Boot 3.3)
+# Platform services (Gradle, Spring Boot 4.1)
 cd platform && ./gradlew build      # Build all services
 cd platform && ./gradlew test       # Run service tests
 
@@ -62,7 +62,7 @@ Run `docker exec -i docker-postgres-1 psql -U ruleforge -d ruleforge < db/migrat
 ```
 ruleforge/
 ├── engine/          # Rule engine library (Gradle, Java 21) — standalone, embeddable
-├── platform/        # Microservices (Gradle, Spring Boot 3.3)
+├── platform/        # Microservices (Gradle, Spring Boot 4.1)
 ├── frontend/        # Web UI (Vite, React 18, TypeScript, Tailwind)
 ├── ai-service/      # AI assistant (Python, FastAPI)
 ├── db/migrations/   # Flyway SQL migrations (V001-V028)
@@ -120,7 +120,7 @@ Shared module `ruleforge-common`: TenantContext, DTOs (ErrorResponse, PageRespon
 - **PostgreSQL 16**: Rule definitions (JSONB), users, tenants. RLS for multi-tenancy via `app.current_org_id` session variable.
 - **Redis 7**: Compiled rule cache (L2). Key pattern: `tenant:{orgId}:rule:{ruleId}:{version}:compiled`
 - **Kafka 3.7**: Topics: `rule.lifecycle`, `rule.execution`, `user.activity`, `system.events`
-- **Elasticsearch 8**: Decision logs, analytics aggregation
+- **Elasticsearch 9**: Decision logs, analytics aggregation
 - **S3/MinIO**: Rule exports, batch results
 
 ### Frontend (`frontend/`, port 3000)

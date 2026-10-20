@@ -41,7 +41,7 @@ RuleForge is an enterprise BRMS for authoring, managing, and executing business 
 │  ┌──────────────────────────────────────────────────┼────────────────┐ │
 │  │                     Data Stores                   │                │ │
 │  │  PostgreSQL 16 (5432)  Redis 7 (6379)  Kafka 3.7.1 (9092)        │ │
-│  │  Elasticsearch 8 (9200)  MinIO (9000/9001)                        │ │
+│  │  Elasticsearch 9 (9200)  MinIO (9000/9001)                        │ │
 │  └───────────────────────────────────────────────────────────────────┘ │
 └───────────────────────────────────────────────────────────────────────┘
 ```
@@ -65,7 +65,7 @@ ruleforge/
 │   ├── ruleforge-hierarchy/             # Hierarchical resolution
 │   ├── ruleforge-all/                   # Uber module (all engines)
 │   └── ruleforge-spring-boot-starter/   # Auto-configuration for Spring Boot apps
-├── platform/                            # Microservices (Spring Boot 3.3.5)
+├── platform/                            # Microservices (Spring Boot 4.1.1)
 │   ├── ruleforge-common/                # Shared: JWT, security filters, DTOs, Kafka schemas
 │   ├── ruleforge-auth-service/          # Auth, users, orgs, spaces, API keys, SSO
 │   ├── ruleforge-management-service/    # Rule CRUD, versioning, folders, tags, import/export
@@ -91,7 +91,7 @@ ruleforge/
 | Layer          | Technology                                                                 |
 | -------------- | -------------------------------------------------------------------------- |
 | Engine         | Java 21, zero-dep core (SLF4J + Jackson only), GraalVM 23.1.2              |
-| Platform       | Spring Boot 3.3.5, PostgreSQL 16, Redis 7, Kafka 3.7.1, Caffeine           |
+| Platform       | Spring Boot 4.1.1, PostgreSQL 16, Redis 7, Kafka 3.7.1, Caffeine           |
 | Frontend       | React 18, TypeScript 5.5, Vite 5.4, Tailwind CSS 3.4, Zustand, React Query, Recharts, Monaco Editor |
 | AI             | Python 3.12, FastAPI, Anthropic SDK                                        |
 | Infrastructure | Docker, Kong 3.6 API Gateway, Kubernetes (Helm), Flyway                    |
