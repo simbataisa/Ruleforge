@@ -189,6 +189,18 @@ public class RuleController {
         return ApiResponse.ok(null, "Rule deleted successfully");
     }
 
+    @PostMapping("/rules/{ruleId}/archive")
+    @AuditLog(action = "ARCHIVE_RULE", resourceType = "Rule")
+    public ApiResponse<RuleDto> archiveRule(@PathVariable UUID ruleId) {
+        return ApiResponse.ok(ruleService.archiveRule(ruleId), "Rule archived successfully");
+    }
+
+    @PostMapping("/rules/{ruleId}/restore")
+    @AuditLog(action = "RESTORE_RULE", resourceType = "Rule")
+    public ApiResponse<RuleDto> restoreRule(@PathVariable UUID ruleId) {
+        return ApiResponse.ok(ruleService.restoreRule(ruleId), "Rule restored successfully");
+    }
+
     @PostMapping("/rules/{ruleId}/lock")
     @AuditLog(action = "LOCK_RULE", resourceType = "Rule")
     public ApiResponse<RuleDto> lockRule(@PathVariable UUID ruleId) {

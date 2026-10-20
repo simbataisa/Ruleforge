@@ -2,6 +2,7 @@ package io.ruleforge.solver.service;
 
 import io.ruleforge.common.event.DomainEvent;
 import io.ruleforge.common.event.EventPublisher;
+import io.ruleforge.common.exception.ConflictException;
 import io.ruleforge.common.tenant.TenantContext;
 import io.ruleforge.core.RuleForgeEngine;
 import io.ruleforge.core.memory.WorkingMemory;
@@ -48,15 +49,30 @@ public class SolverService {
     private final RuleForgeEngine engine;
     private final EventPublisher eventPublisher;
     private final AbTestRouter abTestRouter;
+    private final RuleLoaderService ruleLoaderService;
 
     public SolverService(RuleCacheService cacheService,
                          RuleForgeEngine engine,
                          EventPublisher eventPublisher,
-                         AbTestRouter abTestRouter) {
+                         AbTestRouter abTestRouter,
+                         RuleLoaderService ruleLoaderService) {
         this.cacheService = cacheService;
         this.engine = engine;
         this.eventPublisher = eventPublisher;
         this.abTestRouter = abTestRouter;
+        this.ruleLoaderService = ruleLoaderService;
+    }
+
+    /**
+     * Archived and deleted rules must not execute. Checked against the database on every
+     * call (before the compiled-rule cache) so a cached rule cannot outlive its archiving.
+     */
+    private void assertExecutable(String ruleIdOrAlias) {
+        String status = ruleLoaderService.resolveRule(ruleIdOrAlias).getStatus();
+        if ("ARCHIVED".equals(status) || "DELETED".equals(status)) {
+            throw new ConflictException("Rule '%s' is %s and cannot be executed"
+                    .formatted(ruleIdOrAlias, status.toLowerCase()));
+        }
     }
 
     /**
@@ -69,6 +85,7 @@ public class SolverService {
      */
     public SolveResponse solve(String ruleIdOrAlias, Integer version, SolveRequest request) {
         long startNanos = System.nanoTime();
+        assertExecutable(ruleIdOrAlias);
 
         // 1. Check for active A/B test and route if applicable
         AbTestAssignment abAssignment = null;
@@ -127,6 +144,7 @@ public class SolverService {
      */
     public BulkSolveResponse solveBulk(String ruleIdOrAlias, Integer version, BulkSolveRequest request) {
         long bulkStartNanos = System.nanoTime();
+        assertExecutable(ruleIdOrAlias);
 
         // Load compiled rule once
         CompiledRule compiled = cacheService.getCompiledRule(ruleIdOrAlias, version);

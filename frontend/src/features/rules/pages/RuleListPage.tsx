@@ -3,7 +3,7 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   Plus, Search, RefreshCw, ChevronLeft, ChevronRight, Upload,
   LayoutList, LayoutGrid, MoreVertical, Pencil, Play, SendHorizontal,
-  Copy, Trash2, Lock, LockOpen, X, FolderOpen, FolderInput, Layers,
+  Copy, Trash2, Lock, LockOpen, X, FolderOpen, FolderInput, Layers, Archive, ArchiveRestore,
 } from 'lucide-react';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Button } from '@/shared/components/Button';
@@ -12,7 +12,7 @@ import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { SkeletonRow } from '@/components/Skeleton';
 import {
   useRules, useCreateRule, useCreateSpaceRule, useCopyRule, useTags, useDeleteRule,
-  useLockRule, useUnlockRule, useBatchExport, type RuleListParams,
+  useLockRule, useUnlockRule, useBatchExport, useArchiveRule, useRestoreRule, type RuleListParams,
 } from '@/api/rules.api';
 import { MoveToFolderModal } from '@/features/rules/components/MoveToFolderModal';
 import {
@@ -116,6 +116,7 @@ export function RuleListPage() {
   const [moveToFolderRules, setMoveToFolderRules] = useState<Rule[]>([]);
   const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
+  const [archiveTarget, setArchiveTarget] = useState<Rule | null>(null);
 
   // Persist view mode
   useEffect(() => {
@@ -171,6 +172,8 @@ export function RuleListPage() {
   const lockRule = useLockRule();
   const unlockRule = useUnlockRule();
   const batchExport = useBatchExport();
+  const archiveRule = useArchiveRule();
+  const restoreRule = useRestoreRule();
 
   const rules: Rule[] = useMemo(() => {
     const allRules = rulesData?.content ?? [];
@@ -348,6 +351,28 @@ export function RuleListPage() {
     });
   };
 
+  const confirmArchiveRule = () => {
+    if (!archiveTarget) return;
+    archiveRule.mutate(archiveTarget.id, {
+      onSuccess: () => {
+        setArchiveTarget(null);
+        addToast({ type: 'success', title: 'Rule archived', message: 'It will no longer be executed by the solver.' });
+      },
+      onError: () => addToast({ type: 'error', title: 'Failed to archive rule' }),
+    });
+  };
+
+  const handleRestoreRule = (rule: Rule) => {
+    restoreRule.mutate(rule.id, {
+      onSuccess: (restored) => addToast({
+        type: 'success',
+        title: 'Rule restored',
+        message: restored?.status === 'PUBLISHED' ? 'It is live again.' : 'It is back in draft.',
+      }),
+      onError: () => addToast({ type: 'error', title: 'Failed to restore rule' }),
+    });
+  };
+
   const handleBatchExport = async () => {
     try {
       const blob = await batchExport.mutateAsync({ ruleIds: selectedRules.map((r) => r.id) });
@@ -483,6 +508,30 @@ export function RuleListPage() {
                   {rule.locked
                     ? <><LockOpen className="h-3.5 w-3.5" /> Unlock</>
                     : <><Lock className="h-3.5 w-3.5" /> Lock</>}
+                </button>
+              )}
+              {!isLockedByOther(rule) && (rule.status === 'DRAFT' || rule.status === 'PUBLISHED') && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActionMenuRuleId(null);
+                    setArchiveTarget(rule);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <Archive className="h-3.5 w-3.5" /> Archive
+                </button>
+              )}
+              {!isLockedByOther(rule) && rule.status === 'ARCHIVED' && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActionMenuRuleId(null);
+                    handleRestoreRule(rule);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <ArchiveRestore className="h-3.5 w-3.5" /> Restore
                 </button>
               )}
               <div className="px-3 py-1">
@@ -988,6 +1037,16 @@ export function RuleListPage() {
         message={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
         confirmLabel="Delete Rule"
         isLoading={deleteRule.isPending}
+      />
+
+      <ConfirmDialog
+        open={!!archiveTarget}
+        onClose={() => setArchiveTarget(null)}
+        onConfirm={confirmArchiveRule}
+        title="Archive Rule"
+        message={`Archive "${archiveTarget?.name}"? The solver will stop executing it, so any system calling it will get an error until it is restored.`}
+        confirmLabel="Archive Rule"
+        isLoading={archiveRule.isPending}
       />
 
       <ConfirmDialog

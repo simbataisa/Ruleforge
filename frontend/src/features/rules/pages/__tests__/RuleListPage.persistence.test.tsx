@@ -45,6 +45,8 @@ const mockLock = vi.fn();
 const mockUnlock = vi.fn();
 const mockExport = vi.fn();
 const mockUpdate = vi.fn();
+const mockArchive = vi.fn();
+const mockRestore = vi.fn();
 
 vi.mock('@/api/rules.api', () => ({
   useRules: vi.fn(),
@@ -53,6 +55,8 @@ vi.mock('@/api/rules.api', () => ({
   useCopyRule: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useDeleteRule: vi.fn(() => ({ mutate: mockDelete, mutateAsync: mockDeleteAsync, isPending: false })),
   useLockRule: vi.fn(() => ({ mutate: mockLock, isPending: false })),
+  useArchiveRule: vi.fn(() => ({ mutate: mockArchive, isPending: false })),
+  useRestoreRule: vi.fn(() => ({ mutate: mockRestore, isPending: false })),
   useUnlockRule: vi.fn(() => ({ mutate: mockUnlock, isPending: false })),
   useBatchExport: vi.fn(() => ({ mutateAsync: mockExport, isPending: false })),
   useUpdateRule: vi.fn(() => ({ mutateAsync: mockUpdate, isPending: false })),
@@ -246,6 +250,30 @@ describe('RuleListPage rule actions', () => {
     await userEvent.click(screen.getByRole('button', { name: 'Delete 1 Rule' }));
 
     expect(mockDeleteAsync).toHaveBeenCalledWith('r1');
+  });
+
+  it('archives a rule only after confirming it will stop executing', async () => {
+    mockRulesResult();
+    renderWithProviders(<RuleListPage />, { wrapperOptions: { initialEntries: ['/rules'] } });
+
+    await openRowMenu();
+    await userEvent.click(screen.getByRole('button', { name: /^archive$/i }));
+    expect(mockArchive).not.toHaveBeenCalled();
+    expect(screen.getByText(/the solver will stop executing it/i)).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', { name: 'Archive Rule' }));
+    expect(mockArchive).toHaveBeenCalledWith('r1', expect.anything());
+  });
+
+  it('offers restore instead of archive for an archived rule', async () => {
+    mockRulesResult({ data: { content: [{ ...draftRule, status: 'ARCHIVED' }], totalPages: 1, totalElements: 1 } });
+    renderWithProviders(<RuleListPage />, { wrapperOptions: { initialEntries: ['/rules'] } });
+
+    await openRowMenu();
+    expect(screen.queryByRole('button', { name: /^archive$/i })).not.toBeInTheDocument();
+    await userEvent.click(screen.getByRole('button', { name: /restore/i }));
+
+    expect(mockRestore).toHaveBeenCalledWith('r1', expect.anything());
   });
 
   it('exports the selected rules', async () => {

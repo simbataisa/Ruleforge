@@ -103,6 +103,35 @@ export function useDeleteRule() {
   });
 }
 
+/** Archived rules are refused by the solver until restored. */
+export function useArchiveRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiClient.post<ApiResponse<Rule>>(`/rules/${id}/archive`);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rules'] });
+    },
+  });
+}
+
+export function useRestoreRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiClient.post<ApiResponse<Rule>>(`/rules/${id}/restore`);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rules'] });
+    },
+  });
+}
+
 export function useLockRule() {
   const queryClient = useQueryClient();
 

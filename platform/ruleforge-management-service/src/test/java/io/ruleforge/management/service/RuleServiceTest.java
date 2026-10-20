@@ -299,6 +299,62 @@ class RuleServiceTest {
         verify(ruleRepository, never()).save(any());
     }
 
+    @Test
+    void archiveRule_setsArchivedStatus() {
+        RuleEntity entity = createRuleEntity("Rule", "rule-alias");
+        entity.setStatus("PUBLISHED");
+        when(ruleRepository.findById(entity.getId())).thenReturn(Optional.of(entity));
+        when(ruleRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        RuleDto result = ruleService.archiveRule(entity.getId());
+
+        assertEquals("ARCHIVED", result.status());
+    }
+
+    @Test
+    void archiveRule_rejectsAlreadyArchivedOrLockedByOther() {
+        RuleEntity archived = createRuleEntity("Archived", "archived");
+        archived.setStatus("ARCHIVED");
+        RuleEntity locked = lockedRule(UUID.randomUUID());
+        when(ruleRepository.findById(archived.getId())).thenReturn(Optional.of(archived));
+        when(ruleRepository.findById(locked.getId())).thenReturn(Optional.of(locked));
+
+        assertThrows(ConflictException.class, () -> ruleService.archiveRule(archived.getId()));
+        assertThrows(ConflictException.class, () -> ruleService.archiveRule(locked.getId()));
+        verify(ruleRepository, never()).save(any());
+    }
+
+    @Test
+    void restoreRule_returnsToPublishedWhenAPublishedVersionExists() {
+        RuleEntity entity = createRuleEntity("Rule", "rule-alias");
+        entity.setStatus("ARCHIVED");
+        when(ruleRepository.findById(entity.getId())).thenReturn(Optional.of(entity));
+        when(ruleVersionRepository.existsByRuleIdAndStatus(entity.getId(), "PUBLISHED")).thenReturn(true);
+        when(ruleRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        assertEquals("PUBLISHED", ruleService.restoreRule(entity.getId()).status());
+    }
+
+    @Test
+    void restoreRule_returnsToDraftWithoutAPublishedVersion() {
+        RuleEntity entity = createRuleEntity("Rule", "rule-alias");
+        entity.setStatus("ARCHIVED");
+        when(ruleRepository.findById(entity.getId())).thenReturn(Optional.of(entity));
+        when(ruleVersionRepository.existsByRuleIdAndStatus(entity.getId(), "PUBLISHED")).thenReturn(false);
+        when(ruleRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        assertEquals("DRAFT", ruleService.restoreRule(entity.getId()).status());
+    }
+
+    @Test
+    void restoreRule_rejectsRuleThatIsNotArchived() {
+        RuleEntity entity = createRuleEntity("Rule", "rule-alias");
+        entity.setStatus("DRAFT");
+        when(ruleRepository.findById(entity.getId())).thenReturn(Optional.of(entity));
+
+        assertThrows(ConflictException.class, () -> ruleService.restoreRule(entity.getId()));
+    }
+
     private FolderEntity folder(UUID id, UUID folderSpaceId) {
         FolderEntity folder = new FolderEntity();
         folder.setId(id);

@@ -270,6 +270,47 @@ public class RuleService {
         publishEvent("rule.deleted", rule, tenant);
     }
 
+    /**
+     * Archives a rule. The solver refuses to execute archived rules.
+     */
+    @Transactional
+    public RuleDto archiveRule(UUID ruleId) {
+        TenantContext.TenantInfo tenant = TenantContext.get();
+        RuleEntity rule = findRuleOrThrow(ruleId);
+        RuleLockGuard.assertEditableBy(rule, tenant.userId());
+        if (!"DRAFT".equals(rule.getStatus()) && !"PUBLISHED".equals(rule.getStatus())) {
+            throw new ConflictException("Only draft or published rules can be archived. Current status: %s"
+                    .formatted(rule.getStatus()));
+        }
+
+        rule.setStatus("ARCHIVED");
+        rule = ruleRepository.save(rule);
+        log.info("Rule archived: id={}", ruleId);
+        publishEvent("rule.archived", rule, tenant);
+        return toDto(rule);
+    }
+
+    /**
+     * Restores an archived rule: PUBLISHED when it has a published version, otherwise DRAFT.
+     */
+    @Transactional
+    public RuleDto restoreRule(UUID ruleId) {
+        TenantContext.TenantInfo tenant = TenantContext.get();
+        RuleEntity rule = findRuleOrThrow(ruleId);
+        RuleLockGuard.assertEditableBy(rule, tenant.userId());
+        if (!"ARCHIVED".equals(rule.getStatus())) {
+            throw new ConflictException("Only archived rules can be restored. Current status: %s"
+                    .formatted(rule.getStatus()));
+        }
+
+        boolean hasPublished = ruleVersionRepository.existsByRuleIdAndStatus(ruleId, "PUBLISHED");
+        rule.setStatus(hasPublished ? "PUBLISHED" : "DRAFT");
+        rule = ruleRepository.save(rule);
+        log.info("Rule restored: id={}, status={}", ruleId, rule.getStatus());
+        publishEvent("rule.restored", rule, tenant);
+        return toDto(rule);
+    }
+
     @Transactional
     public RuleDto lockRule(UUID ruleId, UUID userId) {
         RuleEntity rule = findRuleOrThrow(ruleId);

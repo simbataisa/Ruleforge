@@ -18,4 +18,6 @@ public interface RuleVersionRepository extends JpaRepository<RuleVersionEntity, 
     List<RuleVersionEntity> findByRuleIdAndStatus(UUID ruleId, String status);
 
     Optional<RuleVersionEntity> findTopByRuleIdOrderByVersionDesc(UUID ruleId);
+
+    boolean existsByRuleIdAndStatus(UUID ruleId, String status);
 }

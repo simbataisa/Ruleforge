@@ -12,7 +12,10 @@ import io.ruleforge.core.result.MatchedRule;
 import io.ruleforge.core.result.RuleResult;
 import io.ruleforge.core.result.RuleResultMetadata;
 import io.ruleforge.solver.cache.RuleCacheService;
+import io.ruleforge.common.exception.ConflictException;
+import io.ruleforge.solver.dto.BulkSolveRequest;
 import io.ruleforge.solver.dto.SolveRequest;
+import io.ruleforge.solver.entity.SolverRuleEntity;
 import io.ruleforge.solver.dto.SolveResponse;
 
 import org.junit.jupiter.api.AfterEach;
@@ -40,6 +43,7 @@ class SolverServiceTest {
     @Mock private RuleForgeEngine engine;
     @Mock private EventPublisher eventPublisher;
     @Mock private AbTestRouter abTestRouter;
+    @Mock private RuleLoaderService ruleLoaderService;
 
     private SolverService solverService;
 
@@ -49,8 +53,10 @@ class SolverServiceTest {
 
     @BeforeEach
     void setUp() {
-        solverService = new SolverService(cacheService, engine, eventPublisher, abTestRouter);
+        solverService = new SolverService(cacheService, engine, eventPublisher, abTestRouter, ruleLoaderService);
         lenient().when(abTestRouter.route(any())).thenReturn(Optional.empty());
+        SolverRuleEntity activeRule = ruleWithStatus("PUBLISHED");
+        lenient().when(ruleLoaderService.resolveRule(any())).thenReturn(activeRule);
         TenantContext.set(new TenantContext.TenantInfo(orgId, spaceId, userId, "SOLVER"));
     }
 
@@ -147,5 +153,46 @@ class SolverServiceTest {
 
         assertEquals(1, response.matchedRules().size());
         assertEquals("rule-1", response.matchedRules().get(0).ruleId());
+    }
+
+    @Test
+    void solve_refusesArchivedRuleEvenWhenCompiledRuleIsCached() {
+        String ruleId = UUID.randomUUID().toString();
+        SolverRuleEntity archived = ruleWithStatus("ARCHIVED");
+        when(ruleLoaderService.resolveRule(ruleId)).thenReturn(archived);
+
+        ConflictException ex = assertThrows(ConflictException.class,
+                () -> solverService.solve(ruleId, null, new SolveRequest(Map.of("age", 30), null, null)));
+
+        assertTrue(ex.getMessage().contains("archived"));
+        verifyNoInteractions(cacheService, engine);
+    }
+
+    @Test
+    void solveBulk_refusesArchivedRule() {
+        String ruleId = UUID.randomUUID().toString();
+        SolverRuleEntity archived = ruleWithStatus("ARCHIVED");
+        when(ruleLoaderService.resolveRule(ruleId)).thenReturn(archived);
+
+        assertThrows(ConflictException.class, () -> solverService.solveBulk(ruleId, null,
+                new BulkSolveRequest(List.of(Map.of("age", 30)), null, null)));
+        verifyNoInteractions(cacheService, engine);
+    }
+
+    @Test
+    void solve_refusesDeletedRule() {
+        String ruleId = UUID.randomUUID().toString();
+        SolverRuleEntity deleted = ruleWithStatus("DELETED");
+        when(ruleLoaderService.resolveRule(ruleId)).thenReturn(deleted);
+
+        assertThrows(ConflictException.class,
+                () -> solverService.solve(ruleId, null, new SolveRequest(Map.of(), null, null)));
+        verifyNoInteractions(cacheService);
+    }
+
+    private SolverRuleEntity ruleWithStatus(String status) {
+        SolverRuleEntity rule = mock(SolverRuleEntity.class);
+        lenient().when(rule.getStatus()).thenReturn(status);
+        return rule;
     }
 }
