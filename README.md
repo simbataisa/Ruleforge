@@ -91,16 +91,26 @@ ruleforge/
 | Layer          | Technology                                                                 |
 | -------------- | -------------------------------------------------------------------------- |
 | Engine         | Java 21, zero-dep core (SLF4J + Jackson only), GraalVM 23.1.2              |
-| Platform       | Spring Boot 4.1.1, PostgreSQL 16, Redis 7, Kafka 3.7.1, Caffeine           |
+| Platform       | Spring Boot 4.1.1 (Spring Framework 7, Spring Security 7, Jackson 3), PostgreSQL 16, Redis 7, Kafka 3.7.1, Elasticsearch 9.4.5, Caffeine |
+| Build          | Gradle 8.14.6 (wrapper committed for `engine/` and `platform/`)            |
 | Frontend       | React 18, TypeScript 5.5, Vite 5.4, Tailwind CSS 3.4, Zustand, React Query, Recharts, Monaco Editor |
 | AI             | Python 3.12, FastAPI, Anthropic SDK                                        |
-| Infrastructure | Docker, Kong 3.6 API Gateway, Kubernetes (Helm), Flyway                    |
+| Infrastructure | Docker, Kong 3.6 API Gateway, Flyway                                       |
+
+### Spring Boot 4 notes for developers
+
+The platform was upgraded from Spring Boot 3.3 to 4.1. When writing platform code:
+
+- **JSON is Jackson 3.** Import from `tools.jackson.*` (e.g. `tools.jackson.databind.ObjectMapper`), not `com.fasterxml.jackson.*`. Annotations (`@JsonProperty`, etc.) stay on `com.fasterxml.jackson.annotation`. Jackson 3 exceptions are unchecked (`JacksonException`).
+- **The shared mapper keeps Jackson 2 defaults.** `ruleforge-common`'s `JacksonConfig` defines a `JsonMapper` built with `builderWithJackson2Defaults()` and ISO-8601 dates, so API JSON output did not change.
+- **Starters were renamed.** Use `spring-boot-starter-webmvc` (not `-web`), `spring-boot-starter-flyway`, and `spring-boot-starter-kafka` — Kafka auto-configuration now lives in its own module.
+- **The engine stays on Jackson 2** so it remains embeddable in applications that are not on Spring Boot 4.
 
 ## Quick Start
 
 ### Prerequisites
 
-- **Java 21+** (with `JAVA_HOME` set)
+- **Java 21** (with `JAVA_HOME` set). Use JDK 21 specifically: the bundled GraalVM polyglot runtime (23.1.2) fails on JDK 22+, which breaks Script rules at runtime.
 - **Node.js 18+** and npm
 - **Docker** and **Docker Compose** (v2.20+)
 - _Optional:_ Python 3.10+ (for AI service), Flyway CLI (for standalone migrations)
@@ -176,6 +186,11 @@ tail -f logs/ruleforge-solver-service.log
 | `PostgreSQL did not become ready` | Check that `docker-postgres-1` is running: `docker ps`. If `pg_isready` isn't installed locally, the script falls back to `docker exec` automatically. |
 | `No JAR found for <service>` | Run without `--skip-build` or rebuild manually: `cd platform && ./gradlew build -x test`. |
 | Services start but return 500 | Database migrations may not have run. Apply them with `make migrate`. |
+| Script rules return 500 with `NoSuchMethodError: sun.misc.Unsafe.ensureClassInitialized` | The services are running on JDK 22+. Point `JAVA_HOME` (and `PATH`) at JDK 21 and restart. |
+| `analytics-service` fails to start: `status: 400, [es/indices.exists] Expecting a response body` | Elasticsearch is older than 9.x. Spring Boot 4 ships the Elasticsearch 9 client. Recreate the container from the current compose file: `docker compose -f infra/docker/docker-compose.infra.yml up -d elasticsearch` (remove the old container and `docker_es_data` volume first; 8.x data cannot be opened by 9.x). |
+| `pull access denied for minio/minio` | MinIO is not used by any service. Start only what is needed: `docker compose -f infra/docker/docker-compose.infra.yml up -d postgres redis kafka elasticsearch`, then run the script with `--skip-infra`. |
+| Gradle fails with `PKIX path building failed` | A TLS-intercepting proxy (e.g. Cloudflare WARP or a corporate proxy) is in the path and Java does not trust its CA. Import the proxy CA into a Java truststore and pass it via `JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStore=<path> -Djavax.net.ssl.trustStorePassword=<password>"`. |
+| `No JAR found` after pulling `main` | JARs are not committed. Build once without `--skip-build`. |
 
 #### Stopping
 
@@ -199,7 +214,7 @@ make infra-up
 
 ```bash
 make migrate
-# Runs Flyway V001–V028 against local PostgreSQL
+# Runs Flyway V001–V052 against local PostgreSQL
 ```
 
 #### 3. Build the Engine
@@ -299,7 +314,7 @@ In local development, the Vite dev server routes requests directly to each servi
 - **Ensembles** — Combine outputs from multiple rules via voting, averaging, or selection strategies.
 - **DMN 1.4** — OMG Decision Model and Notation with S-FEEL expressions and decision chaining.
 - **Rule Flows** — DAG orchestrator with 6 node types (Condition, Action, Gate, Fork, Join, Sub-Rule).
-- **Scripting Rules** — GraalVM-sandboxed JavaScript execution with resource limits. Works on any JDK 21+ (GraalVM JDK not required — polyglot runtime is bundled).
+- **Scripting Rules** — GraalVM-sandboxed JavaScript execution with resource limits. Runs on a standard JDK 21 (GraalVM JDK not required — polyglot runtime is bundled); the bundled runtime does not work on JDK 22+.
 - **Complex Event Processing** — Pattern detection (Sequence, Aggregation, Frequency) with in-memory evaluation and optional Kafka Streams streaming mode.
 - **RFL Expression Language** — Custom recursive-descent parser with null-safe navigation (`?.`), lambdas, and extensible function/operator registries.
 - **Multi-Layer Caching** — L1 Caffeine (per-JVM) → L2 Redis (distributed) → L3 PostgreSQL, with Kafka-driven cache invalidation.
@@ -386,6 +401,19 @@ Verify the full stack is working:
 
 The smoke test suite validates: infrastructure (5 services), platform services (7 services), frontend, user registration/login, rule CRUD, and rule execution for all 8 rule types.
 
+Expected result on a fresh local stack (Spring Boot 4.1, JDK 21): **117 pass, 1 fail, 7 skip**. The one failure is the known rule-creation issue below; most skips depend on it.
+
+## Known Issues
+
+These pre-date the Spring Boot 4 upgrade and are not yet fixed:
+
+| Issue | Impact | Cause |
+| --- | --- | --- |
+| Creating a rule via `POST /v1/spaces/{spaceId}/rules` returns 500 | Rules cannot be created through the API or UI | Migration V007 defines `rules.created_by REFERENCES members(id)`, but `RuleService` stores the user ID, which differs from the member ID |
+| Domain events are never published to Kafka | Audit trail, decision analytics and solver cache invalidation receive no events | `KafkaEventPublisher` is a scanned `@Component` guarded by `@ConditionalOnBean(KafkaTemplate.class)`, which is evaluated before Kafka auto-configuration runs, so `NoOpEventPublisher` is always used |
+| Showcase seed rules (V024, V025) can be missing on a brand-new database | Some smoke tests return 404 | Not yet identified — the files apply cleanly when replayed with `psql` after first boot |
+| MinIO image cannot be pulled | `docker compose up` for the full infra stack fails | `minio/minio:latest` pull is denied; no service uses MinIO |
+
 ## Documentation
 
 - [Getting Started](docs/getting-started.md) — Local development setup walkthrough
@@ -396,6 +424,7 @@ The smoke test suite validates: infrastructure (5 services), platform services (
 - [Architecture Summary](docs/architecture/ARCHITECTURE-SUMMARY.md) — System design overview
 - [Full Architecture](docs/architecture/RuleForge-Architecture-v2.md) — Detailed design document
 - [Engine Architecture](docs/architecture/RuleForge-Engine-Core-Architecture-v2.1.md) — Engine internals
+- [Codebase Map](docs/architecture/codebase-map/README.md) — Functional summary and interactive dependency diagrams (snapshot before the Spring Boot 4 upgrade)
 
 ## Development Roadmap
 
@@ -408,6 +437,7 @@ The smoke test suite validates: infrastructure (5 services), platform services (
 | **Phase 5 — Quality**              | Done   | Test coverage, completeness, local boot fixes, smoke tests, seed data                                          |
 | **Phase 6 — UX Polish**            | Done   | Monaco editor, analytics charts, FlowEditor modals, missing pages (audit, webhooks, tags, spaces, SSO, members), import/export wiring, version diff viewer, keyboard shortcuts |
 | **Phase 7 — Production Readiness** | Done   | Approval workflow, real-time notifications (SSE), user profile, error boundary & skeletons, security hardening (CSRF, session timeout), performance optimization (code-splitting, debounce, memoization) |
+| **Platform upgrade**               | Done   | Spring Boot 3.3 → 4.1.1 (Spring Framework 7, Jackson 3), Elasticsearch 9.4.5, Gradle 8.14.6                   |
 
 ## License
 
