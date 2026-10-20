@@ -66,9 +66,9 @@ public class AnalyticsService {
         try {
             BoolQuery.Builder boolBuilder = new BoolQuery.Builder();
             boolBuilder.must(m -> m.term(t -> t.field("orgId").value(request.orgId())));
-            boolBuilder.must(m -> m.range(r -> r.field("timestamp")
+            boolBuilder.must(m -> m.range(r -> r.untyped(u -> u.field("timestamp")
                     .gte(JsonData.of(from.toString()))
-                    .lte(JsonData.of(to.toString()))));
+                    .lte(JsonData.of(to.toString())))));
 
             if (request.ruleId() != null && !request.ruleId().isBlank()) {
                 boolBuilder.must(m -> m.term(t -> t.field("ruleId").value(request.ruleId())));
@@ -80,10 +80,10 @@ public class AnalyticsService {
                 boolBuilder.must(m -> m.match(mt -> mt.field("ruleName").query(request.search())));
             }
             if (request.minLatency() != null) {
-                boolBuilder.must(m -> m.range(r -> r.field("executionTimeMs").gte(JsonData.of(request.minLatency()))));
+                boolBuilder.must(m -> m.range(r -> r.untyped(u -> u.field("executionTimeMs").gte(JsonData.of(request.minLatency())))));
             }
             if (request.maxLatency() != null) {
-                boolBuilder.must(m -> m.range(r -> r.field("executionTimeMs").lte(JsonData.of(request.maxLatency()))));
+                boolBuilder.must(m -> m.range(r -> r.untyped(u -> u.field("executionTimeMs").lte(JsonData.of(request.maxLatency())))));
             }
 
             NativeQuery query = NativeQuery.builder()
@@ -486,9 +486,9 @@ public class AnalyticsService {
     private Query buildOrgTimeRangeQuery(String orgId, Instant from) {
         return Query.of(q -> q.bool(BoolQuery.of(b -> b
                 .must(m -> m.term(t -> t.field("orgId").value(orgId)))
-                .must(m -> m.range(r -> r.field("timestamp")
+                .must(m -> m.range(r -> r.untyped(u -> u.field("timestamp")
                         .gte(JsonData.of(from.toString()))
-                        .lte(JsonData.of("now")))))));
+                        .lte(JsonData.of("now"))))))));
     }
 
     private CalendarInterval parseCalendarInterval(String interval) {

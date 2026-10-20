@@ -1,6 +1,6 @@
 package io.ruleforge.event.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.ruleforge.event.delivery.WebhookAuthInjector;
 import io.ruleforge.event.delivery.WebhookAuthInjectorRegistry;
 import io.ruleforge.event.entity.WebhookEntity;

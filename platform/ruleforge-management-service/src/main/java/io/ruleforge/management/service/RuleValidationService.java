@@ -1,9 +1,9 @@
 package io.ruleforge.management.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import io.ruleforge.common.exception.EntityNotFoundException;
 import io.ruleforge.core.RuleForgeEngine;
 import io.ruleforge.core.model.RuleDefinition;
@@ -74,7 +74,7 @@ public class RuleValidationService {
 
                 // Basic structural checks based on rule type
                 validateStructure(rule.getType(), definitionNode, errors, warnings);
-            } catch (JsonProcessingException e) {
+            } catch (JacksonException e) {
                 errors.add(new ErrorDto("definition", "Definition is not valid JSON: " + e.getMessage(),
                         "INVALID_JSON"));
             }
@@ -84,7 +84,7 @@ public class RuleValidationService {
         if (versionEntity.getInputModel() != null && !versionEntity.getInputModel().isBlank()) {
             try {
                 objectMapper.readTree(versionEntity.getInputModel());
-            } catch (JsonProcessingException e) {
+            } catch (JacksonException e) {
                 errors.add(new ErrorDto("inputModel", "Input model is not valid JSON: " + e.getMessage(),
                         "INVALID_JSON"));
             }
@@ -96,7 +96,7 @@ public class RuleValidationService {
         if (versionEntity.getOutputModel() != null && !versionEntity.getOutputModel().isBlank()) {
             try {
                 objectMapper.readTree(versionEntity.getOutputModel());
-            } catch (JsonProcessingException e) {
+            } catch (JacksonException e) {
                 errors.add(new ErrorDto("outputModel", "Output model is not valid JSON: " + e.getMessage(),
                         "INVALID_JSON"));
             }
@@ -180,7 +180,7 @@ public class RuleValidationService {
                     true,
                     null
             );
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             return new TestResultDto(
                     Map.of(),
                     System.currentTimeMillis() - start,

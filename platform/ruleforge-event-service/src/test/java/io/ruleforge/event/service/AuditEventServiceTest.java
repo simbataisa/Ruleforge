@@ -1,6 +1,6 @@
 package io.ruleforge.event.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.ruleforge.common.event.DomainEvent;
 import io.ruleforge.event.entity.AuditEventEntity;
 import io.ruleforge.event.store.AuditEventStore;

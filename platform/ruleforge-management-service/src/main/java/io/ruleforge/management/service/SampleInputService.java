@@ -1,7 +1,7 @@
 package io.ruleforge.management.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import io.ruleforge.common.exception.ConflictException;
 import io.ruleforge.common.exception.EntityNotFoundException;
 import io.ruleforge.common.tenant.TenantContext;
@@ -125,7 +125,7 @@ public class SampleInputService {
     private String serializeInput(Object input) {
         try {
             return objectMapper.writeValueAsString(input);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalArgumentException("Invalid input JSON", e);
         }
     }

@@ -1,6 +1,6 @@
 package io.ruleforge.management.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.ruleforge.common.exception.EntityNotFoundException;
 import io.ruleforge.core.RuleForgeEngine;
 import io.ruleforge.core.model.CompiledRule;

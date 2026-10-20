@@ -1,8 +1,8 @@
 package io.ruleforge.management.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.JsonNode;
+import tools.jackson.databind.ObjectMapper;
 import io.ruleforge.management.dto.ExportFormat;
 import io.ruleforge.management.dto.ImportResult;
 import io.ruleforge.management.entity.RuleEntity;
@@ -309,13 +309,13 @@ public class ImportExportService {
         valueHeader.setCellStyle(headerStyle);
 
         int rowIndex = 1;
-        Iterator<Map.Entry<String, JsonNode>> fields = definition.fields();
+        Iterator<Map.Entry<String, JsonNode>> fields = definition.properties().iterator();
         while (fields.hasNext()) {
             Map.Entry<String, JsonNode> entry = fields.next();
             Row row = sheet.createRow(rowIndex++);
             row.createCell(0).setCellValue(entry.getKey());
-            String value = entry.getValue().isTextual()
-                    ? entry.getValue().asText()
+            String value = entry.getValue().isString()
+                    ? entry.getValue().asString()
                     : entry.getValue().toString();
             row.createCell(1).setCellValue(value);
         }

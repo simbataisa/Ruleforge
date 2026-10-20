@@ -5,16 +5,16 @@ plugins {
 
 dependencies {
     implementation(project(":ruleforge-common"))
-    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-webmvc")
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-actuator")
     implementation("org.springframework.boot:spring-boot-starter-validation")
     implementation("org.postgresql:postgresql")
-    implementation("org.flywaydb:flyway-core:${property("flywayVersion")}")
-    implementation("org.flywaydb:flyway-database-postgresql:${property("flywayVersion")}")
+    implementation("org.springframework.boot:spring-boot-starter-flyway")
+    implementation("org.flywaydb:flyway-database-postgresql")
     implementation("org.springframework.boot:spring-boot-starter-data-redis")
     implementation("com.github.ben-manes.caffeine:caffeine:${property("caffeineVersion")}")
-    implementation("org.springframework.kafka:spring-kafka")
+    implementation("org.springframework.boot:spring-boot-starter-kafka")
 
     // Engine dependencies (composite build from engine project)
     implementation("io.ruleforge:ruleforge-core:${property("version")}")

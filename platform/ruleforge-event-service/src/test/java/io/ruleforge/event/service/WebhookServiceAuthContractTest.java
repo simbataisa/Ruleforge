@@ -1,6 +1,6 @@
 package io.ruleforge.event.service;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.ruleforge.common.tenant.TenantContext;
 import io.ruleforge.event.dto.CreateWebhookRequest;
 import io.ruleforge.event.dto.UpdateWebhookRequest;

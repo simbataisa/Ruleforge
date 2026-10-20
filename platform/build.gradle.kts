@@ -1,7 +1,7 @@
 plugins {
     java
-    id("org.springframework.boot") version "3.3.5" apply false
-    id("io.spring.dependency-management") version "1.1.6" apply false
+    id("org.springframework.boot") version "4.1.1" apply false
+    id("io.spring.dependency-management") version "1.1.7" apply false
 }
 
 allprojects {
@@ -36,5 +36,10 @@ subprojects {
 
     tasks.withType<Test> {
         useJUnitPlatform()
+    }
+
+    dependencies {
+        // Align the launcher with the JUnit version managed by Spring Boot (JUnit 6 in Boot 4)
+        "testRuntimeOnly"("org.junit.platform:junit-platform-launcher")
     }
 }

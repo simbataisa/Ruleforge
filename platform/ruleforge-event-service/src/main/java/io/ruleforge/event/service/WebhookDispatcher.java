@@ -1,7 +1,7 @@
 package io.ruleforge.event.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.databind.ObjectMapper;
 import io.ruleforge.event.delivery.OAuth2ClientCredentialsInjector;
 import io.ruleforge.event.delivery.WebhookAuthInjectorRegistry;
 import io.ruleforge.event.exception.WebhookAuthException;
@@ -78,7 +78,7 @@ public class WebhookDispatcher {
         String payloadJson;
         try {
             payloadJson = objectMapper.writeValueAsString(outboxEntry.getPayload());
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.error("Failed to serialize payload for webhook {}: {}",
                     webhook.getId(), e.getMessage());
             return new DeliveryResult(false, 0, null, null,
@@ -164,7 +164,7 @@ public class WebhookDispatcher {
         String payloadJson;
         try {
             payloadJson = objectMapper.writeValueAsString(testPayload);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             return new DeliveryResult(false, 0, null, null,
                     "Payload serialization failed: " + e.getMessage(), false);
         }

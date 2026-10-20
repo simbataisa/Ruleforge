@@ -1,8 +1,8 @@
 package io.ruleforge.event.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import io.ruleforge.common.dto.PageResponse;
 import io.ruleforge.common.exception.EntityNotFoundException;
 import io.ruleforge.common.event.DomainEvent;
@@ -325,7 +325,7 @@ public class WebhookService {
     private String serializeEvents(List<String> events) {
         try {
             return objectMapper.writeValueAsString(events);
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new IllegalArgumentException("Failed to serialize events list", e);
         }
     }
@@ -336,7 +336,7 @@ public class WebhookService {
         }
         try {
             return objectMapper.readValue(json, new TypeReference<>() {});
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.warn("Failed to deserialize webhook events: {}", e.getMessage());
             return Collections.emptyList();
         }

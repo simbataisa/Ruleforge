@@ -69,6 +69,6 @@ class CustomHeaderInjectorTest {
     void injectAuth_doesNotAddAuthorizationHeader() {
         HttpHeaders headers = new HttpHeaders();
         injector.injectAuth(headers, new WebhookAuthConfig.CustomHeader("X-Custom", "value"), new byte[0]);
-        assertThat(headers.containsKey(HttpHeaders.AUTHORIZATION)).isFalse();
+        assertThat(headers.containsHeader(HttpHeaders.AUTHORIZATION)).isFalse();
     }
 }

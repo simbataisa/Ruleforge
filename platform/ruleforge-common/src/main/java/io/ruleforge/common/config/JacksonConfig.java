@@ -1,25 +1,23 @@
 package io.ruleforge.common.config;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.databind.SerializationFeature;
-import com.fasterxml.jackson.databind.json.JsonMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import tools.jackson.databind.cfg.DateTimeFeature;
+import tools.jackson.databind.json.JsonMapper;
 
 /**
  * Shared Jackson configuration for all RuleForge services.
- * Registers the Java Time module and disables timestamp serialisation
- * so that {@code Instant}, {@code LocalDateTime}, etc. are rendered as ISO-8601 strings.
+ * Keeps Jackson 2 defaults so JSON output is unchanged by the Jackson 3 upgrade,
+ * and disables timestamp serialisation so that {@code Instant}, {@code LocalDateTime},
+ * etc. are rendered as ISO-8601 strings (java.time support is built into Jackson 3).
  */
 @Configuration
 public class JacksonConfig {
 
     @Bean
-    public ObjectMapper objectMapper() {
-        return JsonMapper.builder()
-                .addModule(new JavaTimeModule())
-                .disable(SerializationFeature.WRITE_DATES_AS_TIMESTAMPS)
+    public JsonMapper jsonMapper() {
+        return JsonMapper.builderWithJackson2Defaults()
+                .disable(DateTimeFeature.WRITE_DATES_AS_TIMESTAMPS)
                 .build();
     }
 }

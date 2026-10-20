@@ -1,7 +1,7 @@
 package io.ruleforge.analytics.service;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import io.ruleforge.analytics.model.DecisionLogDocument;
 import io.ruleforge.analytics.repository.DecisionLogRepository;
 import org.slf4j.Logger;

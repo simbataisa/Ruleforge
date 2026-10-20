@@ -1,8 +1,8 @@
 package io.ruleforge.auth.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import io.ruleforge.auth.dto.ApiKeyCreatedDto;
 import io.ruleforge.auth.dto.ApiKeyDto;
 import io.ruleforge.auth.dto.CreateApiKeyRequest;
@@ -64,7 +64,7 @@ public class ApiKeyService implements ApiKeyValidator {
         try {
             permissionsJson = objectMapper.writeValueAsString(
                     request.permissions() != null ? request.permissions() : List.of());
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             throw new RuntimeException("Failed to serialize permissions", e);
         }
 
@@ -178,7 +178,7 @@ public class ApiKeyService implements ApiKeyValidator {
         }
         try {
             return objectMapper.readValue(json, new TypeReference<>() {});
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.warn("Failed to parse permissions JSON: {}", json, e);
             return List.of();
         }

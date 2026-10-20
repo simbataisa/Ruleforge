@@ -1,8 +1,8 @@
 package io.ruleforge.event.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import io.ruleforge.common.event.DomainEvent;
 import io.ruleforge.event.entity.WebhookEntity;
 import io.ruleforge.event.model.WebhookScopeType;
@@ -156,7 +156,7 @@ public class WebhookScopeResolver {
         }
         try {
             return objectMapper.readValue(json, new TypeReference<>() {});
-        } catch (JsonProcessingException e) {
+        } catch (JacksonException e) {
             log.warn("Failed to deserialize webhook events: {}", e.getMessage());
             return Collections.emptyList();
         }

@@ -1,8 +1,8 @@
 package io.ruleforge.event.service;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.core.JacksonException;
+import tools.jackson.core.type.TypeReference;
+import tools.jackson.databind.ObjectMapper;
 import io.ruleforge.common.dto.PageResponse;
 import io.ruleforge.common.event.DomainEvent;
 import io.ruleforge.event.dto.AuditEventDto;
@@ -66,7 +66,7 @@ public class AuditEventService {
 
             try {
                 entity.setChanges(objectMapper.writeValueAsString(payload));
-            } catch (JsonProcessingException e) {
+            } catch (JacksonException e) {
                 log.warn("Failed to serialize event payload for event {}: {}", event.eventId(), e.getMessage());
                 entity.setChanges("{}");
             }
@@ -121,7 +121,7 @@ public class AuditEventService {
         if (entity.getChanges() != null && !entity.getChanges().isBlank()) {
             try {
                 changes = objectMapper.readValue(entity.getChanges(), new TypeReference<>() {});
-            } catch (JsonProcessingException e) {
+            } catch (JacksonException e) {
                 log.warn("Failed to deserialize changes for audit event {}: {}", entity.getId(), e.getMessage());
             }
         }
@@ -129,7 +129,7 @@ public class AuditEventService {
         if (entity.getMetadata() != null && !entity.getMetadata().isBlank()) {
             try {
                 metadata = objectMapper.readValue(entity.getMetadata(), new TypeReference<>() {});
-            } catch (JsonProcessingException e) {
+            } catch (JacksonException e) {
                 log.warn("Failed to deserialize metadata for audit event {}: {}", entity.getId(), e.getMessage());
             }
         }

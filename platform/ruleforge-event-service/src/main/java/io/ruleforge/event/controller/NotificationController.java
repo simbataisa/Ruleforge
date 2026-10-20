@@ -1,6 +1,6 @@
 package io.ruleforge.event.controller;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
+import tools.jackson.databind.ObjectMapper;
 import io.ruleforge.common.tenant.TenantContext;
 import io.ruleforge.event.entity.AuditEventEntity;
 import io.ruleforge.event.entity.NotificationEntity;

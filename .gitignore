@@ -15,7 +15,7 @@ bin/
 out/
 
 # Gradle wrapper (keep gradlew, ignore cached distributions)
-!gradle/wrapper/gradle-wrapper.jar
+!**/gradle/wrapper/gradle-wrapper.jar
 .gradle-wrapper/
 
 # Node / React

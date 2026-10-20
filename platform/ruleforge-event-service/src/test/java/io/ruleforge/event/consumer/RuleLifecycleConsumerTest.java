@@ -1,7 +1,6 @@
 package io.ruleforge.event.consumer;
 
-import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import tools.jackson.databind.ObjectMapper;
 import io.ruleforge.common.event.DomainEvent;
 import io.ruleforge.event.service.AuditEventProcessor;
 
@@ -31,7 +30,6 @@ class RuleLifecycleConsumerTest {
     @BeforeEach
     void setUp() {
         objectMapper = new ObjectMapper();
-        objectMapper.registerModule(new JavaTimeModule());
         consumer = new RuleLifecycleConsumer(auditEventProcessor, objectMapper);
     }
 
