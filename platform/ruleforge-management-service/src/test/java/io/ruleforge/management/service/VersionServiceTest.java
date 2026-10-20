@@ -53,6 +53,20 @@ class VersionServiceTest {
     }
 
     @Test
+    void updateVersion_rejectsWhenRuleLockedByAnotherUser() {
+        RuleEntity rule = new RuleEntity();
+        rule.setId(ruleId);
+        rule.setLocked(true);
+        rule.setLockedBy(UUID.randomUUID());
+        when(ruleRepository.findById(ruleId)).thenReturn(Optional.of(rule));
+
+        assertThrows(io.ruleforge.common.exception.ConflictException.class, () ->
+                versionService.updateVersion(ruleId, 1,
+                        new io.ruleforge.management.dto.UpdateVersionRequest("{\"x\":1}", null, null, null)));
+        verifyNoInteractions(versionRepository);
+    }
+
+    @Test
     void createVersion_incrementsVersionNumber() {
         RuleEntity rule = new RuleEntity();
         rule.setId(ruleId);

@@ -7,14 +7,32 @@ import type {
 } from './types/folder.types';
 import type { ApiResponse } from './types/common.types';
 
+type FolderNode = Folder & { children?: FolderNode[] };
+
+/**
+ * The API returns root folders with sub-folders nested in `children`; the UI works with a
+ * flat list linked by `parentId`.
+ */
+export function flattenFolders(nodes: FolderNode[] | undefined): Folder[] {
+  const flat: Folder[] = [];
+  const visit = (list: FolderNode[] | undefined) => {
+    (list ?? []).forEach(({ children, ...folder }) => {
+      flat.push(folder);
+      visit(children);
+    });
+  };
+  visit(nodes);
+  return flat;
+}
+
 export function useFolders(parentId?: string) {
   return useQuery({
     queryKey: ['folders', { parentId }],
     queryFn: async () => {
-      const res = await apiClient.get<ApiResponse<Folder[]>>('/folders', {
+      const res = await apiClient.get<ApiResponse<FolderNode[]>>('/folders', {
         params: parentId ? { parentId } : undefined,
       });
-      return res.data.data;
+      return flattenFolders(res.data.data);
     },
   });
 }

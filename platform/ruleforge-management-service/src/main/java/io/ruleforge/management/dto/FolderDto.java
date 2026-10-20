@@ -5,6 +5,7 @@ import java.util.UUID;
 
 public record FolderDto(
         UUID id,
+        UUID spaceId,
         String name,
         UUID parentId,
         int sortOrder,

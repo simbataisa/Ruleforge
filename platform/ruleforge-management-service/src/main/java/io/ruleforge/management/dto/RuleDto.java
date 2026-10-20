@@ -6,6 +6,7 @@ import java.util.UUID;
 
 public record RuleDto(
         UUID id,
+        UUID spaceId,
         String name,
         String alias,
         String description,
@@ -13,6 +14,7 @@ public record RuleDto(
         String status,
         int latestVersion,
         boolean locked,
+        UUID lockedBy,
         UUID folderId,
         Instant createdAt,
         Instant updatedAt,

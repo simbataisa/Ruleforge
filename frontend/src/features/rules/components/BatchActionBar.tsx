@@ -1,4 +1,4 @@
-import { X, SendHorizontal, Download, CheckSquare, Layers } from 'lucide-react';
+import { X, SendHorizontal, Download, CheckSquare, Layers, FolderInput, Trash2 } from 'lucide-react';
 
 interface BatchActionBarProps {
   selectedCount: number;
@@ -7,6 +7,10 @@ interface BatchActionBarProps {
   onExport: () => void;
   onClearSelection: () => void;
   onAssignToSpace?: () => void;
+  onMoveToFolder?: () => void;
+  /** Shown only when every selected rule can be deleted. */
+  onDelete?: () => void;
+  exporting?: boolean;
 }
 
 export function BatchActionBar({
@@ -16,6 +20,9 @@ export function BatchActionBar({
   onExport,
   onClearSelection,
   onAssignToSpace,
+  onMoveToFolder,
+  onDelete,
+  exporting = false,
 }: BatchActionBarProps) {
   if (selectedCount === 0) return null;
 
@@ -54,13 +61,32 @@ export function BatchActionBar({
               Assign to Space
             </button>
           )}
+          {onMoveToFolder && (
+            <button
+              onClick={onMoveToFolder}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
+            >
+              <FolderInput className="h-3.5 w-3.5" />
+              Move to Folder
+            </button>
+          )}
           <button
             onClick={onExport}
-            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800 transition-colors"
+            disabled={exporting}
+            className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-white hover:bg-gray-800 transition-colors disabled:opacity-50"
           >
             <Download className="h-3.5 w-3.5" />
-            Export
+            {exporting ? 'Exporting…' : 'Export'}
           </button>
+          {onDelete && (
+            <button
+              onClick={onDelete}
+              className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-red-300 hover:bg-gray-800 hover:text-red-200 transition-colors"
+            >
+              <Trash2 className="h-3.5 w-3.5" />
+              Delete
+            </button>
+          )}
         </div>
 
         <button

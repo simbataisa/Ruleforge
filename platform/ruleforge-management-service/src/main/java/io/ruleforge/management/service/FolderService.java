@@ -115,6 +115,7 @@ public class FolderService {
     private FolderDto toDto(FolderEntity folder, List<FolderDto> children) {
         return new FolderDto(
                 folder.getId(),
+                folder.getSpaceId(),
                 folder.getName(),
                 folder.getParentId(),
                 folder.getSortOrder(),

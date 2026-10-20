@@ -86,6 +86,10 @@ vi.mock('@/api/rules.api', () => ({
   useCreateSpaceRule: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useCopyRule: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useDeleteRule: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useLockRule: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useUnlockRule: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
+  useBatchExport: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
+  useUpdateRule: vi.fn(() => ({ mutateAsync: vi.fn(), isPending: false })),
   useTags: vi.fn(() => ({ data: [{ tag: 'pricing', count: 2 }, { tag: 'v2', count: 1 }] })),
 }));
 

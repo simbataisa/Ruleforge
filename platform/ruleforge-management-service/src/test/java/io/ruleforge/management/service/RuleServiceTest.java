@@ -10,6 +10,8 @@ import io.ruleforge.management.dto.UpdateRuleRequest;
 import io.ruleforge.management.entity.RuleEntity;
 import io.ruleforge.management.entity.RuleVersionEntity;
 import io.ruleforge.management.entity.SpaceEntity;
+import io.ruleforge.management.entity.FolderEntity;
+import io.ruleforge.management.repository.FolderRepository;
 import io.ruleforge.common.dto.PageResponse;
 import io.ruleforge.management.repository.RuleRepository;
 import io.ruleforge.management.repository.RuleTagRepository;
@@ -45,6 +47,7 @@ class RuleServiceTest {
     @Mock private RuleTagRepository ruleTagRepository;
     @Mock private SpaceRepository spaceRepository;
     @Mock private EventPublisher eventPublisher;
+    @Mock private FolderRepository folderRepository;
 
     private RuleService ruleService;
 
@@ -55,7 +58,7 @@ class RuleServiceTest {
     @BeforeEach
     void setUp() {
         ruleService = new RuleService(ruleRepository, ruleVersionRepository,
-                ruleTagRepository, eventPublisher, spaceRepository);
+                ruleTagRepository, eventPublisher, spaceRepository, folderRepository);
         TenantContext.set(new TenantContext.TenantInfo(orgId, spaceId, userId, "OWNER"));
     }
 
@@ -233,6 +236,81 @@ class RuleServiceTest {
 
         verify(ruleRepository).findByFilters(eq(List.of(spaceId)), isNull(), eq(List.of()), eq(true),
                 eq(List.of("DRAFT")), eq(false), any());
+    }
+
+    @Test
+    void updateRule_rejectsWhenLockedByAnotherUser() {
+        RuleEntity entity = lockedRule(UUID.randomUUID());
+        when(ruleRepository.findById(entity.getId())).thenReturn(Optional.of(entity));
+
+        assertThrows(ConflictException.class, () -> ruleService.updateRule(entity.getId(),
+                new UpdateRuleRequest("Renamed", null, null, null, null)));
+        verify(ruleRepository, never()).save(any());
+    }
+
+    @Test
+    void updateRule_allowsTheLockOwner() {
+        RuleEntity entity = lockedRule(userId);
+        when(ruleRepository.findById(entity.getId())).thenReturn(Optional.of(entity));
+        when(ruleRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        RuleDto result = ruleService.updateRule(entity.getId(),
+                new UpdateRuleRequest("Renamed", null, null, null, null));
+
+        assertEquals("Renamed", result.name());
+        assertEquals(userId, result.lockedBy());
+    }
+
+    @Test
+    void deleteRule_rejectsWhenLockedByAnotherUser() {
+        RuleEntity entity = lockedRule(UUID.randomUUID());
+        when(ruleRepository.findById(entity.getId())).thenReturn(Optional.of(entity));
+
+        assertThrows(ConflictException.class, () -> ruleService.deleteRule(entity.getId()));
+        assertNotEquals("DELETED", entity.getStatus());
+    }
+
+    @Test
+    void updateRule_movesRuleIntoFolderOfTheSameSpace() {
+        RuleEntity entity = createRuleEntity("Rule", "rule-alias");
+        UUID folderId = UUID.randomUUID();
+        FolderEntity folder = folder(folderId, spaceId);
+        when(ruleRepository.findById(entity.getId())).thenReturn(Optional.of(entity));
+        when(folderRepository.findById(folderId)).thenReturn(Optional.of(folder));
+        when(ruleRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+
+        RuleDto result = ruleService.updateRule(entity.getId(),
+                new UpdateRuleRequest(null, null, null, folderId, null));
+
+        assertEquals(folderId, result.folderId());
+        assertEquals(spaceId, result.spaceId());
+    }
+
+    @Test
+    void updateRule_rejectsFolderFromAnotherSpace() {
+        RuleEntity entity = createRuleEntity("Rule", "rule-alias");
+        UUID folderId = UUID.randomUUID();
+        FolderEntity folder = folder(folderId, UUID.randomUUID());
+        when(ruleRepository.findById(entity.getId())).thenReturn(Optional.of(entity));
+        when(folderRepository.findById(folderId)).thenReturn(Optional.of(folder));
+
+        assertThrows(ConflictException.class, () -> ruleService.updateRule(entity.getId(),
+                new UpdateRuleRequest(null, null, null, folderId, null)));
+        verify(ruleRepository, never()).save(any());
+    }
+
+    private FolderEntity folder(UUID id, UUID folderSpaceId) {
+        FolderEntity folder = new FolderEntity();
+        folder.setId(id);
+        folder.setSpaceId(folderSpaceId);
+        return folder;
+    }
+
+    private RuleEntity lockedRule(UUID lockedBy) {
+        RuleEntity entity = createRuleEntity("Locked Rule", "locked-rule");
+        entity.setLocked(true);
+        entity.setLockedBy(lockedBy);
+        return entity;
     }
 
     private SpaceEntity space(UUID id) {

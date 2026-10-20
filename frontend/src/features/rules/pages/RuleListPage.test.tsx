@@ -70,6 +70,10 @@ vi.mock('@/api/rules.api', () => ({
   useCreateSpaceRule: () => ({ mutate: vi.fn(), isPending: false }),
   useCopyRule: () => ({ mutate: vi.fn(), isPending: false }),
   useDeleteRule: () => ({ mutate: vi.fn(), isPending: false }),
+  useLockRule: () => ({ mutate: vi.fn(), isPending: false }),
+  useUnlockRule: () => ({ mutate: vi.fn(), isPending: false }),
+  useBatchExport: () => ({ mutateAsync: vi.fn(), isPending: false }),
+  useUpdateRule: () => ({ mutateAsync: vi.fn(), isPending: false }),
   useTags: () => ({ data: [] }),
 }));
 

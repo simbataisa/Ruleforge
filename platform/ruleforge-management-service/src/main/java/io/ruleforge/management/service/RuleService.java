@@ -9,10 +9,12 @@ import io.ruleforge.common.tenant.TenantContext;
 import io.ruleforge.management.dto.CreateRuleRequest;
 import io.ruleforge.management.dto.RuleDto;
 import io.ruleforge.management.dto.UpdateRuleRequest;
+import io.ruleforge.management.entity.FolderEntity;
 import io.ruleforge.management.entity.RuleEntity;
 import io.ruleforge.management.entity.RuleTagEntity;
 import io.ruleforge.management.entity.RuleVersionEntity;
 import io.ruleforge.management.entity.SpaceEntity;
+import io.ruleforge.management.repository.FolderRepository;
 import io.ruleforge.management.repository.RuleRepository;
 import io.ruleforge.management.repository.RuleTagRepository;
 import io.ruleforge.management.repository.RuleVersionRepository;
@@ -44,17 +46,20 @@ public class RuleService {
     private final RuleTagRepository ruleTagRepository;
     private final EventPublisher eventPublisher;
     private final SpaceRepository spaceRepository;
+    private final FolderRepository folderRepository;
 
     public RuleService(RuleRepository ruleRepository,
                        RuleVersionRepository ruleVersionRepository,
                        RuleTagRepository ruleTagRepository,
                        EventPublisher eventPublisher,
-                       SpaceRepository spaceRepository) {
+                       SpaceRepository spaceRepository,
+                       FolderRepository folderRepository) {
         this.ruleRepository = ruleRepository;
         this.ruleVersionRepository = ruleVersionRepository;
         this.ruleTagRepository = ruleTagRepository;
         this.eventPublisher = eventPublisher;
         this.spaceRepository = spaceRepository;
+        this.folderRepository = folderRepository;
     }
 
     @Transactional
@@ -204,6 +209,7 @@ public class RuleService {
     public RuleDto updateRule(UUID ruleId, UpdateRuleRequest request) {
         TenantContext.TenantInfo tenant = TenantContext.get();
         RuleEntity rule = findRuleOrThrow(ruleId);
+        RuleLockGuard.assertEditableBy(rule, tenant.userId());
 
         if (request.name() != null) {
             rule.setName(request.name());
@@ -220,6 +226,11 @@ public class RuleService {
             rule.setDescription(request.description());
         }
         if (request.folderId() != null) {
+            FolderEntity folder = folderRepository.findById(request.folderId())
+                    .orElseThrow(() -> new EntityNotFoundException("Folder", request.folderId().toString()));
+            if (!folder.getSpaceId().equals(rule.getSpaceId())) {
+                throw new ConflictException("Folder belongs to a different space than the rule");
+            }
             rule.setFolderId(request.folderId());
         }
 
@@ -251,6 +262,7 @@ public class RuleService {
     public void deleteRule(UUID ruleId) {
         TenantContext.TenantInfo tenant = TenantContext.get();
         RuleEntity rule = findRuleOrThrow(ruleId);
+        RuleLockGuard.assertEditableBy(rule, tenant.userId());
         rule.setStatus("DELETED");
         ruleRepository.save(rule);
 
@@ -458,6 +470,7 @@ public class RuleService {
 
         return new RuleDto(
                 rule.getId(),
+                rule.getSpaceId(),
                 rule.getName(),
                 rule.getAlias(),
                 rule.getDescription(),
@@ -465,6 +478,7 @@ public class RuleService {
                 rule.getStatus(),
                 rule.getLatestVersion(),
                 rule.isLocked(),
+                rule.getLockedBy(),
                 rule.getFolderId(),
                 rule.getCreatedAt(),
                 rule.getUpdatedAt(),

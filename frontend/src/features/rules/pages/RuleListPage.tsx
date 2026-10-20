@@ -3,14 +3,18 @@ import { useNavigate, useSearchParams, Link } from 'react-router-dom';
 import {
   Plus, Search, RefreshCw, ChevronLeft, ChevronRight, Upload,
   LayoutList, LayoutGrid, MoreVertical, Pencil, Play, SendHorizontal,
-  Copy, Trash2, Lock, X, FolderOpen, Layers,
+  Copy, Trash2, Lock, LockOpen, X, FolderOpen, FolderInput, Layers,
 } from 'lucide-react';
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Button } from '@/shared/components/Button';
 import { EmptyState } from '@/shared/components/EmptyState';
 import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { SkeletonRow } from '@/components/Skeleton';
-import { useRules, useCreateRule, useCreateSpaceRule, useCopyRule, useTags, useDeleteRule, type RuleListParams } from '@/api/rules.api';
+import {
+  useRules, useCreateRule, useCreateSpaceRule, useCopyRule, useTags, useDeleteRule,
+  useLockRule, useUnlockRule, useBatchExport, type RuleListParams,
+} from '@/api/rules.api';
+import { MoveToFolderModal } from '@/features/rules/components/MoveToFolderModal';
 import {
   PAGE_SIZE_OPTIONS,
   useRuleListUrlState,
@@ -109,6 +113,9 @@ export function RuleListPage() {
   const [approvalModalRules, setApprovalModalRules] = useState<Rule[]>([]);
   const [assignToSpaceRules, setAssignToSpaceRules] = useState<Rule[]>([]);
   const [deleteTarget, setDeleteTarget] = useState<Rule | null>(null);
+  const [moveToFolderRules, setMoveToFolderRules] = useState<Rule[]>([]);
+  const [bulkDeleteOpen, setBulkDeleteOpen] = useState(false);
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   // Persist view mode
   useEffect(() => {
@@ -161,6 +168,9 @@ export function RuleListPage() {
   const copyRule = useCopyRule();
   const createFolder = useCreateFolder();
   const deleteRule = useDeleteRule();
+  const lockRule = useLockRule();
+  const unlockRule = useUnlockRule();
+  const batchExport = useBatchExport();
 
   const rules: Rule[] = useMemo(() => {
     const allRules = rulesData?.content ?? [];
@@ -179,6 +189,19 @@ export function RuleListPage() {
       .filter((r) => selectedRuleIds.has(r.id))
       .every((r) => r.status === 'DRAFT');
   }, [rules, selectedRuleIds]);
+
+  const selectedRules = useMemo(() => rules.filter((r) => selectedRuleIds.has(r.id)), [rules, selectedRuleIds]);
+
+  // A locked rule can only be changed by the user who locked it
+  const isLockedByOther = useCallback(
+    (rule: Rule) => rule.locked && !!rule.lockedBy && rule.lockedBy !== user?.id,
+    [user?.id],
+  );
+  const canDelete = useCallback(
+    (rule: Rule) => (rule.status === 'DRAFT' || rule.status === 'ARCHIVED') && !isLockedByOther(rule),
+    [isLockedByOther],
+  );
+  const allSelectedDeletable = selectedRules.length > 0 && selectedRules.every(canDelete);
 
   // Build filter chips
   const filterChips = useMemo(() => {
@@ -313,8 +336,50 @@ export function RuleListPage() {
     setApprovalModalRules(selected);
   };
 
-  const handleBatchExport = () => {
-    addToast({ type: 'info', title: `Exporting ${selectedRuleIds.size} rules (coming soon)` });
+  const handleToggleLock = (rule: Rule) => {
+    const mutation = rule.locked ? unlockRule : lockRule;
+    mutation.mutate(rule.id, {
+      onSuccess: () => addToast({ type: 'success', title: rule.locked ? 'Rule unlocked' : 'Rule locked' }),
+      onError: () => addToast({
+        type: 'error',
+        title: rule.locked ? 'Failed to unlock rule' : 'Failed to lock rule',
+        message: 'It may have been locked by someone else in the meantime.',
+      }),
+    });
+  };
+
+  const handleBatchExport = async () => {
+    try {
+      const blob = await batchExport.mutateAsync({ ruleIds: selectedRules.map((r) => r.id) });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'rules-export.json';
+      link.click();
+      URL.revokeObjectURL(url);
+      addToast({ type: 'success', title: `Exported ${selectedRules.length} rule${selectedRules.length !== 1 ? 's' : ''}` });
+    } catch {
+      addToast({ type: 'error', title: 'Failed to export rules' });
+    }
+  };
+
+  const confirmBulkDelete = async () => {
+    setBulkDeleting(true);
+    let successCount = 0;
+    let failCount = 0;
+    for (const rule of selectedRules) {
+      try {
+        await deleteRule.mutateAsync(rule.id);
+        successCount++;
+      } catch {
+        failCount++;
+      }
+    }
+    setBulkDeleting(false);
+    setBulkDeleteOpen(false);
+    setSelectedRuleIds(new Set());
+    if (successCount > 0) addToast({ type: 'success', title: `Deleted ${successCount} rule${successCount !== 1 ? 's' : ''}` });
+    if (failCount > 0) addToast({ type: 'error', title: `${failCount} rule${failCount !== 1 ? 's' : ''} could not be deleted` });
   };
 
   // Action menu
@@ -390,11 +455,41 @@ export function RuleListPage() {
               >
                 <Layers className="h-3.5 w-3.5" /> Assign to Space
               </button>
+              {!isLockedByOther(rule) && (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActionMenuRuleId(null);
+                    setMoveToFolderRules([rule]);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  <FolderInput className="h-3.5 w-3.5" /> Move to Folder
+                </button>
+              )}
+              {isLockedByOther(rule) ? (
+                <div className="flex items-center gap-2 px-3 py-2 text-sm text-gray-400">
+                  <Lock className="h-3.5 w-3.5" /> Locked by another user
+                </div>
+              ) : (
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setActionMenuRuleId(null);
+                    handleToggleLock(rule);
+                  }}
+                  className="flex w-full items-center gap-2 px-3 py-2 text-sm text-gray-700 hover:bg-gray-50"
+                >
+                  {rule.locked
+                    ? <><LockOpen className="h-3.5 w-3.5" /> Unlock</>
+                    : <><Lock className="h-3.5 w-3.5" /> Lock</>}
+                </button>
+              )}
               <div className="px-3 py-1">
                 <ExportRuleButton ruleId={rule.id} ruleName={rule.name} variant="menu" />
               </div>
               <div className="my-1 border-t border-gray-100" />
-              {(rule.status === 'DRAFT' || rule.status === 'ARCHIVED') && (
+              {canDelete(rule) && (
                 <button
                   onClick={(e) => {
                     e.stopPropagation();
@@ -836,6 +931,9 @@ export function RuleListPage() {
         allDraft={allSelectedDraft}
         onRequestApproval={handleBatchRequestApproval}
         onExport={handleBatchExport}
+        exporting={batchExport.isPending}
+        onMoveToFolder={() => setMoveToFolderRules(selectedRules)}
+        onDelete={allSelectedDeletable ? () => setBulkDeleteOpen(true) : undefined}
         onClearSelection={() => setSelectedRuleIds(new Set())}
         onAssignToSpace={() => {
           const selected = rules.filter((r) => selectedRuleIds.has(r.id));
@@ -891,6 +989,28 @@ export function RuleListPage() {
         confirmLabel="Delete Rule"
         isLoading={deleteRule.isPending}
       />
+
+      <ConfirmDialog
+        open={bulkDeleteOpen}
+        onClose={() => setBulkDeleteOpen(false)}
+        onConfirm={confirmBulkDelete}
+        title="Delete Rules"
+        message={`Are you sure you want to delete ${selectedRules.length} rule${selectedRules.length !== 1 ? 's' : ''}? This action cannot be undone.`}
+        confirmLabel={`Delete ${selectedRules.length} Rule${selectedRules.length !== 1 ? 's' : ''}`}
+        isLoading={bulkDeleting}
+      />
+
+      {moveToFolderRules.length > 0 && (
+        <MoveToFolderModal
+          rules={moveToFolderRules}
+          folders={folders}
+          onClose={() => setMoveToFolderRules([])}
+          onSuccess={() => {
+            setSelectedRuleIds(new Set());
+            refetchRules();
+          }}
+        />
+      )}
 
       {assignToSpaceRules.length > 0 && (
         <AssignToSpaceModal

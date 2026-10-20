@@ -103,6 +103,34 @@ export function useDeleteRule() {
   });
 }
 
+export function useLockRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiClient.post<ApiResponse<Rule>>(`/rules/${id}/lock`);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rules'] });
+    },
+  });
+}
+
+export function useUnlockRule() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async (id: string) => {
+      const res = await apiClient.delete<ApiResponse<Rule>>(`/rules/${id}/lock`);
+      return res.data.data;
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['rules'] });
+    },
+  });
+}
+
 export function useRuleVersions(ruleId: string) {
   return useQuery({
     queryKey: ['rules', ruleId, 'versions'],
@@ -578,8 +606,8 @@ export function useBatchRequestApproval() {
 
 export function useBatchExport() {
   return useMutation({
-    mutationFn: async (data: { ruleIds: string[]; format?: string }) => {
-      const res = await apiClient.post('/rules/batch/export', data, {
+    mutationFn: async (data: { ruleIds: string[] }) => {
+      const res = await apiClient.post<Blob>('/rules/export-bulk', data.ruleIds, {
         responseType: 'blob',
       });
       return res.data;

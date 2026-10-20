@@ -48,6 +48,7 @@ public class VersionService {
     public RuleVersionDto createVersion(UUID ruleId, CreateVersionRequest request) {
         TenantContext.TenantInfo tenant = TenantContext.get();
         RuleEntity rule = findRuleOrThrow(ruleId);
+        RuleLockGuard.assertEditableBy(rule, tenant.userId());
 
         int nextVersion = rule.getLatestVersion() + 1;
 
@@ -73,6 +74,8 @@ public class VersionService {
 
     @Transactional
     public RuleVersionDto updateVersion(UUID ruleId, int version, UpdateVersionRequest request) {
+        RuleLockGuard.assertEditableBy(findRuleOrThrow(ruleId), TenantContext.get().userId());
+
         RuleVersionEntity versionEntity = versionRepository.findByRuleIdAndVersion(ruleId, version)
                 .orElseThrow(() -> new EntityNotFoundException("RuleVersion",
                         "ruleId=%s, version=%d".formatted(ruleId, version)));

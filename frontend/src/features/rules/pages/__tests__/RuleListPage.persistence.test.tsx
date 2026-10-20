@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { screen } from '@testing-library/react';
+import { screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { renderWithProviders } from '@/test/test-utils';
 import { RuleListPage } from '../RuleListPage';
@@ -40,13 +40,22 @@ const draftRule: Rule = {
 
 const mockRefetch = vi.fn();
 const mockDelete = vi.fn();
+const mockDeleteAsync = vi.fn();
+const mockLock = vi.fn();
+const mockUnlock = vi.fn();
+const mockExport = vi.fn();
+const mockUpdate = vi.fn();
 
 vi.mock('@/api/rules.api', () => ({
   useRules: vi.fn(),
   useCreateRule: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useCreateSpaceRule: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
   useCopyRule: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
-  useDeleteRule: vi.fn(() => ({ mutate: mockDelete, isPending: false })),
+  useDeleteRule: vi.fn(() => ({ mutate: mockDelete, mutateAsync: mockDeleteAsync, isPending: false })),
+  useLockRule: vi.fn(() => ({ mutate: mockLock, isPending: false })),
+  useUnlockRule: vi.fn(() => ({ mutate: mockUnlock, isPending: false })),
+  useBatchExport: vi.fn(() => ({ mutateAsync: mockExport, isPending: false })),
+  useUpdateRule: vi.fn(() => ({ mutateAsync: mockUpdate, isPending: false })),
   useTags: vi.fn(() => ({ data: [] })),
 }));
 
@@ -55,7 +64,15 @@ vi.mock('@/api/org.api', () => ({
 }));
 
 vi.mock('@/api/folders.api', () => ({
-  useFolders: vi.fn(() => ({ data: [], isLoading: false, refetch: vi.fn() })),
+  useFolders: vi.fn(() => ({
+    data: [
+      { id: 'f-root', spaceId: 's1', name: 'Lending', ruleCount: 0, createdAt: '', updatedAt: '' },
+      { id: 'f-child', spaceId: 's1', parentId: 'f-root', name: 'Mortgages', ruleCount: 0, createdAt: '', updatedAt: '' },
+      { id: 'f-other', spaceId: 's2', name: 'Other Space Folder', ruleCount: 0, createdAt: '', updatedAt: '' },
+    ],
+    isLoading: false,
+    refetch: vi.fn(),
+  })),
   useCreateFolder: vi.fn(() => ({ mutate: vi.fn(), isPending: false })),
 }));
 
@@ -156,5 +173,91 @@ describe('RuleListPage URL-persisted state', () => {
     await userEvent.click(buttons[buttons.length - 1]);
 
     expect(screen.getByRole('button', { name: /duplicate/i })).toBeInTheDocument();
+  });
+});
+
+describe('RuleListPage rule actions', () => {
+  beforeEach(() => {
+    vi.clearAllMocks();
+    sessionStorage.clear();
+    localStorage.clear();
+  });
+
+  async function openRowMenu() {
+    const row = screen.getByText(draftRule.name).closest('tr')!;
+    await userEvent.click(row.querySelector('td:last-child button')!);
+  }
+
+  it('locks an unlocked rule from the row menu', async () => {
+    mockRulesResult();
+    renderWithProviders(<RuleListPage />, { wrapperOptions: { initialEntries: ['/rules'] } });
+
+    await openRowMenu();
+    await userEvent.click(screen.getByRole('button', { name: /^lock$/i }));
+
+    expect(mockLock).toHaveBeenCalledWith('r1', expect.anything());
+  });
+
+  it('lets the lock owner unlock', async () => {
+    mockRulesResult({ data: { content: [{ ...draftRule, locked: true, lockedBy: 'user-1' }], totalPages: 1, totalElements: 1 } });
+    renderWithProviders(<RuleListPage />, { wrapperOptions: { initialEntries: ['/rules'] } });
+
+    await openRowMenu();
+    await userEvent.click(screen.getByRole('button', { name: /unlock/i }));
+
+    expect(mockUnlock).toHaveBeenCalledWith('r1', expect.anything());
+  });
+
+  it('hides delete and move for a rule locked by another user', async () => {
+    mockRulesResult({ data: { content: [{ ...draftRule, locked: true, lockedBy: 'someone-else' }], totalPages: 1, totalElements: 1 } });
+    renderWithProviders(<RuleListPage />, { wrapperOptions: { initialEntries: ['/rules'] } });
+
+    await openRowMenu();
+
+    expect(screen.getByText('Locked by another user')).toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /delete/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole('button', { name: /move to folder/i })).not.toBeInTheDocument();
+  });
+
+  it("offers only folders from the rule's space when moving", async () => {
+    mockRulesResult();
+    renderWithProviders(<RuleListPage />, { wrapperOptions: { initialEntries: ['/rules'] } });
+
+    await openRowMenu();
+    await userEvent.click(screen.getByRole('button', { name: /move to folder/i }));
+
+    const select = screen.getByLabelText('Target Folder');
+    const labels = [...select.querySelectorAll('option')].map((o) => o.textContent);
+    expect(labels).toContain('Lending');
+    expect(labels).toContain('Lending / Mortgages');
+    expect(labels).not.toContain('Other Space Folder');
+
+    await userEvent.selectOptions(select, 'f-child');
+    await userEvent.click(screen.getByRole('button', { name: /^move$/i }));
+    expect(mockUpdate).toHaveBeenCalledWith({ id: 'r1', data: { folderId: 'f-child' } });
+  });
+
+  it('bulk deletes the selected rules after confirmation', async () => {
+    mockRulesResult();
+    renderWithProviders(<RuleListPage />, { wrapperOptions: { initialEntries: ['/rules'] } });
+
+    await userEvent.click(screen.getByLabelText(`Select ${draftRule.name}`));
+    await userEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: /delete/i }));
+    await userEvent.click(screen.getByRole('button', { name: 'Delete 1 Rule' }));
+
+    expect(mockDeleteAsync).toHaveBeenCalledWith('r1');
+  });
+
+  it('exports the selected rules', async () => {
+    mockRulesResult();
+    mockExport.mockResolvedValue(new Blob(['[]']));
+    URL.createObjectURL = vi.fn(() => 'blob:rules');
+    URL.revokeObjectURL = vi.fn();
+    renderWithProviders(<RuleListPage />, { wrapperOptions: { initialEntries: ['/rules'] } });
+
+    await userEvent.click(screen.getByLabelText(`Select ${draftRule.name}`));
+    await userEvent.click(within(screen.getByRole('toolbar')).getByRole('button', { name: /export/i }));
+
+    expect(mockExport).toHaveBeenCalledWith({ ruleIds: ['r1'] });
   });
 });
