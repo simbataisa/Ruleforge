@@ -18,32 +18,24 @@ RuleForge is an enterprise BRMS for authoring, managing, and executing business 
 
 ## Architecture Overview
 
-```
-┌───────────────────────────────────────────────────────────────────────┐
-│                          RuleForge System                             │
-│                                                                       │
-│  ┌──────────────┐                       ┌───────────────────────────┐ │
-│  │   Frontend    │───── Vite proxy ────▶ │     Platform Services     │ │
-│  │  React 18     │   (local dev mode)    │                           │ │
-│  │  port 3000    │                       │  auth-service       8081  │ │
-│  └──────────────┘                       │  management-service 8082  │ │
-│                                          │  solver-service     8083  │ │
-│  ┌──────────────┐    ┌──────────────┐   │  event-service      8084  │ │
-│  │   Frontend    │──▶│ Kong Gateway │──▶│  analytics-service  8085  │ │
-│  │  (Docker)     │   │  port 8000   │   │  scheduler-service  8086  │ │
-│  └──────────────┘    └──────────────┘   │  connector-service  8087  │ │
-│                                          └──────────┬────────────────┘ │
-│  ┌──────────────┐                                   │                  │
-│  │  AI Service   │   Python/FastAPI, port 8000      │                  │
-│  │   (optional)  │   (8088 in Docker)               │                  │
-│  └──────────────┘                                   │                  │
-│                                                      │                  │
-│  ┌──────────────────────────────────────────────────┼────────────────┐ │
-│  │                     Data Stores                   │                │ │
-│  │  PostgreSQL 16 (5432)  Redis 7 (6379)  Kafka 3.7.1 (9092)        │ │
-│  │  Elasticsearch 9 (9200)  MinIO (9000/9001)                        │ │
-│  └───────────────────────────────────────────────────────────────────┘ │
-└───────────────────────────────────────────────────────────────────────┘
+```mermaid
+flowchart TB
+    subgraph clients["Clients"]
+        feLocal["Frontend (local dev)<br/>React 18 · port 3000"]
+        feDocker["Frontend (Docker)"]
+    end
+
+    kong["Kong Gateway<br/>port 8000"]
+    ai["AI Service (optional)<br/>Python / FastAPI<br/>port 8000 (8088 in Docker)"]
+
+    platform["<b>Platform Services · Spring Boot 4.1</b><br/>auth-service · 8081<br/>management-service · 8082<br/>solver-service · 8083<br/>event-service · 8084<br/>analytics-service · 8085<br/>scheduler-service · 8086<br/>connector-service · 8087"]
+
+    stores[("<b>Data Stores</b><br/>PostgreSQL 16 · 5432<br/>Redis 7 · 6379<br/>Kafka 3.7.1 · 9092<br/>Elasticsearch 9 · 9200<br/>MinIO · 9000/9001")]
+
+    feLocal -- "Vite proxy (local dev mode)" --> platform
+    feDocker --> kong --> platform
+    feLocal -. "/v1/ai" .-> ai
+    platform --> stores
 ```
 
 > **Local dev vs Docker:** In local development, the Vite dev server proxies `/v1/*` API requests **directly** to each backend service (no Kong needed). In the full Docker Compose stack, all traffic routes through Kong on port 8000.
