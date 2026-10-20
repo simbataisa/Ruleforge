@@ -9,6 +9,8 @@ import io.ruleforge.management.dto.RuleDto;
 import io.ruleforge.management.dto.UpdateRuleRequest;
 import io.ruleforge.management.entity.RuleEntity;
 import io.ruleforge.management.entity.RuleVersionEntity;
+import io.ruleforge.management.entity.SpaceEntity;
+import io.ruleforge.common.dto.PageResponse;
 import io.ruleforge.management.repository.RuleRepository;
 import io.ruleforge.management.repository.RuleTagRepository;
 import io.ruleforge.management.repository.RuleVersionRepository;
@@ -22,7 +24,11 @@ import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.data.domain.PageImpl;
+import org.springframework.data.domain.PageRequest;
+
 import java.time.Instant;
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -187,6 +193,52 @@ class RuleServiceTest {
         when(ruleRepository.findById(ruleId)).thenReturn(Optional.of(entity));
 
         assertThrows(ConflictException.class, () -> ruleService.unlockRule(ruleId, userId));
+    }
+
+    @Test
+    void listRulesForOrgAdvanced_withSpaceId_restrictsQueryToThatSpace() {
+        List<SpaceEntity> orgSpaces = List.of(space(spaceId), space(UUID.randomUUID()));
+        when(spaceRepository.findByOrgId(orgId)).thenReturn(orgSpaces);
+        when(ruleRepository.findByAdvancedFilters(any(), any(), any(), any(), anyBoolean(), any(), anyBoolean(),
+                any(), any(), any(), any(), anyBoolean(), any(), any()))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        ruleService.listRulesForOrgAdvanced(orgId, spaceId, null, null, null, null, null, "loan",
+                null, null, null, null, null, PageRequest.of(0, 20));
+
+        ArgumentCaptor<Collection<UUID>> spaceIds = ArgumentCaptor.captor();
+        verify(ruleRepository).findByAdvancedFilters(spaceIds.capture(), any(), eq("loan"), any(), anyBoolean(),
+                any(), anyBoolean(), any(), any(), any(), any(), anyBoolean(), any(), any());
+        assertEquals(List.of(spaceId), List.copyOf(spaceIds.getValue()));
+    }
+
+    @Test
+    void listRulesForOrgAdvanced_withSpaceIdOutsideOrg_returnsEmptyWithoutQuerying() {
+        List<SpaceEntity> orgSpaces = List.of(space(spaceId));
+        when(spaceRepository.findByOrgId(orgId)).thenReturn(orgSpaces);
+
+        PageResponse<RuleDto> result = ruleService.listRulesForOrgAdvanced(orgId, UUID.randomUUID(), null, null,
+                null, null, null, null, null, null, null, null, null, PageRequest.of(0, 20));
+
+        assertTrue(result.content().isEmpty());
+        verifyNoInteractions(ruleRepository);
+    }
+
+    @Test
+    void listRules_forSpace_usesFilteredQueryScopedToThatSpace() {
+        when(ruleRepository.findByFilters(any(), any(), any(), anyBoolean(), any(), anyBoolean(), any()))
+                .thenReturn(new PageImpl<>(List.of()));
+
+        ruleService.listRules(spaceId, null, "DRAFT", PageRequest.of(0, 20));
+
+        verify(ruleRepository).findByFilters(eq(List.of(spaceId)), isNull(), eq(List.of()), eq(true),
+                eq(List.of("DRAFT")), eq(false), any());
+    }
+
+    private SpaceEntity space(UUID id) {
+        SpaceEntity space = mock(SpaceEntity.class);
+        lenient().when(space.getId()).thenReturn(id);
+        return space;
     }
 
     private RuleEntity createRuleEntity(String name, String alias) {

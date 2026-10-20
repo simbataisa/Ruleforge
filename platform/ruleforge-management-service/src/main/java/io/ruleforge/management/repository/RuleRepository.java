@@ -41,6 +41,7 @@ public interface RuleRepository extends JpaRepository<RuleEntity, UUID> {
           AND (:folderId IS NULL OR r.folderId = :folderId)
           AND (:typesEmpty = true OR r.type IN :types)
           AND (:statusesEmpty = true OR r.status IN :statuses)
+          AND (:statusesEmpty = false OR r.status <> 'DELETED')
         """)
     Page<RuleEntity> findByFilters(
         @Param("spaceIds") Collection<UUID> spaceIds,
@@ -58,6 +59,7 @@ public interface RuleRepository extends JpaRepository<RuleEntity, UUID> {
           AND (:folderId IS NULL OR r.folderId = :folderId)
           AND (:typesEmpty = true OR r.type IN :types)
           AND (:statusesEmpty = true OR r.status IN :statuses)
+          AND (:statusesEmpty = false OR r.status <> 'DELETED')
           AND lower(r.name) LIKE lower(concat('%', :search, '%'))
         """)
     Page<RuleEntity> findByFiltersAndSearch(
@@ -81,6 +83,7 @@ public interface RuleRepository extends JpaRepository<RuleEntity, UUID> {
           AND (:folderId IS NULL OR r.folder_id = CAST(:folderId AS uuid))
           AND (:typesEmpty = true OR r.type = ANY(CAST(:types AS text[])))
           AND (:statusesEmpty = true OR r.status = ANY(CAST(:statuses AS text[])))
+          AND (:statusesEmpty = false OR r.status <> 'DELETED')
           AND (:search IS NULL OR (
                lower(r.name) LIKE lower(concat('%', :search, '%'))
                OR lower(COALESCE(r.description, '')) LIKE lower(concat('%', :search, '%'))
@@ -101,6 +104,7 @@ public interface RuleRepository extends JpaRepository<RuleEntity, UUID> {
           AND (:folderId IS NULL OR r.folder_id = CAST(:folderId AS uuid))
           AND (:typesEmpty = true OR r.type = ANY(CAST(:types AS text[])))
           AND (:statusesEmpty = true OR r.status = ANY(CAST(:statuses AS text[])))
+          AND (:statusesEmpty = false OR r.status <> 'DELETED')
           AND (:search IS NULL OR (
                lower(r.name) LIKE lower(concat('%', :search, '%'))
                OR lower(COALESCE(r.description, '')) LIKE lower(concat('%', :search, '%'))

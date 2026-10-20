@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useCallback, Suspense, useRef } from 'react';
 import { useParams, useNavigate, useBlocker } from 'react-router-dom';
+import { getRulesListPath } from '@/features/rules/hooks/ruleListUrlState';
 import {
   ArrowLeft,
   Save,
@@ -475,7 +476,7 @@ export function RuleEditorPage() {
         Rule not found.{' '}
         <button
           className="text-indigo-600 hover:underline"
-          onClick={() => navigate('/rules')}
+          onClick={() => navigate(getRulesListPath())}
         >
           Go back to rules
         </button>
@@ -495,7 +496,7 @@ export function RuleEditorPage() {
         <div className="flex items-center gap-3 mb-2">
           <Breadcrumb
             items={[
-              { label: 'Rules', href: '/rules' },
+              { label: 'Rules', href: getRulesListPath() },
               { label: rule.name },
             ]}
           />
@@ -503,7 +504,7 @@ export function RuleEditorPage() {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
             <button
-              onClick={() => navigate('/rules')}
+              onClick={() => navigate(getRulesListPath())}
               className="p-1 rounded hover:bg-gray-100 transition-colors"
             >
               <ArrowLeft className="h-5 w-5 text-gray-500" />

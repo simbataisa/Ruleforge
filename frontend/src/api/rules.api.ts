@@ -10,7 +10,9 @@ import type {
 } from './types/rule.types';
 import type { ApiResponse, PageResponse, PageParams } from './types/common.types';
 
-interface RuleListParams extends PageParams {
+export interface RuleListParams extends PageParams {
+  /** Restrict the org-wide list to one space; all other filters still apply. */
+  spaceId?: string;
   folderId?: string;
   type?: string;
   status?: string;

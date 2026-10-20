@@ -117,17 +117,10 @@ public class RuleService {
 
     @Transactional(readOnly = true)
     public PageResponse<RuleDto> listRules(UUID spaceId, UUID folderId, String status, Pageable pageable) {
-        Page<RuleEntity> page;
-
-        if (folderId != null && status != null) {
-            page = ruleRepository.findBySpaceIdAndFolderIdAndStatus(spaceId, folderId, status, pageable);
-        } else if (folderId != null) {
-            page = ruleRepository.findBySpaceIdAndFolderId(spaceId, folderId, pageable);
-        } else if (status != null) {
-            page = ruleRepository.findBySpaceIdAndStatus(spaceId, status, pageable);
-        } else {
-            page = ruleRepository.findBySpaceId(spaceId, pageable);
-        }
+        // Same filtered query as the org-wide list, so soft-deleted rules are excluded here too
+        List<String> statuses = (status != null && !status.isBlank()) ? List.of(status) : List.of();
+        Page<RuleEntity> page = ruleRepository.findByFilters(List.of(spaceId), folderId,
+                List.of(), true, statuses, statuses.isEmpty(), pageable);
 
         List<RuleDto> content = page.getContent().stream()
                 .map(this::toDto)
@@ -140,12 +133,16 @@ public class RuleService {
     @Transactional(readOnly = true)
     public PageResponse<RuleDto> listRulesForOrg(UUID orgId, UUID folderId, String status,
                                                   String type, String search, Pageable pageable) {
-        return listRulesForOrgAdvanced(orgId, folderId, status, type, null, null, search,
+        return listRulesForOrgAdvanced(orgId, null, folderId, status, type, null, null, search,
                 null, null, null, null, null, pageable);
     }
 
+    /**
+     * Lists rules across the org's spaces, or within one space when {@code spaceId} is given.
+     * A {@code spaceId} that does not belong to the org yields an empty page.
+     */
     @Transactional(readOnly = true)
-    public PageResponse<RuleDto> listRulesForOrgAdvanced(UUID orgId, UUID folderId, String status,
+    public PageResponse<RuleDto> listRulesForOrgAdvanced(UUID orgId, UUID spaceId, UUID folderId, String status,
                                                           String type, List<String> types,
                                                           List<String> statuses, String search,
                                                           List<String> tags, UUID createdBy,
@@ -153,6 +150,7 @@ public class RuleService {
                                                           String hasVersion, Pageable pageable) {
         List<UUID> spaceIds = spaceRepository.findByOrgId(orgId).stream()
                 .map(io.ruleforge.management.entity.SpaceEntity::getId)
+                .filter(id -> spaceId == null || id.equals(spaceId))
                 .toList();
 
         if (spaceIds.isEmpty()) {

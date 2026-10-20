@@ -8,8 +8,15 @@ import {
 import { PageHeader } from '@/shared/components/PageHeader';
 import { Button } from '@/shared/components/Button';
 import { EmptyState } from '@/shared/components/EmptyState';
+import { ConfirmDialog } from '@/shared/components/ConfirmDialog';
 import { SkeletonRow } from '@/components/Skeleton';
-import { useRules, useSpaceRules, useCreateRule, useCreateSpaceRule, useCopyRule, useTags, useDeleteRule } from '@/api/rules.api';
+import { useRules, useCreateRule, useCreateSpaceRule, useCopyRule, useTags, useDeleteRule, type RuleListParams } from '@/api/rules.api';
+import {
+  PAGE_SIZE_OPTIONS,
+  useRuleListUrlState,
+  type RuleSortField,
+  type SortDir,
+} from '@/features/rules/hooks/ruleListUrlState';
 import { useSpace } from '@/api/org.api';
 import { useFolders, useCreateFolder } from '@/api/folders.api';
 import { useToastStore } from '@/stores/toast.store';
@@ -32,9 +39,6 @@ import { cn } from '@/shared/utils/cn';
 import type { Rule, RuleType } from '@/api/types/rule.types';
 
 type ViewMode = 'table' | 'card';
-type SortOption = 'updatedAt' | 'createdAt' | 'name';
-
-const PAGE_SIZE_OPTIONS = [10, 25, 50, 100];
 
 function getDateFromPreset(days: number): string {
   const d = new Date();
@@ -60,25 +64,38 @@ export function RuleListPage() {
     });
   }, [setSearchParams]);
 
-  // Search state
-  const [search, setSearch] = useState('');
-  const [debouncedSearch, setDebouncedSearch] = useState('');
+  // Search, filters, sort and paging live in the URL so they survive navigation and reloads
+  const { state: listState, update: updateList } = useRuleListUrlState();
+  const {
+    search: debouncedSearch,
+    types: selectedTypes,
+    statuses: selectedStatuses,
+    tags: selectedTags,
+    folderId: selectedFolderId,
+    datePreset,
+    page,
+    pageSize,
+    sortBy,
+    sortDir,
+  } = listState;
 
-  // Filter state
-  const [selectedTypes, setSelectedTypes] = useState<string[]>([]);
-  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
-  const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [selectedFolderId, setSelectedFolderId] = useState<string | null>(null);
-  const [datePreset, setDatePreset] = useState<number | null>(null);
+  // The input updates immediately; the URL (and query) follow after a short debounce
+  const [search, setSearch] = useState(debouncedSearch);
+  useEffect(() => {
+    setSearch(debouncedSearch);
+  }, [debouncedSearch]);
 
-  // View & pagination
+  const setSelectedTypes = useCallback((types: string[]) => updateList({ types }), [updateList]);
+  const setSelectedStatuses = useCallback((statuses: string[]) => updateList({ statuses }), [updateList]);
+  const setSelectedTags = useCallback((tags: string[]) => updateList({ tags }), [updateList]);
+  const setSelectedFolderId = useCallback((folderId: string | null) => updateList({ folderId }), [updateList]);
+  const setDatePreset = useCallback((preset: number | null) => updateList({ datePreset: preset }), [updateList]);
+  const setPage = useCallback((next: number) => updateList({ page: next }), [updateList]);
+
+  // View mode is a per-browser preference, not part of the shareable list URL
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     return (localStorage.getItem('ruleforge:rules-view-mode') as ViewMode) || 'table';
   });
-  const [page, setPage] = useState(0);
-  const [pageSize, setPageSize] = useState(25);
-  const [sortBy, setSortBy] = useState<SortOption>('updatedAt');
-  const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc');
 
   // Selection
   const [selectedRuleIds, setSelectedRuleIds] = useState<Set<string>>(new Set());
@@ -91,31 +108,29 @@ export function RuleListPage() {
   const [actionMenuRuleId, setActionMenuRuleId] = useState<string | null>(null);
   const [approvalModalRules, setApprovalModalRules] = useState<Rule[]>([]);
   const [assignToSpaceRules, setAssignToSpaceRules] = useState<Rule[]>([]);
+  const [deleteTarget, setDeleteTarget] = useState<Rule | null>(null);
 
   // Persist view mode
   useEffect(() => {
     localStorage.setItem('ruleforge:rules-view-mode', viewMode);
   }, [viewMode]);
 
-  // Debounce search
+  // Debounce search into the URL (changing the search resets to the first page)
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(search), 300);
+    if (search === debouncedSearch) return;
+    const timer = setTimeout(() => updateList({ search }), 300);
     return () => clearTimeout(timer);
-  }, [search]);
-
-  // Reset page on filter change
-  useEffect(() => {
-    setPage(0);
-  }, [debouncedSearch, selectedTypes, selectedStatuses, selectedTags, selectedFolderId, datePreset]);
+  }, [search, debouncedSearch, updateList]);
 
   // Clear selection on filter/page change
+  const filterKey = searchParams.toString();
   useEffect(() => {
     setSelectedRuleIds(new Set());
-  }, [page, debouncedSearch, selectedTypes, selectedStatuses, selectedTags, selectedFolderId, datePreset]);
+  }, [filterKey]);
 
   // Build query params
   const queryParams = useMemo(() => {
-    const params: Record<string, unknown> = {
+    const params: RuleListParams = {
       page,
       size: pageSize,
       sort: `${sortBy},${sortDir}`,
@@ -126,15 +141,18 @@ export function RuleListPage() {
     if (selectedTags.length > 0) params.tags = selectedTags;
     if (selectedFolderId) params.folderId = selectedFolderId;
     if (datePreset != null) params.updatedAfter = getDateFromPreset(datePreset);
+    // Space mode uses the same filtered endpoint, scoped to the space
+    if (spaceIdFromUrl) params.spaceId = spaceIdFromUrl;
     return params;
-  }, [page, pageSize, sortBy, sortDir, debouncedSearch, selectedTypes, selectedStatuses, selectedTags, selectedFolderId, datePreset]);
+  }, [page, pageSize, sortBy, sortDir, debouncedSearch, selectedTypes, selectedStatuses, selectedTags, selectedFolderId, datePreset, spaceIdFromUrl]);
 
-  const orgRulesQuery = useRules(spaceIdFromUrl ? undefined : queryParams as any);
-  const spaceRulesQuery = useSpaceRules(spaceIdFromUrl ?? '', spaceIdFromUrl ? { page: queryParams.page as number, size: queryParams.size as number } : undefined);
-  const rulesData = spaceIdFromUrl ? spaceRulesQuery.data : orgRulesQuery.data;
-  const rulesLoading = spaceIdFromUrl ? spaceRulesQuery.isLoading : orgRulesQuery.isLoading;
-  const rulesFetching = spaceIdFromUrl ? spaceRulesQuery.isFetching : orgRulesQuery.isFetching;
-  const refetchRules = spaceIdFromUrl ? spaceRulesQuery.refetch : orgRulesQuery.refetch;
+  const {
+    data: rulesData,
+    isLoading: rulesLoading,
+    isFetching: rulesFetching,
+    isError: rulesError,
+    refetch: refetchRules,
+  } = useRules(queryParams);
   const { data: foldersData, isLoading: foldersLoading, refetch: refetchFolders } = useFolders();
   const { data: tagsData } = useTags();
 
@@ -165,6 +183,11 @@ export function RuleListPage() {
   // Build filter chips
   const filterChips = useMemo(() => {
     const chips: { key: string; label: string; value: string }[] = [];
+    if (debouncedSearch) chips.push({ key: 'search', label: 'Search', value: debouncedSearch });
+    if (selectedFolderId) {
+      const folder = folders.find((f) => f.id === selectedFolderId);
+      chips.push({ key: 'folder', label: 'Folder', value: folder?.name ?? 'Selected folder' });
+    }
     selectedTypes.forEach((t) => chips.push({ key: 'type', label: 'Type', value: t }));
     selectedStatuses.forEach((s) => chips.push({ key: 'status', label: 'Status', value: s }));
     selectedTags.forEach((t) => chips.push({ key: 'tag', label: 'Tag', value: t }));
@@ -173,33 +196,37 @@ export function RuleListPage() {
       chips.push({ key: 'date', label: 'Updated', value: label });
     }
     return chips;
-  }, [selectedTypes, selectedStatuses, selectedTags, datePreset]);
+  }, [debouncedSearch, selectedFolderId, folders, selectedTypes, selectedStatuses, selectedTags, datePreset]);
 
   const handleRemoveChip = useCallback((key: string, value: string) => {
     switch (key) {
       case 'type':
-        setSelectedTypes((prev) => prev.filter((t) => t !== value));
+        setSelectedTypes(selectedTypes.filter((t) => t !== value));
         break;
       case 'status':
-        setSelectedStatuses((prev) => prev.filter((s) => s !== value));
+        setSelectedStatuses(selectedStatuses.filter((s) => s !== value));
         break;
       case 'tag':
-        setSelectedTags((prev) => prev.filter((t) => t !== value));
+        setSelectedTags(selectedTags.filter((t) => t !== value));
         break;
       case 'date':
         setDatePreset(null);
         break;
+      case 'search':
+        setSearch('');
+        updateList({ search: '' });
+        break;
+      case 'folder':
+        setSelectedFolderId(null);
+        break;
     }
-  }, []);
+  }, [selectedTypes, selectedStatuses, selectedTags, setSelectedTypes, setSelectedStatuses, setSelectedTags,
+    setDatePreset, setSelectedFolderId, updateList]);
 
   const handleClearAllFilters = useCallback(() => {
-    setSelectedTypes([]);
-    setSelectedStatuses([]);
-    setSelectedTags([]);
-    setDatePreset(null);
     setSearch('');
-    setSelectedFolderId(null);
-  }, []);
+    updateList({ search: '', types: [], statuses: [], tags: [], datePreset: null, folderId: null });
+  }, [updateList]);
 
   // Selection handlers
   const toggleSelect = useCallback((ruleId: string) => {
@@ -219,16 +246,13 @@ export function RuleListPage() {
     }
   }, [rules, selectedRuleIds.size]);
 
-  const handleSort = useCallback((key: string) => {
-    setSortBy((prev) => {
-      if (prev === key) {
-        setSortDir((d) => (d === 'asc' ? 'desc' : 'asc'));
-        return prev;
-      }
-      setSortDir('desc');
-      return key as SortOption;
-    });
-  }, []);
+  const handleSort = useCallback((key: RuleSortField) => {
+    if (sortBy === key) {
+      updateList({ sortDir: sortDir === 'asc' ? 'desc' : 'asc' });
+    } else {
+      updateList({ sortBy: key, sortDir: key === 'name' ? 'asc' : 'desc' });
+    }
+  }, [sortBy, sortDir, updateList]);
 
   // Action handlers
   const handleRefresh = () => {
@@ -271,10 +295,15 @@ export function RuleListPage() {
     );
   };
 
-  const handleDeleteRule = (rule: Rule) => {
-    if (!confirm(`Are you sure you want to delete "${rule.name}"? This action cannot be undone.`)) return;
-    deleteRule.mutate(rule.id, {
-      onSuccess: () => addToast({ type: 'success', title: 'Rule deleted' }),
+  const handleDeleteRule = (rule: Rule) => setDeleteTarget(rule);
+
+  const confirmDeleteRule = () => {
+    if (!deleteTarget) return;
+    deleteRule.mutate(deleteTarget.id, {
+      onSuccess: () => {
+        setDeleteTarget(null);
+        addToast({ type: 'success', title: 'Rule deleted' });
+      },
       onError: () => addToast({ type: 'error', title: 'Failed to delete rule' }),
     });
   };
@@ -517,15 +546,17 @@ export function RuleListPage() {
                 value={`${sortBy}:${sortDir}`}
                 onChange={(e) => {
                   const [key, dir] = e.target.value.split(':');
-                  setSortBy(key as SortOption);
-                  setSortDir(dir as 'asc' | 'desc');
+                  updateList({ sortBy: key as RuleSortField, sortDir: dir as SortDir });
                 }}
+                aria-label="Sort rules"
                 className="h-10 rounded-lg border border-gray-200 bg-white px-3 text-sm text-gray-700 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
               >
                 <option value="name:asc">Name A-Z</option>
                 <option value="name:desc">Name Z-A</option>
                 <option value="createdAt:desc">Recently Created</option>
+                <option value="createdAt:asc">Oldest Created</option>
                 <option value="updatedAt:desc">Last Modified</option>
+                <option value="updatedAt:asc">Least Recently Modified</option>
               </select>
 
               {/* View toggle */}
@@ -571,7 +602,14 @@ export function RuleListPage() {
 
           {/* Content area */}
           <div className="flex-1 px-6 pb-6">
-            {rules.length === 0 ? (
+            {rulesError && rules.length === 0 ? (
+              <EmptyState
+                title="Couldn't load rules"
+                description="Something went wrong while loading rules. Your filters are kept."
+                actionLabel="Retry"
+                onAction={() => refetchRules()}
+              />
+            ) : rules.length === 0 ? (
               <EmptyState
                 title={hasActiveFilters ? 'No rules found' : 'No rules yet'}
                 description={
@@ -716,10 +754,7 @@ export function RuleListPage() {
                     onSelect={() => toggleSelect(rule.id)}
                     onClick={() => navigate(`/rules/${rule.id}/edit`)}
                     onEdit={() => navigate(`/rules/${rule.id}/edit`)}
-                    onMenuOpen={(e) => {
-                      e.stopPropagation();
-                      setActionMenuRuleId(actionMenuRuleId === rule.id ? null : rule.id);
-                    }}
+                    actions={<ActionMenu rule={rule} />}
                   />
                 ))}
               </div>
@@ -735,9 +770,9 @@ export function RuleListPage() {
                   <select
                     value={pageSize}
                     onChange={(e) => {
-                      setPageSize(Number(e.target.value));
-                      setPage(0);
+                      updateList({ pageSize: Number(e.target.value) });
                     }}
+                    aria-label="Rules per page"
                     className="h-8 rounded border border-gray-200 bg-white px-2 text-sm focus:outline-none"
                   >
                     {PAGE_SIZE_OPTIONS.map((size) => (
@@ -746,7 +781,8 @@ export function RuleListPage() {
                   </select>
                   <div className="flex items-center gap-1">
                     <button
-                      onClick={() => setPage((p) => Math.max(0, p - 1))}
+                      onClick={() => setPage(Math.max(0, page - 1))}
+                      aria-label="Previous page"
                       disabled={page === 0}
                       className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
@@ -779,7 +815,8 @@ export function RuleListPage() {
                       );
                     })}
                     <button
-                      onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
+                      onClick={() => setPage(Math.min(totalPages - 1, page + 1))}
+                      aria-label="Next page"
                       disabled={page >= totalPages - 1}
                       className="h-8 w-8 flex items-center justify-center rounded hover:bg-gray-100 disabled:opacity-40 disabled:cursor-not-allowed"
                     >
@@ -811,7 +848,7 @@ export function RuleListPage() {
         open={showCreateRule}
         onClose={() => setShowCreateRule(false)}
         onSubmit={handleCreateRule}
-        loading={createRule.isPending}
+        loading={spaceIdFromUrl ? createSpaceRule.isPending : createRule.isPending}
         folders={folders}
       />
 
@@ -825,7 +862,7 @@ export function RuleListPage() {
 
       {showImportRule && (
         <ImportRuleModal
-          spaceId={selectedFolderId ?? ''}
+          spaceId={spaceIdFromUrl}
           createdBy={user?.id ?? ''}
           onClose={() => setShowImportRule(false)}
           onSuccess={() => {
@@ -843,6 +880,16 @@ export function RuleListPage() {
           setSelectedRuleIds(new Set());
           refetchRules();
         }}
+      />
+
+      <ConfirmDialog
+        open={!!deleteTarget}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={confirmDeleteRule}
+        title="Delete Rule"
+        message={`Are you sure you want to delete "${deleteTarget?.name}"? This action cannot be undone.`}
+        confirmLabel="Delete Rule"
+        isLoading={deleteRule.isPending}
       />
 
       {assignToSpaceRules.length > 0 && (

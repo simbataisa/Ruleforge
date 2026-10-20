@@ -11,8 +11,10 @@ interface RuleCardProps {
   selected: boolean;
   onSelect: (e: React.MouseEvent) => void;
   onClick: () => void;
-  onMenuOpen: (e: React.MouseEvent) => void;
+  onMenuOpen?: (e: React.MouseEvent) => void;
   onEdit: () => void;
+  /** Action menu to render in place of the default "more" button (e.g. the list page's row menu). */
+  actions?: React.ReactNode;
 }
 
 export function RuleCard({
@@ -22,6 +24,7 @@ export function RuleCard({
   onClick,
   onMenuOpen,
   onEdit,
+  actions,
 }: RuleCardProps) {
   return (
     <div
@@ -104,15 +107,17 @@ export function RuleCard({
           >
             Edit
           </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation();
-              onMenuOpen(e);
-            }}
-            className="rounded p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
-          >
-            <MoreVertical className="h-4 w-4" />
-          </button>
+          {actions ?? (
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                onMenuOpen?.(e);
+              }}
+              className="rounded p-1 text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors"
+            >
+              <MoreVertical className="h-4 w-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>
