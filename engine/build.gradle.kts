@@ -28,7 +28,6 @@ subprojects {
 
     tasks.withType<Test> {
         useJUnitPlatform()
-        jvmArgs("--enable-preview")
     }
 
     dependencies {

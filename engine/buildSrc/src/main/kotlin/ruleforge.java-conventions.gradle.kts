@@ -5,10 +5,15 @@ plugins {
 
 java {
     toolchain {
-        languageVersion.set(JavaLanguageVersion.of(21))
+        languageVersion.set(JavaLanguageVersion.of(providers.gradleProperty("javaVersion").get().toInt()))
     }
     withSourcesJar()
     withJavadocJar()
+}
+
+jacoco {
+    // Java 25 class files need JaCoCo 0.8.14+
+    toolVersion = "0.8.15"
 }
 
 tasks.withType<JavaCompile> {
@@ -18,7 +23,6 @@ tasks.withType<JavaCompile> {
 
 tasks.withType<Test> {
     useJUnitPlatform()
-    jvmArgs("--enable-preview")
     testLogging {
         events("passed", "skipped", "failed")
     }

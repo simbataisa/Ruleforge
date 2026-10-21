@@ -1,4 +1,4 @@
-FROM eclipse-temurin:21-jre-alpine AS runtime
+FROM eclipse-temurin:25-jre-alpine AS runtime
 
 RUN addgroup -S ruleforge && adduser -S ruleforge -G ruleforge
 
@@ -13,4 +13,4 @@ HEALTHCHECK --interval=30s --timeout=5s --start-period=40s --retries=3 \
 
 USER ruleforge
 
-ENTRYPOINT ["java", "-jar", "app.jar"]
+ENTRYPOINT ["java", "-XX:+UseCompactObjectHeaders", "-jar", "app.jar"]

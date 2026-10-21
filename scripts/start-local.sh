@@ -17,17 +17,20 @@ fi
 SKIP_BUILD=false
 SKIP_INFRA=false
 NO_FRONTEND=false
+NO_AOT=false
 
 for arg in "$@"; do
   case "$arg" in
     --skip-build)  SKIP_BUILD=true ;;
     --skip-infra)  SKIP_INFRA=true ;;
     --no-frontend) NO_FRONTEND=true ;;
+    --no-aot)      NO_AOT=true ;;
     -h|--help)
-      echo "Usage: $0 [--skip-build] [--skip-infra] [--no-frontend]"
+      echo "Usage: $0 [--skip-build] [--skip-infra] [--no-frontend] [--no-aot]"
       echo "  --skip-build   Skip Gradle builds"
       echo "  --skip-infra   Skip starting Docker infrastructure"
       echo "  --no-frontend  Skip starting the frontend dev server"
+      echo "  --no-aot       Run services from the fat JAR without the Java 25 AOT cache"
       exit 0
       ;;
     *)
@@ -55,13 +58,14 @@ check_prereqs() {
   local missing=false
 
   if ! command -v java &>/dev/null; then
-    fail "Java not found. Install Java 21+."
+    fail "Java not found. Install Java 25."
     missing=true
   else
     local java_ver
-    java_ver=$(java -version 2>&1 | head -1 | sed -E 's/.*"([0-9]+)\..*/\1/')
-    if [[ "$java_ver" -lt 21 ]]; then
-      fail "Java 21+ required (found $java_ver)."
+    java_ver=$(java -version 2>&1 | head -1 | sed -E 's/.*"([0-9]+)[.".].*/\1/')
+    # Bytecode targets Java 25 and the bundled GraalVM polyglot runtime is built for JDK 25
+    if [[ "$java_ver" -ne 25 ]]; then
+      fail "Java 25 required (found $java_ver). Set JAVA_HOME to a JDK 25."
       missing=true
     else
       ok "Java $java_ver"
@@ -294,10 +298,38 @@ start_service() {
     return 1
   fi
   info "Starting $name (port $port)..."
-  java -jar "$jar" \
-    --spring.profiles.active=local \
-    --server.port="$port" \
-    > "$LOGS_DIR/${name}.log" 2>&1 &
+
+  # Java 25: compact object headers (JEP 519) shrink every object header from 12 to 8 bytes
+  local jvm_opts=(-XX:+UseCompactObjectHeaders)
+
+  if [[ "$NO_AOT" == true ]]; then
+    java "${jvm_opts[@]}" -jar "$jar" \
+      --spring.profiles.active=local \
+      --server.port="$port" \
+      > "$LOGS_DIR/${name}.log" 2>&1 &
+  else
+    # Java 25 AOT cache (JEPs 483/514/515): needs the extracted layout, not the nested fat JAR.
+    # Trained once per build, then reused, so later starts skip most class loading and linking.
+    local aot_dir="$PROJECT_ROOT/platform/${name}/build/aot"
+    local app_jar
+    app_jar="$aot_dir/app/$(basename "$jar")"
+    (
+      if [[ ! -f "$aot_dir/app.aot" || "$jar" -nt "$aot_dir/app.aot" ]]; then
+        rm -rf "$aot_dir" && mkdir -p "$aot_dir"
+        java -Djarmode=tools -jar "$jar" extract --destination "$aot_dir/app" > "$LOGS_DIR/${name}.aot.log" 2>&1
+        # Training run: start the context, record what was loaded, exit
+        java "${jvm_opts[@]}" -XX:AOTCacheOutput="$aot_dir/app.aot" -Dspring.context.exit=onRefresh \
+          -jar "$app_jar" --spring.profiles.active=local --server.port=0 >> "$LOGS_DIR/${name}.aot.log" 2>&1 \
+          || rm -f "$aot_dir/app.aot"
+      fi
+      if [[ -f "$aot_dir/app.aot" ]]; then
+        exec java "${jvm_opts[@]}" -XX:AOTCache="$aot_dir/app.aot" -jar "$app_jar" \
+          --spring.profiles.active=local --server.port="$port"
+      fi
+      # Training failed: fall back to the fat JAR
+      exec java "${jvm_opts[@]}" -jar "$jar" --spring.profiles.active=local --server.port="$port"
+    ) > "$LOGS_DIR/${name}.log" 2>&1 &
+  fi
   save_pid "$name" $!
 }
 

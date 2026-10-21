@@ -1,4 +1,8 @@
 spring:
+  # Java 21+ virtual threads for request handling, @Async and scheduling
+  threads:
+    virtual:
+      enabled: true
   application:
     name: ruleforge-solver-service
   datasource:
