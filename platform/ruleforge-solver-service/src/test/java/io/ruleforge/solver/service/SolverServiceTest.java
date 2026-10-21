@@ -2,6 +2,7 @@ package io.ruleforge.solver.service;
 
 import io.ruleforge.common.event.EventPublisher;
 import io.ruleforge.common.tenant.TenantContext;
+import io.ruleforge.common.tenant.TenantScopeExtension;
 import io.ruleforge.core.RuleForgeEngine;
 import io.ruleforge.core.memory.WorkingMemory;
 import io.ruleforge.core.model.CompiledRule;
@@ -18,7 +19,6 @@ import io.ruleforge.solver.dto.SolveRequest;
 import io.ruleforge.solver.entity.SolverRuleEntity;
 import io.ruleforge.solver.dto.SolveResponse;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -37,7 +37,15 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class SolverServiceTest {
+@ExtendWith(TenantScopeExtension.class)
+class SolverServiceTest implements TenantScopeExtension.TenantProvider {
+
+    private TenantContext.TenantInfo tenant;
+
+    @Override
+    public TenantContext.TenantInfo tenant() {
+        return tenant;
+    }
 
     @Mock private RuleCacheService cacheService;
     @Mock private RuleForgeEngine engine;
@@ -57,13 +65,9 @@ class SolverServiceTest {
         lenient().when(abTestRouter.route(any())).thenReturn(Optional.empty());
         SolverRuleEntity activeRule = ruleWithStatus("PUBLISHED");
         lenient().when(ruleLoaderService.resolveRule(any())).thenReturn(activeRule);
-        TenantContext.set(new TenantContext.TenantInfo(orgId, spaceId, userId, "SOLVER"));
+        tenant = new TenantContext.TenantInfo(orgId, spaceId, userId, "SOLVER");
     }
 
-    @AfterEach
-    void tearDown() {
-        TenantContext.clear();
-    }
 
     @Test
     void solve_returnsEngineOutput() {
@@ -188,6 +192,31 @@ class SolverServiceTest {
         assertThrows(ConflictException.class,
                 () -> solverService.solve(ruleId, null, new SolveRequest(Map.of(), null, null)));
         verifyNoInteractions(cacheService);
+    }
+
+    @Test
+    void solveBulk_evaluatesEachInputWithTheCallersTenantBound() {
+        String ruleId = UUID.randomUUID().toString();
+        CompiledRule compiledRule = mock(CompiledRule.class);
+        lenient().when(compiledRule.ruleId()).thenReturn(ruleId);
+        lenient().when(compiledRule.type()).thenReturn(RuleType.DECISION_TABLE);
+        lenient().when(compiledRule.metadata()).thenReturn(RuleMetadata.defaults());
+        when(cacheService.getCompiledRule(ruleId, null)).thenReturn(compiledRule);
+
+        java.util.Set<TenantContext.TenantInfo> tenantsSeen = java.util.concurrent.ConcurrentHashMap.newKeySet();
+        java.util.Set<Boolean> virtualThreads = java.util.concurrent.ConcurrentHashMap.newKeySet();
+        when(engine.evaluate(any(CompiledRule.class), any(WorkingMemory.class))).thenAnswer(inv -> {
+            tenantsSeen.add(TenantContext.get());
+            virtualThreads.add(Thread.currentThread().isVirtual());
+            return new RuleResult(Map.of(), new RuleResultMetadata(Duration.ofMillis(1), 1, 1, 0, "FIRST_MATCH"),
+                    List.of(), null);
+        });
+
+        solverService.solveBulk(ruleId, null,
+                new BulkSolveRequest(List.of(Map.of("a", 1), Map.of("a", 2), Map.of("a", 3)), null, null));
+
+        assertEquals(java.util.Set.of(tenant), tenantsSeen);
+        assertEquals(java.util.Set.of(true), virtualThreads);
     }
 
     private SolverRuleEntity ruleWithStatus(String status) {

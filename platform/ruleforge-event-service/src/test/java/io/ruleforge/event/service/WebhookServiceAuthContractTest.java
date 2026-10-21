@@ -2,6 +2,7 @@ package io.ruleforge.event.service;
 
 import tools.jackson.databind.ObjectMapper;
 import io.ruleforge.common.tenant.TenantContext;
+import io.ruleforge.common.tenant.TenantScopeExtension;
 import io.ruleforge.event.dto.CreateWebhookRequest;
 import io.ruleforge.event.dto.UpdateWebhookRequest;
 import io.ruleforge.event.dto.WebhookAuthConfigRequest;
@@ -14,7 +15,6 @@ import io.ruleforge.event.repository.WebhookDeliveryRepository;
 import io.ruleforge.event.repository.MemberLookupRepository;
 import io.ruleforge.event.repository.SpaceLookupRepository;
 import io.ruleforge.event.repository.WebhookRepository;
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,7 +34,15 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 @ExtendWith(MockitoExtension.class)
-class WebhookServiceAuthContractTest {
+@ExtendWith(TenantScopeExtension.class)
+class WebhookServiceAuthContractTest implements TenantScopeExtension.TenantProvider {
+
+    private TenantContext.TenantInfo tenant;
+
+    @Override
+    public TenantContext.TenantInfo tenant() {
+        return tenant;
+    }
 
     @Mock private WebhookRepository webhookRepository;
     @Mock private WebhookDeliveryRepository webhookDeliveryRepository;
@@ -66,13 +74,9 @@ class WebhookServiceAuthContractTest {
         orgId = UUID.randomUUID();
         userId = UUID.randomUUID();
         memberId = UUID.randomUUID();
-        TenantContext.set(new TenantContext.TenantInfo(orgId, null, userId, "OWNER"));
+        tenant = new TenantContext.TenantInfo(orgId, null, userId, "OWNER");
     }
 
-    @AfterEach
-    void tearDown() {
-        TenantContext.clear();
-    }
 
     @Test
     void createWebhook_customHeader_encryptsAndReturnsMaskedHeaderValue() {
@@ -129,20 +133,18 @@ class WebhookServiceAuthContractTest {
 
     @Test
     void createWebhook_deniesOrgScopeWhenRoleIsEditor() {
-        TenantContext.set(new TenantContext.TenantInfo(orgId, null, userId, "EDITOR"));
-
-        assertThatThrownBy(() -> service.createWebhook(orgId, userId, createRequest(null, null)))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("OWNER or ADMIN role required to create organization webhook");
+        TenantContext.runAs(new TenantContext.TenantInfo(orgId, null, userId, "EDITOR"), () ->
+                assertThatThrownBy(() -> service.createWebhook(orgId, userId, createRequest(null, null)))
+                        .isInstanceOf(AccessDeniedException.class)
+                        .hasMessage("OWNER or ADMIN role required to create organization webhook"));
     }
 
     @Test
     void createWebhook_deniesViewerForSpaceScope() {
-        TenantContext.set(new TenantContext.TenantInfo(orgId, null, userId, "VIEWER"));
-
-        assertThatThrownBy(() -> service.createWebhook(orgId, userId, spaceCreateRequest(null, null, UUID.randomUUID())))
-                .isInstanceOf(AccessDeniedException.class)
-                .hasMessage("EDITOR or higher role required to create webhook");
+        TenantContext.runAs(new TenantContext.TenantInfo(orgId, null, userId, "VIEWER"), () ->
+                assertThatThrownBy(() -> service.createWebhook(orgId, userId, spaceCreateRequest(null, null, UUID.randomUUID())))
+                        .isInstanceOf(AccessDeniedException.class)
+                        .hasMessage("EDITOR or higher role required to create webhook"));
     }
 
     @Test

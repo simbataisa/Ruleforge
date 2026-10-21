@@ -3,11 +3,11 @@ package io.ruleforge.solver.cache;
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import io.ruleforge.common.tenant.TenantContext;
+import io.ruleforge.common.tenant.TenantScopeExtension;
 import io.ruleforge.core.model.CompiledRule;
 import io.ruleforge.core.model.RuleType;
 import io.ruleforge.solver.service.RuleLoaderService;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,7 +20,15 @@ import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class RuleCacheServiceTest {
+@ExtendWith(TenantScopeExtension.class)
+class RuleCacheServiceTest implements TenantScopeExtension.TenantProvider {
+
+    private TenantContext.TenantInfo tenant;
+
+    @Override
+    public TenantContext.TenantInfo tenant() {
+        return tenant;
+    }
 
     @Mock private RuleLoaderService ruleLoaderService;
     private Cache<String, CompiledRule> cache;
@@ -34,13 +42,9 @@ class RuleCacheServiceTest {
     void setUp() {
         cache = Caffeine.newBuilder().maximumSize(100).build();
         cacheService = new RuleCacheService(cache, ruleLoaderService);
-        TenantContext.set(new TenantContext.TenantInfo(orgId, spaceId, userId, "SOLVER"));
+        tenant = new TenantContext.TenantInfo(orgId, spaceId, userId, "SOLVER");
     }
 
-    @AfterEach
-    void tearDown() {
-        TenantContext.clear();
-    }
 
     @Test
     void getCompiledRule_cacheMiss_loadsFromService() {

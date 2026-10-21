@@ -32,6 +32,8 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.atomic.AtomicInteger;
 
 /**
@@ -124,6 +126,24 @@ public class SolverService {
         return mapToResponse(compiled, result, elapsedMs);
     }
 
+    private SolveResponse evaluateBulkInput(CompiledRule compiled, Map<String, Object> input,
+                                            AtomicInteger successCount, AtomicInteger errorCount) {
+        try {
+            long startNanos = System.nanoTime();
+            WorkingMemory workingMemory = new WorkingMemory();
+            workingMemory.loadFromMap(input);
+            RuleResult result = engine.evaluate(compiled, workingMemory);
+            long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
+
+            successCount.incrementAndGet();
+            return mapToResponse(compiled, result, elapsedMs);
+        } catch (Exception e) {
+            errorCount.incrementAndGet();
+            log.warn("Bulk evaluation failed for one input: {}", e.getMessage());
+            return createErrorResponse(compiled, e);
+        }
+    }
+
     private UUID tryParseUuid(String value) {
         try {
             return UUID.fromString(value);
@@ -149,43 +169,27 @@ public class SolverService {
         // Load compiled rule once
         CompiledRule compiled = cacheService.getCompiledRule(ruleIdOrAlias, version);
 
-        // Capture tenant context for virtual threads
+        // Scoped values are not inherited by executor threads, so each task re-binds the caller's tenant
         TenantContext.TenantInfo tenantInfo = TenantContext.get();
 
         AtomicInteger successCount = new AtomicInteger(0);
         AtomicInteger errorCount = new AtomicInteger(0);
 
-        // Evaluate each input using virtual threads for parallelism
-        List<CompletableFuture<SolveResponse>> futures = request.inputs().stream()
-                .map(input -> CompletableFuture.supplyAsync(() -> {
-                    try {
-                        // Propagate tenant context to virtual thread
-                        if (tenantInfo != null) {
-                            TenantContext.set(tenantInfo);
-                        }
+        // One virtual thread per input; the executor waits for all tasks when closed
+        List<SolveResponse> results;
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            List<CompletableFuture<SolveResponse>> futures = request.inputs().stream()
+                    .map(input -> CompletableFuture.supplyAsync(() -> tenantInfo == null
+                            ? evaluateBulkInput(compiled, input, successCount, errorCount)
+                            : TenantContext.callAs(tenantInfo,
+                                    () -> evaluateBulkInput(compiled, input, successCount, errorCount)), executor))
+                    .toList();
 
-                        long startNanos = System.nanoTime();
-                        WorkingMemory workingMemory = new WorkingMemory();
-                        workingMemory.loadFromMap(input);
-                        RuleResult result = engine.evaluate(compiled, workingMemory);
-                        long elapsedMs = (System.nanoTime() - startNanos) / 1_000_000;
-
-                        successCount.incrementAndGet();
-                        return mapToResponse(compiled, result, elapsedMs);
-                    } catch (Exception e) {
-                        errorCount.incrementAndGet();
-                        log.warn("Bulk evaluation failed for one input: {}", e.getMessage());
-                        return createErrorResponse(compiled, e);
-                    } finally {
-                        TenantContext.clear();
-                    }
-                }))
-                .toList();
-
-        // Collect results preserving order
-        List<SolveResponse> results = futures.stream()
-                .map(CompletableFuture::join)
-                .toList();
+            // Collect results preserving order
+            results = futures.stream()
+                    .map(CompletableFuture::join)
+                    .toList();
+        }
 
         long bulkElapsedMs = (System.nanoTime() - bulkStartNanos) / 1_000_000;
 

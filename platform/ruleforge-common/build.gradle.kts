@@ -1,5 +1,6 @@
 plugins {
     `java-library`
+    `java-test-fixtures`
     id("io.spring.dependency-management")
 }
 
@@ -21,4 +22,7 @@ dependencies {
     runtimeOnly("io.jsonwebtoken:jjwt-jackson:${property("jjwtVersion")}")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+
+    // Shared test support (TenantScopeExtension) for the services' tests
+    testFixturesImplementation("org.junit.jupiter:junit-jupiter-api")
 }

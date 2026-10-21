@@ -29,4 +29,5 @@ dependencies {
     implementation("io.ruleforge:ruleforge-hierarchy:${property("version")}")
 
     testImplementation("org.springframework.boot:spring-boot-starter-test")
+    testImplementation(testFixtures(project(":ruleforge-common")))
 }

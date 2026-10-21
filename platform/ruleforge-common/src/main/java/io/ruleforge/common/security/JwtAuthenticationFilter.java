@@ -41,26 +41,24 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                                     FilterChain filterChain) throws ServletException, IOException {
         try {
             String token = resolveToken(request);
-
-            if (token != null && jwtTokenProvider.validateToken(token)) {
-                Claims claims = jwtTokenProvider.parseToken(token);
-
-                UUID userId = UUID.fromString(claims.getSubject());
-                UUID orgId = UUID.fromString(claims.get("orgId", String.class));
-                String role = claims.get("role", String.class);
-
-                // Set multi-tenant context (spaceId is null for JWT — it is request-scoped)
-                TenantContext.set(new TenantInfo(orgId, null, userId, role));
-
-                // Set Spring Security context
-                var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
-                var authentication = new UsernamePasswordAuthenticationToken(userId, null, authorities);
-                SecurityContextHolder.getContext().setAuthentication(authentication);
+            if (token == null || !jwtTokenProvider.validateToken(token)) {
+                filterChain.doFilter(request, response);
+                return;
             }
 
-            filterChain.doFilter(request, response);
+            Claims claims = jwtTokenProvider.parseToken(token);
+            UUID userId = UUID.fromString(claims.getSubject());
+            UUID orgId = UUID.fromString(claims.get("orgId", String.class));
+            String role = claims.get("role", String.class);
+
+            // Set Spring Security context
+            var authorities = List.of(new SimpleGrantedAuthority("ROLE_" + role));
+            var authentication = new UsernamePasswordAuthenticationToken(userId, null, authorities);
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+
+            // Tenant bound for the rest of the request (spaceId is null for JWT — it is request-scoped)
+            TenantScopedChain.proceed(new TenantInfo(orgId, null, userId, role), filterChain, request, response);
         } finally {
-            TenantContext.clear();
             SecurityContextHolder.clearContext();
         }
     }

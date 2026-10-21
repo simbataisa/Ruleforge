@@ -39,37 +39,32 @@ public class ApiKeyAuthenticationFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request,
                                     HttpServletResponse response,
                                     FilterChain filterChain) throws ServletException, IOException {
-        try {
-            String apiKey = request.getHeader(SecurityConstants.API_KEY_HEADER);
-
-            if (apiKey != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                Optional<ApiKeyValidator.ApiKeyInfo> keyInfo = apiKeyValidator.validate(apiKey);
-
-                keyInfo.ifPresent(info -> {
-                    // Set multi-tenant context from API key metadata (userId is null for API keys)
-                    TenantContext.set(new TenantInfo(info.orgId(), info.spaceId(), null, SecurityConstants.ROLE_SOLVER));
-
-                    // Build authorities from the key's permissions
-                    var authorities = info.permissions().stream()
-                            .map(SimpleGrantedAuthority::new)
-                            .toList();
-
-                    var authentication = new UsernamePasswordAuthenticationToken(
-                            "apikey:" + info.keyType(), null, authorities);
-                    SecurityContextHolder.getContext().setAuthentication(authentication);
-
-                    log.debug("Authenticated via API key for org={} space={}", info.orgId(), info.spaceId());
-                });
-            }
-
+        String apiKey = request.getHeader(SecurityConstants.API_KEY_HEADER);
+        if (apiKey == null || SecurityContextHolder.getContext().getAuthentication() != null) {
             filterChain.doFilter(request, response);
+            return;
+        }
+
+        Optional<ApiKeyValidator.ApiKeyInfo> keyInfo = apiKeyValidator.validate(apiKey);
+        if (keyInfo.isEmpty()) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        ApiKeyValidator.ApiKeyInfo info = keyInfo.get();
+        var authorities = info.permissions().stream()
+                .map(SimpleGrantedAuthority::new)
+                .toList();
+        SecurityContextHolder.getContext().setAuthentication(
+                new UsernamePasswordAuthenticationToken("apikey:" + info.keyType(), null, authorities));
+        log.debug("Authenticated via API key for org={} space={}", info.orgId(), info.spaceId());
+
+        try {
+            // Tenant from API key metadata (userId is null for API keys), bound for the rest of the request
+            TenantScopedChain.proceed(new TenantInfo(info.orgId(), info.spaceId(), null, SecurityConstants.ROLE_SOLVER),
+                    filterChain, request, response);
         } finally {
-            // Only clear if this filter set the context (check for apikey principal)
-            var auth = SecurityContextHolder.getContext().getAuthentication();
-            if (auth != null && auth.getPrincipal() instanceof String principal && principal.startsWith("apikey:")) {
-                TenantContext.clear();
-                SecurityContextHolder.clearContext();
-            }
+            SecurityContextHolder.clearContext();
         }
     }
 }

@@ -4,6 +4,7 @@ import io.ruleforge.common.event.EventPublisher;
 import io.ruleforge.common.exception.ConflictException;
 import io.ruleforge.common.exception.EntityNotFoundException;
 import io.ruleforge.common.tenant.TenantContext;
+import io.ruleforge.common.tenant.TenantScopeExtension;
 import io.ruleforge.management.dto.CreateRuleRequest;
 import io.ruleforge.management.dto.RuleDto;
 import io.ruleforge.management.dto.UpdateRuleRequest;
@@ -18,7 +19,6 @@ import io.ruleforge.management.repository.RuleTagRepository;
 import io.ruleforge.management.repository.RuleVersionRepository;
 import io.ruleforge.management.repository.SpaceRepository;
 
-import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,7 +40,15 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-class RuleServiceTest {
+@ExtendWith(TenantScopeExtension.class)
+class RuleServiceTest implements TenantScopeExtension.TenantProvider {
+
+    private TenantContext.TenantInfo tenant;
+
+    @Override
+    public TenantContext.TenantInfo tenant() {
+        return tenant;
+    }
 
     @Mock private RuleRepository ruleRepository;
     @Mock private RuleVersionRepository ruleVersionRepository;
@@ -59,13 +67,9 @@ class RuleServiceTest {
     void setUp() {
         ruleService = new RuleService(ruleRepository, ruleVersionRepository,
                 ruleTagRepository, eventPublisher, spaceRepository, folderRepository);
-        TenantContext.set(new TenantContext.TenantInfo(orgId, spaceId, userId, "OWNER"));
+        tenant = new TenantContext.TenantInfo(orgId, spaceId, userId, "OWNER");
     }
 
-    @AfterEach
-    void tearDown() {
-        TenantContext.clear();
-    }
 
     @Test
     void createRule_savesRuleAndVersion() {
