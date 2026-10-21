@@ -44,7 +44,7 @@ flowchart TB
 
 ```
 ruleforge/
-├── engine/                              # Embeddable rule engine (Gradle, Java 21)
+├── engine/                              # Embeddable rule engine (Gradle, Java 25)
 │   ├── ruleforge-core/                  # Core: model, memory, SPI, RFL parser, engine API
 │   ├── ruleforge-table/                 # Decision Table engine (7 index types)
 │   ├── ruleforge-tree/                  # Decision Tree engine (BDD compilation)
@@ -82,9 +82,9 @@ ruleforge/
 
 | Layer          | Technology                                                                 |
 | -------------- | -------------------------------------------------------------------------- |
-| Engine         | Java 21, zero-dep core (SLF4J + Jackson only), GraalVM 23.1.2              |
+| Engine         | Java 25, zero-dep core (SLF4J + Jackson only), GraalVM polyglot 25.0.5     |
 | Platform       | Spring Boot 4.1.1 (Spring Framework 7, Spring Security 7, Jackson 3), PostgreSQL 16, Redis 7, Kafka 3.7.1, Elasticsearch 9.4.5, Caffeine |
-| Build          | Gradle 8.14.6 (wrapper committed for `engine/` and `platform/`)            |
+| Build          | Gradle 9.8.2 (wrapper committed for `engine/` and `platform/`)             |
 | Frontend       | React 18, TypeScript 5.5, Vite 5.4, Tailwind CSS 3.4, Zustand, React Query, Recharts, Monaco Editor |
 | AI             | Python 3.12, FastAPI, Anthropic SDK                                        |
 | Infrastructure | Docker, Kong 3.6 API Gateway, Flyway                                       |
@@ -98,11 +98,19 @@ The platform was upgraded from Spring Boot 3.3 to 4.1. When writing platform cod
 - **Starters were renamed.** Use `spring-boot-starter-webmvc` (not `-web`), `spring-boot-starter-flyway`, and `spring-boot-starter-kafka` — Kafka auto-configuration now lives in its own module.
 - **The engine stays on Jackson 2** so it remains embeddable in applications that are not on Spring Boot 4.
 
+### Java 25 notes for developers
+
+- **Everything targets Java 25** (class file version 69), including the embeddable engine — applications embedding `ruleforge-core` need Java 25 too.
+- **Tenant context is a `ScopedValue`.** Read it with `TenantContext.get()` (null outside a request scope). To run code as a tenant, use `TenantContext.runAs(info, () -> …)` or `callAs`. Scoped values are not inherited by executor threads, so re-bind the tenant inside tasks you submit (see bulk solve in `SolverService`). In tests, add `@ExtendWith(TenantScopeExtension.class)` and implement `TenantScopeExtension.TenantProvider`.
+- **Services run on virtual threads** (`spring.threads.virtual.enabled: true`). Since Java 24, `synchronized` no longer pins a virtual thread to its carrier; blocking inside native or foreign-function calls still does.
+- **Runtime flags:** services start with compact object headers (`-XX:+UseCompactObjectHeaders`, JEP 519), and `start-local.sh` adds a per-build AOT cache (JEPs 483/514/515).
+- **No preview features** are enabled; structured concurrency (`StructuredTaskScope`) is still preview in Java 25.
+
 ## Quick Start
 
 ### Prerequisites
 
-- **Java 21** (with `JAVA_HOME` set). Use JDK 21 specifically: the bundled GraalVM polyglot runtime (23.1.2) fails on JDK 22+, which breaks Script rules at runtime.
+- **Java 25** (with `JAVA_HOME` set). The code targets Java 25 bytecode and the bundled GraalVM polyglot runtime (25.0.5) is built for JDK 25.
 - **Node.js 18+** and npm
 - **Docker** and **Docker Compose** (v2.20+)
 - _Optional:_ Python 3.10+ (for AI service), Flyway CLI (for standalone migrations)
@@ -122,7 +130,7 @@ make dev-up
 
 | Phase | What happens |
 |-------|--------------|
-| **1. Prerequisites** | Validates Java 21+, Node.js 18+, and Docker are available. Aborts with a clear error if any are missing. |
+| **1. Prerequisites** | Validates Java 25, Node.js 18+, and Docker are available. Aborts with a clear error if any are missing. |
 | **2. Infrastructure** | Runs `docker compose up -d` for the infra stack (PostgreSQL 5432, Redis 6379, Kafka 9092, Elasticsearch 9200, MinIO 9000). Waits with retries for each service to become healthy before proceeding. |
 | **3. Build** | Compiles the engine (`./gradlew build -x test`) and all platform services (`./gradlew build -x test`). Installs frontend npm dependencies. |
 | **4. Platform services** | Starts the 7 Spring Boot JARs from `platform/*/build/libs/` as background processes, in dependency order: auth-service first, then management/event/connector/solver in parallel, then analytics, then scheduler. Each service is health-checked via its `/actuator/health` endpoint. |
@@ -138,6 +146,7 @@ After startup, the script prints a service status table showing the port, PID, a
 | `--skip-build` | Skip Gradle and npm builds. Uses existing JARs in `build/libs/`. Fastest way to restart after a code change that doesn't need a rebuild. |
 | `--skip-infra` | Skip starting Docker infrastructure. Use when containers are already running. |
 | `--no-frontend` | Skip starting the Vite dev server. Useful for backend-only work. |
+| `--no-aot` | Run services straight from the fat JAR, without training or using the Java 25 AOT cache. |
 
 ```bash
 # Fast restart (services only, infra already up, no code changes):
@@ -174,11 +183,11 @@ tail -f logs/ruleforge-solver-service.log
 
 | Symptom | Fix |
 |---------|-----|
-| `Java 21+ required (found )` | Ensure `JAVA_HOME` is set to a valid absolute path (e.g. `export JAVA_HOME="/path/to/java21"`). |
+| `Java 25 required (found …)` | Point `JAVA_HOME` (and `PATH`) at a JDK 25, e.g. `export JAVA_HOME="$HOME/.sdkman/candidates/java/25.0.3-tem"`. |
 | `PostgreSQL did not become ready` | Check that `docker-postgres-1` is running: `docker ps`. If `pg_isready` isn't installed locally, the script falls back to `docker exec` automatically. |
 | `No JAR found for <service>` | Run without `--skip-build` or rebuild manually: `cd platform && ./gradlew build -x test`. |
 | Services start but return 500 | Database migrations may not have run. Apply them with `make migrate`. |
-| Script rules return 500 with `NoSuchMethodError: sun.misc.Unsafe.ensureClassInitialized` | The services are running on JDK 22+. Point `JAVA_HOME` (and `PATH`) at JDK 21 and restart. |
+| First start after a build is slower | `start-local.sh` trains a Java 25 AOT cache per service (one short training start each). Later starts reuse it. Use `--no-aot` to skip. Training output is in `logs/<service>.aot.log`. |
 | `analytics-service` fails to start: `status: 400, [es/indices.exists] Expecting a response body` | Elasticsearch is older than 9.x. Spring Boot 4 ships the Elasticsearch 9 client. Recreate the container from the current compose file: `docker compose -f infra/docker/docker-compose.infra.yml up -d elasticsearch` (remove the old container and `docker_es_data` volume first; 8.x data cannot be opened by 9.x). |
 | `pull access denied for minio/minio` | MinIO is not used by any service. Start only what is needed: `docker compose -f infra/docker/docker-compose.infra.yml up -d postgres redis kafka elasticsearch`, then run the script with `--skip-infra`. |
 | Gradle fails with `PKIX path building failed` | A TLS-intercepting proxy (e.g. Cloudflare WARP or a corporate proxy) is in the path and Java does not trust its CA. Import the proxy CA into a Java truststore and pass it via `JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStore=<path> -Djavax.net.ssl.trustStorePassword=<password>"`. |
@@ -306,7 +315,7 @@ In local development, the Vite dev server routes requests directly to each servi
 - **Ensembles** — Combine outputs from multiple rules via voting, averaging, or selection strategies.
 - **DMN 1.4** — OMG Decision Model and Notation with S-FEEL expressions and decision chaining.
 - **Rule Flows** — DAG orchestrator with 6 node types (Condition, Action, Gate, Fork, Join, Sub-Rule).
-- **Scripting Rules** — GraalVM-sandboxed JavaScript execution with resource limits. Runs on a standard JDK 21 (GraalVM JDK not required — polyglot runtime is bundled); the bundled runtime does not work on JDK 22+.
+- **Scripting Rules** — GraalVM-sandboxed JavaScript execution with resource limits. Runs on a standard JDK 25 (GraalVM JDK not required — the polyglot runtime is bundled).
 - **Complex Event Processing** — Pattern detection (Sequence, Aggregation, Frequency) with in-memory evaluation and optional Kafka Streams streaming mode.
 - **RFL Expression Language** — Custom recursive-descent parser with null-safe navigation (`?.`), lambdas, and extensible function/operator registries.
 - **Multi-Layer Caching** — L1 Caffeine (per-JVM) → L2 Redis (distributed) → L3 PostgreSQL, with Kafka-driven cache invalidation.
@@ -393,7 +402,7 @@ Verify the full stack is working:
 
 The smoke test suite validates: infrastructure (5 services), platform services (7 services), frontend, user registration/login, rule CRUD, and rule execution for all 8 rule types.
 
-Expected result on a fresh local stack (Spring Boot 4.1, JDK 21): **126 pass, 0 fail, 2 skip** (MinIO, and the optional "Sandbox" space check).
+Expected result on a fresh local stack (Spring Boot 4.1, JDK 25): **126 pass, 0 fail, 2 skip** (MinIO, and the optional "Sandbox" space check).
 
 ## Known Issues
 
@@ -428,7 +437,7 @@ These pre-date the Spring Boot 4 upgrade and are not yet fixed:
 | **Phase 5 — Quality**              | Done   | Test coverage, completeness, local boot fixes, smoke tests, seed data                                          |
 | **Phase 6 — UX Polish**            | Done   | Monaco editor, analytics charts, FlowEditor modals, missing pages (audit, webhooks, tags, spaces, SSO, members), import/export wiring, version diff viewer, keyboard shortcuts |
 | **Phase 7 — Production Readiness** | Done   | Approval workflow, real-time notifications (SSE), user profile, error boundary & skeletons, security hardening (CSRF, session timeout), performance optimization (code-splitting, debounce, memoization) |
-| **Platform upgrade**               | Done   | Spring Boot 3.3 → 4.1.1 (Spring Framework 7, Jackson 3), Elasticsearch 9.4.5, Gradle 8.14.6                   |
+| **Platform upgrade**               | Done   | Spring Boot 3.3 → 4.1.1 (Spring Framework 7, Jackson 3), Elasticsearch 9.4.5; then Java 25 (Gradle 9.8.2, GraalVM 25.0.5, virtual threads, ScopedValue tenancy, AOT cache) |
 
 ## License
 

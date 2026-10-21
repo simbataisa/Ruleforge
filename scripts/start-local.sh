@@ -62,9 +62,10 @@ check_prereqs() {
     missing=true
   else
     local java_ver
-    java_ver=$(java -version 2>&1 | head -1 | sed -E 's/.*"([0-9]+)[.".].*/\1/')
+    # Read the "version" line: JAVA_TOOL_OPTIONS makes the JVM print a "Picked up ..." line first
+    java_ver=$(java -version 2>&1 | grep -m1 ' version "' | sed -E 's/.*version "([0-9]+)[.".].*/\1/')
     # Bytecode targets Java 25 and the bundled GraalVM polyglot runtime is built for JDK 25
-    if [[ "$java_ver" -ne 25 ]]; then
+    if [[ ! "$java_ver" =~ ^[0-9]+$ || "$java_ver" -ne 25 ]]; then
       fail "Java 25 required (found $java_ver). Set JAVA_HOME to a JDK 25."
       missing=true
     else

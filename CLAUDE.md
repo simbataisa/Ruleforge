@@ -20,7 +20,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 make infra-up          # Start infrastructure containers
 make infra-down        # Stop infrastructure
 
-# Engine (Gradle multi-module, Java 21)
+# Engine (Gradle multi-module, Java 25)
 cd engine && ./gradlew build        # Build all engine modules
 cd engine && ./gradlew test         # Run engine tests
 cd engine && ./gradlew compileJava  # Compile only (no tests)
@@ -61,7 +61,7 @@ Run `docker exec -i docker-postgres-1 psql -U ruleforge -d ruleforge < db/migrat
 
 ```
 ruleforge/
-├── engine/          # Rule engine library (Gradle, Java 21) — standalone, embeddable
+├── engine/          # Rule engine library (Gradle, Java 25) — standalone, embeddable
 ├── platform/        # Microservices (Gradle, Spring Boot 4.1)
 ├── frontend/        # Web UI (Vite, React 18, TypeScript, Tailwind)
 ├── ai-service/      # AI assistant (Python, FastAPI)
@@ -135,7 +135,7 @@ Routes `/v1/solve` → solver, `/v1/rules|folders|tags` → management, `/v1/aut
 
 ### Multi-Tenancy
 
-Organization → Space → Folder → Rule. PostgreSQL RLS on all tenant tables. TenantContext propagated via ThreadLocal from JWT/API key.
+Organization → Space → Folder → Rule. PostgreSQL RLS on all tenant tables. TenantContext is a Java 25 `ScopedValue` bound by the JWT/API-key filters for the request (`TenantContext.runAs/callAs`; `get()` is null outside a scope). Work handed to other threads must re-bind it. Tests use `TenantScopeExtension` (ruleforge-common test fixtures) and implement `TenantProvider`.
 
 ### Development Roadmap
 
@@ -153,7 +153,7 @@ Both management-service and solver-service register all 9 rule type engines:
 
 - DecisionTableEngine, DecisionTreeEngine, ScorecardEngine, EnsembleEngine, FlowEngine, DmnEngine, ScriptingEngine, CepEngine, HierarchyEngine
 - Configuration: `EngineConfig.java` in each service's `config` package
-- ScriptingEngine bundles GraalVM polyglot runtime — works on any JDK 21+ (Temurin, Corretto, etc.)
+- ScriptingEngine bundles the GraalVM polyglot runtime 25.0.x — requires JDK 25 (Temurin, Corretto, etc.)
 - Script rules must define a function named `evaluate` (not `execute`) and use language `"js"` (not `"javascript"`)
 - DefaultRuleForgeEngine dispatches evaluation through RuleTypeEngine when available (required for engines like ScriptingEngine that manage context lifecycle)
 
