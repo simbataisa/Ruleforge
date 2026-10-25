@@ -41,3 +41,8 @@ child file from the template, and updates this index. To log manually, copy
 |---|------|-----------|-------|---------|------|
 | 027 | 2026-10-25 | `bmad` → `tl` / next | onboard | Refreshed brownfield RuleForge context (Java 25, Spring Boot 4.1.1, React, FastAPI); gate detection unresolved | [view](handoffs/027-2026-10-25-bmad→next.md) |
 | 028 | 2026-10-25 | `tl` → reviewer / TQE / DevSecOps | gate configuration | Fixed validator compatibility and declared component commands; unmerged branch tl/gate-config-2026-10-25 | [view](handoffs/028-2026-10-25-tl→next.md) |
+
+## Integration Record — 2026-10-25
+
+- User explicitly approved a direct fast-forward exception after BMAD refused a merge token. Main advanced from c854b3e to 5496694, including onboarding input commit e4fe330. No merge token or application gate pass is claimed.
+- The TL worktree and tl/gate-config-2026-10-25 branch were removed after ancestry confirmation. Independent pending edits were restored and checked against the pre-merge backup.

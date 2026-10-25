@@ -58,3 +58,7 @@ Empty commands fail closed when requested. Declaring these commands does not res
 Configuration deliverable is complete on tl/gate-config-2026-10-25. The branch remains unmerged. Main retains the original pending working-tree configuration until reviewed integration. Under completion-protocol-sequential Step 7, the TL-own-run path (tl-review-gate: none) cannot mint its own merge token; independent review / human integration is required.
 
 The scoped tl-plan-done signal denotes completion of this declaration task only. It grants no engineering, sprint, merge, or release authorization.
+
+## Integration Update — 2026-10-25
+
+The user approved a direct fast-forward exception to the token-only rule after the token refusal was explained. Main now includes commit 5496694. The TL worktree and branch have been removed; independent pending edits were restored. Gate schema validation passes on main. Application tests/builds remain unexecuted, and coverage, security-scan, and graph-intact remain unconfigured. The earlier unmerged status above records the state before this approval.
