@@ -73,3 +73,8 @@ child file from the template, and updates this index. To log manually, copy
 
 - At the user’s explicit merge instruction, main fast-forwarded from 4e294ef to b334baa. The whole-project enterprise inventory, historical Spaces archive and scoped independent Tech Lead review are integrated. No merge-token, application gate result or production architecture approval is claimed.
 - Removed .bmad/worktrees/ea and ea/onboard-2026-10-25 after ancestry verification. All 95 independent pending paths and the exact staged diff were preserved. Missing enterprise-design inputs remain tracked in docs/reviews/ea-blocked.md.
+
+## Architecture Documentation Integration — 2026-10-25
+
+- At the user’s explicit merge instruction, main fast-forwarded from c9ebf24 to 5cc117d, integrating ARC-DOC-001 and its independent editorial review. No merge-token, application gate result, production architecture approval or technical decision is claimed.
+- Removed .bmad/worktrees/ea and ea/architecture-docs-2026-10-25 after ancestry verification. All 98 independent pending paths and the exact staged diff were preserved.
