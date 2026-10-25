@@ -57,3 +57,8 @@ child file from the template, and updates this index. To log manually, copy
 
 - At the user’s explicit instruction, fast-forwarded main from 749afe1 to 67964c3 and removed .bmad/worktrees/po and po/onboard-2026-10-25. No merge-token, application gate result, or product-wide business approval is claimed.
 - All 86 independent pending paths were checked against the pre-merge snapshot and preserved. Draft supplements remain needs_clarification for product-wide planning.
+
+## Project Brief Correction Integration — 2026-10-25
+
+- At the user’s explicit merge instruction, main fast-forwarded from 4433de1 to 20b62f9. The corrected RuleForge brief, preserved historical Spaces brief, and PRD input-link fix are integrated.
+- Removed .bmad/worktrees/po and po/correct-project-brief-2026-10-25 after ancestry verification. All 101 independent pending paths matched their pre-merge snapshot. No application gate result or business sign-off is claimed.
