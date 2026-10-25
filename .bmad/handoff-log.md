@@ -2,6 +2,8 @@
 
 ## Changelog
 
+- 2026-10-25: Add Tech Lead gate-declaration handoff #028 on tl/gate-config-2026-10-25.
+
 - 2026-10-25: Add onboarding handoff #027; retain historical numbering without restoring removed handoffs.
 
 This file is the **master index** of all agent handoffs in this project.
@@ -38,3 +40,4 @@ child file from the template, and updates this index. To log manually, copy
 | # | Date | From → To | Phase | Summary | File |
 |---|------|-----------|-------|---------|------|
 | 027 | 2026-10-25 | `bmad` → `tl` / next | onboard | Refreshed brownfield RuleForge context (Java 25, Spring Boot 4.1.1, React, FastAPI); gate detection unresolved | [view](handoffs/027-2026-10-25-bmad→next.md) |
+| 028 | 2026-10-25 | `tl` → reviewer / TQE / DevSecOps | gate configuration | Fixed validator compatibility and declared component commands; unmerged branch tl/gate-config-2026-10-25 | [view](handoffs/028-2026-10-25-tl→next.md) |

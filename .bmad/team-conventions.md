@@ -2,6 +2,7 @@
 
 ## Changelog
 
+- 2026-10-25: Declare component gate commands after repairing local validator compatibility; application gates remain unexecuted.
 - 2026-10-25: Replace scaffold defaults with observed conventions and explicitly identify unconfirmed policies (--force).
 
 > Repository observations are evidence of implementation, not approval of a new team policy.
@@ -71,4 +72,4 @@ Commands were inspected, not executed. Coverage target and enforcement remain un
 
 ## Gate Configuration
 
-Gate detection failed: the installed bmad-gate.py rejects coverage.report and coverage.threshold in the scaffold gates.json. The detector also reports no root candidates for tests-green, build-green, and typecheck-clean in this multi-component repository. Tech Lead must resolve the schema mismatch and declare reviewed component commands before autonomous execution.
+Tech Lead declared multi-component tests-green, TypeScript typecheck-clean, and compiled-artifact build-green commands in gates.json. Coverage is a custom gate; scaffold report/threshold metadata is retained under _coverage_policy pending TQE review. The schema is compatible with the installed validator. Commands are declarations, not passing evidence. Coverage, security-scan, and graph-intact still lack commands; frontend lint configuration is absent. See docs/reviews/tl-gate-configuration.md for scope and follow-up ownership.

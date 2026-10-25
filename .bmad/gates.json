@@ -1,13 +1,44 @@
 {
   "schema": "gates-v1",
-  "_help": "How this project runs each exit gate from the gate library (shared/references/context/loop-controls.md). scaffold-project.sh and /bmad:onboard fill `run` from the build files via `bmad-gate.py detect --write` and mark it `\"detected\": true`; the Tech Lead reviews every command at sprint planning, drops the flag and fills any gap. `run` = a shell command whose exit 0 means the gate passed. `verdict: true` means the gate is satisfied by the review engine's GO for the same commit — ac-checklist is a judgment call, so the reviewer decides it, never the actor. An empty `run` is `missing_project_gate` until the TL declares it. Add a project-specific gate with `\"custom\": true`.",
+  "_help": "How this project runs each exit gate from the gate library (shared/references/context/loop-controls.md). scaffold-project.sh and /bmad:onboard fill `run` from the build files via `bmad-gate.py detect --write` and mark it `\"detected\": true`; the Tech Lead reviews every command at sprint planning, drops the flag and fills any gap. `run` = a shell command whose exit 0 means the gate passed. `verdict: true` means the gate is satisfied by the review engine's GO for the same commit \u2014 ac-checklist is a judgment call, so the reviewer decides it, never the actor. An empty `run` is `missing_project_gate` until the TL declares it. Add a project-specific gate with `\"custom\": true`.",
   "gates": {
-    "tests-green":     { "run": "", "timeout": 900 },
-    "typecheck-clean": { "run": "" },
-    "build-green":     { "run": "" },
-    "graph-intact":    { "run": "" },
-    "coverage":        { "run": "", "report": "", "threshold": 80 },
-    "security-scan":   { "run": "" },
-    "ac-checklist":    { "verdict": true }
-  }
+    "tests-green": {
+      "run": "(cd engine && ./gradlew test) && (cd platform && ./gradlew test) && (cd frontend && npm test) && (cd ai-service && uv run --extra dev python -m pytest tests) && (cd sdks/sdk-java && mvn test) && (cd sdks/sdk-node && npm test) && (cd sdks/sdk-python && uv run --extra dev python -m pytest tests)",
+      "timeout": 1800,
+      "description": "Engine, platform, frontend, AI service, and Java/Node/Python SDK tests; stops on the first failing component. Does not include live-stack smoke."
+    },
+    "typecheck-clean": {
+      "run": "(cd frontend && npx --no-install tsc --noEmit -p tsconfig.json) && (cd sdks/sdk-node && npx --no-install tsc --noEmit -p tsconfig.json)",
+      "timeout": 300,
+      "description": "TypeScript checks for frontend and Node SDK. Lint and Python static checks are not covered."
+    },
+    "build-green": {
+      "run": "(cd engine && ./gradlew assemble) && (cd platform && ./gradlew assemble) && (cd frontend && npm run build) && (cd sdks/sdk-java && mvn package -DskipTests) && (cd sdks/sdk-node && npm run build)",
+      "timeout": 1800,
+      "description": "Assemble JVM components and build frontend/Node output; Java SDK package excludes tests handled by tests-green. Python wheel packaging and Docker images are outside this gate."
+    },
+    "graph-intact": {
+      "run": ""
+    },
+    "coverage": {
+      "run": "",
+      "custom": true,
+      "description": "Coverage report, threshold policy, and enforcing command require TQE review; scaffold metadata is retained in _coverage_policy."
+    },
+    "security-scan": {
+      "run": ""
+    },
+    "ac-checklist": {
+      "verdict": true
+    }
+  },
+  "_changelog": [
+    "2026-10-25: Tech Lead declared component commands and adapted coverage metadata to the installed gates-v1 validator."
+  ],
+  "_coverage_policy": {
+    "status": "scaffold metadata retained for review; not an approved coverage target",
+    "report": "",
+    "threshold": 80
+  },
+  "_scope": "Commands require prepared component dependencies and toolchains. Declared commands have not been executed. Empty commands fail closed."
 }
