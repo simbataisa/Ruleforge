@@ -39,7 +39,7 @@ The topology below is declared configuration. Containers, endpoints, controls, b
 | AI service | Python image and Uvicorn; container port 8000, full-stack host port 8088 | Optional in local startup; model-provider credentials and data-processing policy require separate handling |
 | PostgreSQL | postgres:16-alpine; pg_data volume; host port 5432 | Volume declaration supplies no backup/restore evidence |
 | Redis | redis:7-alpine; 256 MB application memory limit; allkeys-lfu eviction | No persistent volume declared |
-| Kafka | apache/kafka:3.7.1; combined broker/controller; replication factor 1; retention 24 hours | No persistent volume declared; no HA established |
+| Kafka | apache/kafka:3.7.1; combined broker/controller; offsets-topic replication factor 1; retention 24 hours | No persistent volume declared; no HA established |
 | Elasticsearch | Version 9.4.5; single-node; 512 MB minimum/maximum heap; es_data volume | Security disabled in local configuration; no production cluster design established |
 | MinIO | latest tag; minio_data volume; host ports 9000/9001 | README reports image pull denial and says no current service uses it |
 | Kong | Version 3.6; host ports 8000, 8443, and 8001 | Admin listener binds 0.0.0.0 in Compose; 8443 mapping alone does not prove certificate provisioning |
@@ -135,7 +135,7 @@ Open inputs: demand model (throughput, concurrency, rule sizes, retained data), 
 
 Named volumes and source-controlled migrations do not constitute tested backups. No backup jobs, restore runbooks, HA failover evidence, or DR drills were found in the scanned operational sources.
 
-The original feature-scoped document is preserved in the proposed [historical Spaces architecture](enterprise-architecture-spaces-features.md).
+The original feature-scoped document is preserved in the [historical Spaces architecture](enterprise-architecture-spaces-features.md).
 
 ## 9. Existing Architecture Decisions
 
