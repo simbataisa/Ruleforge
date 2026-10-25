@@ -29,3 +29,7 @@ The user selected “merge” for both proposed supplements. Existing approved S
 ## Document Checks
 
 Original approved content is preserved after the inserted changelog. Relative file links resolve. git diff --check passes. No application tests were run for this documentation task.
+
+## Integration
+
+2026-10-25: User requested merge and cleanup. Main includes 67964c3; the PO worktree and branch were removed. Business-input placeholders and needs_clarification remain intentional. No application tests were run.

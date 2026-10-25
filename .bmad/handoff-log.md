@@ -49,3 +49,8 @@ child file from the template, and updates this index. To log manually, copy
 
 - User explicitly approved a direct fast-forward exception after BMAD refused a merge token. Main advanced from c854b3e to 5496694, including onboarding input commit e4fe330. No merge token or application gate pass is claimed.
 - The TL worktree and tl/gate-config-2026-10-25 branch were removed after ancestry confirmation. Independent pending edits were restored and checked against the pre-merge backup.
+
+## Product Owner Integration — 2026-10-25
+
+- At the user’s explicit instruction, fast-forwarded main from 749afe1 to 67964c3 and removed .bmad/worktrees/po and po/onboard-2026-10-25. No merge-token, application gate result, or product-wide business approval is claimed.
+- All 86 independent pending paths were checked against the pre-merge snapshot and preserved. Draft supplements remain needs_clarification for product-wide planning.
