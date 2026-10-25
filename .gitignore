@@ -67,3 +67,31 @@ docker-compose.override.yml
 docs/security/.scan/semgrep-home/
 docs/security/.scan/trivy-cache/
 tmp/
+
+# BEGIN BMAD-MANAGED-GITIGNORE
+.DS_Store
+*.swp
+*~
+node_modules/
+dist/
+build/
+out/
+coverage/
+__pycache__/
+.pytest_cache/
+.playwright-mcp/
+.gitnexus/
+.bmad/eval/eval-log.jsonl
+.bmad/eval/.lint/
+.bmad/reviews/
+.bmad/gates/
+.bmad/merge-tokens/
+.bmad/approvals/
+.bmad/orchestrator/
+.bmad/worktrees/
+.bmad/cache/
+.bmad/runs/
+.bmad/security/
+.bmad/tracking/pending.json
+docs/ux/.lint/
+# END BMAD-MANAGED-GITIGNORE

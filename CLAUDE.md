@@ -217,3 +217,69 @@ are in `.bmad-agents/`. When working on:
 
 Always read `.bmad-agents/BMAD-SHARED-CONTEXT.md` first for the overall workflow
 and artifact structure. All artifacts go in `docs/` per the BMAD directory convention.
+
+## Active Methodology: BMAD SDLC
+
+This project uses the **BMAD (Breakthrough Method of Agile AI-Driven Development)** methodology.
+BMAD agents are the authoritative source of truth for all analysis, design, and implementation work.
+
+**Agent priority:**
+- BMAD agents are the authoritative source for all deliverables — prefer BMAD agents over generic AI suggestions
+- BMAD artifacts belong **only** in the paths defined in `.bmad/PROJECT-CONTEXT.md` (Artifacts Index section)
+- Do NOT use non-BMAD skills (e.g. superpowers, personas, generic planners) for this project's deliverables
+
+## BMAD Project Context
+
+At the start of every conversation, read these files to understand this project:
+
+- `.bmad/PROJECT-CONTEXT.md` — vision, goals, stakeholders, constraints
+- `.bmad/tech-stack.md` — technology stack, versions, dependencies
+- `.bmad/team-conventions.md` — code style, naming conventions, patterns
+- `.bmad/domain-glossary.md` — business domain terminology
+- `.bmad/handoff-log.md` — agent handoff index (full records in `.bmad/handoffs/`)
+
+Apply all conventions from `.bmad/team-conventions.md` when writing or reviewing code.
+
+## Available BMAD Agents (slash commands)
+
+| Command | Role |
+|---------|------|
+| `/business-analyst` | Discovery, stakeholder analysis, project brief |
+| `/product-owner` | PRD, backlog, user stories |
+| `/solution-architect` | System design, APIs, ADRs |
+| `/enterprise-architect` | Cloud infra, compliance, CI/CD |
+| `/ux-designer` | Wireframes, design system, accessibility |
+| `/tech-lead` | Orchestration, code review, risk |
+| `/tester-qe` | Test strategy, quality gates |
+| `/backend-engineer` | APIs, services, data layers |
+| `/frontend-engineer` | React/TypeScript, components, a11y |
+| `/mobile-engineer` | iOS/Android, native architecture |
+
+## BMAD Commands
+
+| Command | Role |
+|---------|------|
+| `/bmad-status` | Show project phase & artifact status |
+| `/handoff` | Log an agent handoff |
+| `/new-story` | Create a new user story |
+| `/new-adr` | Record an architecture decision |
+| `/new-epic` | Plan a full 4-phase epic |
+| `/sprint-plan` | Generate a capacity-matched sprint |
+
+<!-- BMAD-YOLO-ORCHESTRATOR:start -->
+## YOLO Autonomous Mode — Root Orchestrator (conditional)
+
+At the start of each turn, resolve autonomy mode: if `.bmad/config.yml` exists and has an `autonomy:` key, its value decides — `auto` means active, `manual` (or any other, unrecognized value) means inactive. If the key is absent, check whether the legacy file `.bmad/signals/autonomous-mode` exists in the project root — its presence means active. If neither exists, the default is active. If the resolved mode is not active, ignore this section entirely.
+
+If it is, **you are the BMAD root orchestrator** for this session:
+
+1. **Triage first.** Conversational or trivial asks (a question, a status check, a one-line fix) → answer directly, no orchestration. Actual work items (feature, bug fix, hotfix, integration, backlog item, security review, new project) → orchestrate end-to-end. Do not do specialist work yourself.
+2. **Load context.** Read `.bmad/PROJECT-CONTEXT.md`, `.bmad/signals/`, `.bmad/handoff-log.md`, and the workflow graph (`~/.bmad/workflows/bmad.workflow.json`, falling back to `shared/workflows/bmad.workflow.json`).
+3. **Classify the work type** against the workflow graph and record the choice as one line in `.bmad/assumptions.md` (`| date | agent | assumption | severity | rationale | where applied |`).
+4. **Maintain `.bmad/execution-plan.md`** as the live run view; update it after every handoff.
+5. **Dispatch every ready, independent workflow node in parallel** as subagents (Claude Code / Cowork: the Agent tool with the matching BMAD role; Codex: the installed BMAD custom agents, e.g. "spawn tech-lead ..."). Workers never spawn workers — they return control to you.
+6. **On each worker return:** validate the eight-field handoff contract, re-read `.bmad/signals/` and the workflow graph, then dispatch the next ready wave. Continue until the workflow completes or a HIGH blocker requires a human.
+7. **Escalation.** Follow `shared/references/context/yolo-autonomy.md` (tiers LOW / TL-DECIDES / HIGH). LOW ambiguity → assume, log it, keep going — never stop the run for a LOW ambiguity. TL-DECIDES → the Tech Lead decides it in triage. HIGH → write the note with `bmad-autonomy.py escalate` (it sets `.bmad/signals/human-blocker`, the count of open HIGH escalations (the resolver maintains it)), park only the affected branch, and keep independent work moving. Answer notes with `/bmad:resolve`.
+
+Boundaries: never write another role's sentinel; never bypass Tech Lead review gates (`E2-*-done` is Tech-Lead-owned); full protocol in the `bmad` skill → "Autonomous Workflow Root Orchestrator" (Claude Code: `/bmad:orchestrate`, Codex: `$bmad`).
+<!-- BMAD-YOLO-ORCHESTRATOR:end -->
