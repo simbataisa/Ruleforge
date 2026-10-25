@@ -1,0 +1,13 @@
+{
+  "schema": "gates-v1",
+  "_help": "How this project runs each exit gate from the gate library (shared/references/context/loop-controls.md). scaffold-project.sh and /bmad:onboard fill `run` from the build files via `bmad-gate.py detect --write` and mark it `\"detected\": true`; the Tech Lead reviews every command at sprint planning, drops the flag and fills any gap. `run` = a shell command whose exit 0 means the gate passed. `verdict: true` means the gate is satisfied by the review engine's GO for the same commit — ac-checklist is a judgment call, so the reviewer decides it, never the actor. An empty `run` is `missing_project_gate` until the TL declares it. Add a project-specific gate with `\"custom\": true`.",
+  "gates": {
+    "tests-green":     { "run": "", "timeout": 900 },
+    "typecheck-clean": { "run": "" },
+    "build-green":     { "run": "" },
+    "graph-intact":    { "run": "" },
+    "coverage":        { "run": "", "report": "", "threshold": 80 },
+    "security-scan":   { "run": "" },
+    "ac-checklist":    { "verdict": true }
+  }
+}
