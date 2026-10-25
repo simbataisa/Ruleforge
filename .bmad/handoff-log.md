@@ -2,6 +2,8 @@
 
 ## Changelog
 
+- 2026-10-25: Add enterprise onboarding handoff #031 on ea/onboard-2026-10-25.
+
 - 2026-10-25: Add correction handoff #030 on po/correct-project-brief-2026-10-25.
 
 - 2026-10-25: Add Product Owner onboarding handoff #029 on po/onboard-2026-10-25.
@@ -47,6 +49,7 @@ child file from the template, and updates this index. To log manually, copy
 | 028 | 2026-10-25 | `tl` → reviewer / TQE / DevSecOps | gate configuration | Fixed validator compatibility and declared component commands; unmerged branch tl/gate-config-2026-10-25 | [view](handoffs/028-2026-10-25-tl→next.md) |
 | 029 | 2026-10-25 | `po` → stakeholders / `ba` | onboard | Applied draft product-wide supplements; preserved Spaces approval; business evidence needs clarification (po/onboard-2026-10-25) | [view](handoffs/029-2026-10-25-po→ba.md) |
 | 030 | 2026-10-25 | `po` → user / `ba` | revision | Rewrote whole-product brief; preserved historical Spaces brief; corrected PRD input (po/correct-project-brief-2026-10-25) | [view](handoffs/030-2026-10-25-po→ba.md) |
+| 031 | 2026-10-25 | `ea` → `ba` / stakeholders / `sa` | onboard | Whole-project source inventory reviewed; historical architecture preserved; production-design inputs unresolved (ea/onboard-2026-10-25) | [view](handoffs/031-2026-10-25-ea→sa.md) |
 
 ## Integration Record — 2026-10-25
 
