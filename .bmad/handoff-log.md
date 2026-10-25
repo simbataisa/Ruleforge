@@ -65,3 +65,8 @@ child file from the template, and updates this index. To log manually, copy
 
 - At the user’s explicit merge instruction, main fast-forwarded from 4433de1 to 20b62f9. The corrected RuleForge brief, preserved historical Spaces brief, and PRD input-link fix are integrated.
 - Removed .bmad/worktrees/po and po/correct-project-brief-2026-10-25 after ancestry verification. All 101 independent pending paths matched their pre-merge snapshot. No application gate result or business sign-off is claimed.
+
+## Enterprise Architecture Integration — 2026-10-25
+
+- At the user’s explicit merge instruction, main fast-forwarded from 4e294ef to b334baa. The whole-project enterprise inventory, historical Spaces archive and scoped independent Tech Lead review are integrated. No merge-token, application gate result or production architecture approval is claimed.
+- Removed .bmad/worktrees/ea and ea/onboard-2026-10-25 after ancestry verification. All 95 independent pending paths and the exact staged diff were preserved. Missing enterprise-design inputs remain tracked in docs/reviews/ea-blocked.md.
