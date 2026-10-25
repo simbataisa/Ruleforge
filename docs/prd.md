@@ -2,12 +2,14 @@
 
 ## Changelog
 
+- 2026-10-25: Retarget the original Spaces input to its preserved feature brief after correcting the whole-product brief.
+
 - 2026-10-25: Add an unapproved brownfield product-inventory supplement from README and source history; preserve the original approved Spaces scope and prioritization.
 
 **Version:** 1.0
 **Date:** 2026-03-14
 **Author:** BMAD Product Owner Agent (Phase 2)
-**Input:** `docs/project-brief.md`
+**Input:** [Spaces Page Features brief](project-brief-spaces-page-features.md) — original March 2026 feature input. The current [project brief](project-brief.md) describes the whole RuleForge product.
 **Status:** APPROVED — Ready for Architecture
 
 ---

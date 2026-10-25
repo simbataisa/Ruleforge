@@ -1,293 +1,131 @@
-# Project Brief — Spaces Page Features
+# Project Brief — RuleForge
 
 ## Changelog
 
-- 2026-10-25: Add an unapproved brownfield product-inventory supplement from README and source history; preserve the original approved Spaces scope and prioritization.
+- 2026-10-25: Rewrite the brief around the complete RuleForge product. Preserve the original approved Spaces feature brief in [project-brief-spaces-page-features.md](project-brief-spaces-page-features.md). Replace the previous feature-led document and appended inventory with one coherent project overview.
 
-**Date:** 2026-03-14
-**Sponsor:** Engineering Lead, RuleForge Platform
-**Analyst:** BMAD Business Analyst Agent (Phase 1)
-
----
+**Status:** Draft product overview, grounded in the current repository. Business targets and stakeholder sign-off remain to be agreed.
+**As of:** 2026-10-25
+**Product:** Enterprise Business Rules Management System (BRMS)
 
 ## Executive Summary
 
-Spaces are the primary organizational unit in RuleForge — sitting between an Organization and the folders/rules inside it. Despite this central role, the current Spaces implementation is incomplete: users can list and create spaces but cannot view space details, configure settings, manage approval workflows, edit or delete existing spaces, or navigate meaningfully within a space context. This gap means rule authors and space administrators must work around missing functionality daily, reducing platform adoption and increasing support burden. This brief defines the full scope of work needed to deliver a complete, production-grade Spaces experience.
+RuleForge enables organizations to author, manage, and execute business rules as reusable, versioned decision logic. Its purpose is to make changing decisions—such as eligibility, pricing, scoring, and routing—manageable through dedicated authoring, testing, approval, and execution workflows.
 
----
+The project combines an embeddable Java rule engine, a managed rules platform, a browser-based authoring experience, and client SDKs. Teams can embed decision execution in a Java application or call the platform from their own systems. The platform brings rule organization, collaboration, version management, approvals, integrations, and decision visibility around that execution capability.
 
-## Problem Statement
+The repository also includes an optional AI assistant for rule generation and analysis. Spaces, folders, and tags organize the rules managed through the broader product.
 
-The current Spaces page provides only a bare list view with a create modal — no detail page, no settings page, no CRUD beyond creation, and missing backend fields (`slug`, `ruleCount`, `description`). Rule authors cannot see how many rules are in a space, space admins cannot configure approval settings from the UI, and the OrgSettings "Manage" button navigates nowhere. **Business Impact:** Incomplete Spaces UX blocks the adoption of multi-space organizational workflows, prevents self-service administration, and exposes a broken product experience to enterprise customers evaluating RuleForge.
+Sources: [README product description](../README.md#what-is-ruleforge), [project structure](../README.md#project-structure), and [engine API](../engine/ruleforge-core/src/main/java/io/ruleforge/core/RuleForgeEngine.java).
 
----
+## Problem and Product Purpose
 
-## Stakeholder Analysis
+Business decisions change as organizations adjust policies, offers, eligibility conditions, and operating procedures. When these decisions are embedded throughout application code or maintained in separate documents and spreadsheets, teams need a way to make them explicit, reusable, reviewable, and executable.
 
-| Stakeholder | Role | Power | Interest | Needs | Concerns |
-|---|---|---|---|---|---|
-| Rule Author | Primary user | Low | High | See spaces, navigate to rules within space | Confusion navigating fragmented UI |
-| Space Admin | Space operator | Medium | High | Create/edit/delete spaces, set approval policy | No way to configure space today |
-| Org Owner | Organization admin | High | High | Full CRUD on spaces, enforce governance | Broken "Manage" link in OrgSettings |
-| Frontend Engineer | Implementor | Medium | High | Clear API contracts, typed DTOs | Undefined/missing fields cause TS errors |
-| Backend Engineer | Implementor | Medium | High | Clear scope for new endpoints | Risk of breaking existing API consumers |
-| QA/QE | Validator | Medium | High | Testable acceptance criteria, smoke tests | No test coverage on Spaces endpoints |
+RuleForge addresses that need by giving decision logic a managed lifecycle: define a rule, exercise it against inputs, review and publish a version, integrate its execution into business applications, and inspect its results. This is the product rationale derived from the documented capabilities; customer-specific pain, costs, and adoption baselines have not yet been validated.
 
----
+## Intended Users and Their Work
 
-## Current State Assessment
+The following roles are derived from documented workflows. Named customers, sponsors, and validated personas still need confirmation.
 
-### How It Works Today
-
-1. User navigates to `/spaces` → `SpaceListPage.tsx` renders a list of spaces via `GET /v1/organizations/current/spaces`
-2. A "Create Space" button opens a modal → `POST /v1/organizations/current/spaces`
-3. Each space card shows only the name — no description, no rule count
-4. Clicking a space card does nothing (no navigation)
-5. OrgSettingsPage shows a "Manage" button per space with no `onClick` handler
-6. No way to edit or delete a space
-7. No way to view what's inside a space (folders/rules)
-8. `SpaceApprovalSettings` endpoints exist in management-service but no frontend UI
-
-### Backend State
-
-- `spaces` table: `id`, `org_id`, `name`, `description`, `limits` (JSONB), `created_at`, `updated_at`
-- `space_approval_settings` table: exists with approvers, SLA, require-all settings
-- `SpaceDto` returned by auth-service: only `id`, `name`, `orgId` — missing `slug`, `description`, `ruleCount`, `updatedAt`
-- No `slug` column in database
-- No `PUT` (update) or `DELETE` endpoints for spaces
-- `GET /v1/organizations/current/spaces/:id` may not exist or is incomplete
-
-### Pain Points
-
-- **Broken navigation**: "Manage" button in OrgSettings has no destination; space cards are not clickable
-- **Missing data**: Frontend cannot display `ruleCount` or `description` because backend doesn't return them
-- **No CRUD**: After creation, spaces cannot be renamed, described, or deleted
-- **No approval UI**: Approval settings exist in DB but are inaccessible to admins
-- **Poor discoverability**: No slug-based URLs; no way to link directly to a space
-- **TypeScript errors**: Frontend code expects fields (`slug`, `ruleCount`, `description`) that the API doesn't return
-
----
-
-## Desired Future State
-
-### Vision
-
-Users navigating to the Spaces section can see all spaces with rich metadata (description, rule count), click into a space to view its content and stats, manage the space's name/description and approval policy from a dedicated settings page, and delete a space with a safety confirmation. URLs are human-readable (slug-based). All CRUD operations work end-to-end.
-
-### Key Capabilities Needed
-
-1. **Enriched Spaces List**: Cards show name, description, rule count; actions for edit, delete, navigate to detail
-2. **Space Detail Page** (`/spaces/:id`): Breadcrumb, stats bar (rule count, created date), overview content
-3. **Space Settings Page** (`/spaces/:id/settings`): General tab (name/description form), Approval Settings tab (approvers, SLA, requireAll), Danger Zone (delete with confirmation)
-4. **Full CRUD Backend**: `PUT /v1/organizations/current/spaces/:id` (update), `DELETE /v1/organizations/current/spaces/:id` (delete)
-5. **SpaceDto Enrichment**: Backend returns `slug`, `description`, `ruleCount`, `updatedAt`
-6. **Slug Generation**: Auto-generated from name at write time, stored in DB, unique per org
-7. **OrgSettings Fix**: "Manage" button wired to navigate to space settings
-
----
-
-## Requirements Summary
-
-### Functional Requirements
-
-**Spaces List (Enhanced)**
-- FR-01: System must display space cards with name, description (or placeholder if null), and ruleCount badge
-- FR-02: Each space card must have a "Settings" action navigating to `/spaces/:id/settings`
-- FR-03: Each space card must have an "Open" action navigating to `/spaces/:id`
-- FR-04: Each space card must have a "Delete" action triggering a confirmation dialog
-- FR-05: "Edit" action must allow updating space name and description inline via modal
-
-**Space Detail Page**
-- FR-06: `/spaces/:id` must render with breadcrumb (Spaces → {name})
-- FR-07: Page must display stats: ruleCount, createdAt date, updatedAt date
-- FR-08: Page must include a link/button to Space Settings
-- FR-09: Page must handle loading, empty, and error states
-
-**Space Settings Page**
-- FR-10: `/spaces/:id/settings` must have a "General" tab with name/description form (save on submit)
-- FR-11: Must have an "Approval Settings" tab showing current approvers, SLA, requireAll toggle
-- FR-12: Approval Settings tab must allow saving changes via `PUT /v1/spaces/:id/approval-settings`
-- FR-13: Must have a "Danger Zone" section with delete space action + `ConfirmDialog`
-- FR-14: Delete must navigate back to `/spaces` on success
-
-**Backend Endpoints**
-- FR-15: `PUT /v1/organizations/current/spaces/:id` — update name and/or description (OWNER/ADMIN only)
-- FR-16: `DELETE /v1/organizations/current/spaces/:id` — delete space (OWNER only)
-- FR-17: `GET /v1/organizations/current/spaces/:id` — get single space with full enriched DTO
-- FR-18: `SpaceDto` must include: `id`, `name`, `slug`, `description`, `ruleCount`, `updatedAt`, `createdAt`
-
-**Slug**
-- FR-19: Slug is auto-generated from name on create/update (`my-space-name` format)
-- FR-20: Slug must be unique per organization (database constraint)
-- FR-21: Slug must be stored in `spaces` table (migration required)
-
-**OrgSettings Fix**
-- FR-22: "Manage" button in OrgSettingsPage must navigate to `/spaces/:id/settings`
-
-### Non-Functional Requirements
-
-- **Performance**: Space list page must render in <200ms (API response + render)
-- **Security / RBAC**: DELETE restricted to OWNER; PUT restricted to OWNER or ADMIN; GET accessible to all org members
-- **Error Handling**: Slug collision (duplicate name) must return 409 Conflict with user-friendly message
-- **Cascade Safety**: Deleting a space with rules should either be blocked (409) or display a warning listing affected rules
-- **Accessibility**: All new pages must meet WCAG 2.1 AA (keyboard navigation, ARIA labels)
-- **TypeScript**: All new API responses must be typed; no `any` in new code
-- **Test Coverage**: All new backend endpoints covered by smoke tests (Section 3.16)
-
----
-
-## Gap Analysis
-
-| Current Capability | Gap | Impact | Priority |
-|---|---|---|---|
-| Spaces list renders | No description or ruleCount shown | Rule authors can't assess space size | P0 |
-| Space create works | No edit or delete | Admins stuck with mistakes, no lifecycle | P0 |
-| SpaceDto has id/name | Missing slug, ruleCount, description, updatedAt | TypeScript errors; broken UI expectations | P0 |
-| spaces table has description | No slug column | Can't generate human-readable URLs | P0 |
-| approval_settings endpoints exist | No frontend UI for approval settings | Admins can't configure approval policy | P1 |
-| OrgSettings "Manage" button renders | No onClick handler | Button is dead — broken UX | P0 |
-| No SpaceDetailPage exists | Missing `/spaces/:id` route and component | Core workspace navigation missing | P0 |
-| No SpaceSettingsPage exists | Missing `/spaces/:id/settings` route and component | No way to manage space configuration | P0 |
-
----
-
-## Feasibility Assessment
-
-### Technical Feasibility: GREEN
-- All required technologies (Spring Boot, React, PostgreSQL) are already in use
-- Pattern for new controller endpoints established across all other BMAD features
-- `ConfirmDialog` already exists at `frontend/src/shared/components/ConfirmDialog.tsx`
-- Slug generation is a standard utility (regex + lowercase transform)
-- ruleCount query is a simple COUNT join on the `rules` table in the same database
-
-### Timeline Feasibility: GREEN
-- Scope is well-bounded: 1 DB migration, ~5 backend file changes, ~5 frontend file changes
-- No new infrastructure required
-- Estimated effort: 2-3 days implementation (single sprint)
-
-### Budget Feasibility: GREEN
-- Zero external cost; all work is internal development
-
-### Organizational Feasibility: GREEN
-- Patterns exist in codebase for all required work
-- Backend and frontend engineers have demonstrated capability in prior sprints
-
-### Overall Risk Level: LOW
-
-**Top Risks:**
-1. **Slug uniqueness collision** (LOW): Two spaces with same name in one org → `UniqueConstraintViolation`. Mitigation: catch `DataIntegrityViolationException`, return 409 with message "Space name already exists in this organization."
-2. **Cascade delete impact** (MEDIUM): Deleting a space with rules/folders could break navigation. Mitigation: check for child entities before delete; return 409 if space is non-empty, or prompt user to confirm cascade.
-3. **ruleCount accuracy** (LOW): Real-time JOIN adds minor query cost. Mitigation: use simple COUNT query; no caching needed at this scale.
-
----
-
-## Assumptions
-
-- Auth-service owns the `spaces` table and is the correct service for space CRUD (confirmed from existing code)
-- Management-service owns `space_approval_settings` (confirmed from existing code)
-- ruleCount can be computed via a direct JPQL/SQL count on the `rules` table from auth-service (same database)
-- The existing `ConfirmDialog` component is sufficient for delete confirmation UX
-- All users in an org can view spaces; OWNER/ADMIN roles required only for mutations
-
-## Unknowns (Research Needed)
-
-- None blocking implementation — all major questions answered by codebase exploration
-
----
-
-## Success Criteria
-
-- **Smoke Test Section 3.16 passes**: `GET`, `POST`, `PUT`, `DELETE` /v1/organizations/current/spaces all return expected status codes
-- **SpaceDto includes all fields**: API responses contain `slug`, `ruleCount`, `description`, `updatedAt`
-- **UI renders without errors**: `/spaces`, `/spaces/:id`, `/spaces/:id/settings` all load successfully
-- **Create → Edit → Delete flow**: End-to-end CRUD works with no errors
-- **OrgSettings "Manage" navigates**: Button links to correct space settings page
-- **0 TypeScript errors** in new/modified frontend files
-
----
-
-## Next Steps
-
-1. Approve this project brief
-2. Product Owner creates PRD (`docs/prd.md`) with prioritized user stories and acceptance criteria
-3. Solution Architect designs technical solution (ADRs, API contracts, data model)
-4. Enterprise Architect covers RBAC, security, and compliance concerns
-5. UX/UI Designer produces screen specs
-6. Tech Lead refines into 5 implementation stories
-7. Backend + Frontend Engineers implement
-8. QA/QE validates with smoke tests
-9. Release Readiness sign-off
-
-**Status:** APPROVED — Ready for PRD Creation
-**Sponsor Sign-Off:** Engineering Lead (BMAD Simulation, 2026-03-14)
-
----
-
-## Brownfield Product Overview — Draft Supplement (2026-10-25)
-
-> **Status:** Draft — auto-seeded by /product-owner:onboard. Refine via /product-owner:create-brd. Source: README/manifest as of 2026-10-25.
->
-> The preceding approved Spaces brief retains its original feature scope and historical approval. This supplement inventories the wider product and has no stakeholder sign-off.
-
-### Problem Statement
-
-RuleForge presents a way to author, manage, and execute business rules across an embeddable engine and a managed platform. The repository describes visual authoring, decision execution, governance, and operational visibility. The business problem, measured cost of current alternatives, and value of the next release require stakeholder validation.
-
-### Target Users
-
-[populate — validate primary users and decision makers with Product Owner]
-
-Candidate roles suggested by documented editing, administration, and SDK workflows are rule authors, organization administrators, and integrating developers. These are assumptions to validate rather than confirmed personas.
-
-### Success Metrics
-
-[populate — Product Owner: business outcome, baseline, measurable target, time horizon, metric owner, and collection method]
-
-Existing Spaces success criteria above remain scoped to that feature.
-
-### Scope
-
-**Documented capability inventory:** The repository describes rule authoring and execution, import/export, AI assistance, approvals, experiments, notifications, analytics, audit, webhooks, profile/session management, and client SDKs. The paired [PRD supplement](prd.md#brownfield-product-inventory--draft-supplement-2026-10-25) lists each README Key Features entry.
-
-**Out of scope for a future release:** [populate — validate non-goals and release boundaries; no future-scope section was detected]
-
-This inventory does not assign priorities, add approved work, or change the preceding Spaces MVP.
-
-### Constraints
-
-- Product licensing: proprietary, all rights reserved (README License).
-- Existing technology constraints: [technology inventory](../.bmad/tech-stack.md).
-- Timeline, budget, operational commitments, regulatory applicability, and data classification: unknown; Product Owner validation required.
-
-### Existing Artifacts
-
-- [Current README](../README.md)
-- [Project context](../.bmad/PROJECT-CONTEXT.md)
-- [Confirmed technology inventory](../.bmad/tech-stack.md)
-- [Solution architecture](architecture/solution-architecture.md)
-- [Enterprise architecture](architecture/enterprise-architecture.md)
-- [UX design](ux/DESIGN.md)
-- [ADR index](architecture/adr/ADR-INDEX.md)
-- [Existing PRD](prd.md) — approved Spaces scope followed by this proposed draft supplement.
-
-### Evidence and Interpretation
-
-| Claim | Evidence class | Source / limitation |
+| Role | What they need to accomplish | Relevant product capabilities |
 |---|---|---|
-| RuleForge is an enterprise BRMS combining an embeddable engine and a platform | derived_from_source | README product description |
-| Financial services, insurance, healthcare, and e-commerce are example domains | derived_from_source | README use cases; these are not validated customer personas |
-| Feature inventory describes documented capabilities | derived_from_source | README Key Features; no current runtime verification |
-| Java 25 is required for the current engine | derived_from_source | README Java 25 notes; this constrains consumers embedding the engine |
-| Product licensing is proprietary, all rights reserved | derived_from_source | README License; not a legal assessment of dependency or SDK licenses |
-| Named business stakeholders, adoption baseline, budget, and go-live date | unknown | Not supplied by current product signals |
-| Applicable regulatory obligations and data classification | unknown | Sector examples do not establish HIPAA, GDPR, or other obligations |
+| Business analyst / rule author | Express and maintain decision logic, test examples, and understand changes | Visual editors, expressions, test inputs, rule versions, version comparison |
+| Developer / integration engineer | Execute reusable decisions from applications and connect required data | Embeddable engine, execution APIs, client SDKs, connectors |
+| Reviewer / approver | Evaluate proposed rule changes before publication | Approval queue, version history, comparison |
+| Organization administrator | Organize access and rule assets for teams | Organizations, membership, roles, spaces, folders, tags, API keys, SSO configuration |
+| Operator / decision analyst | Inspect execution behavior and investigate decision activity | Execution traces, analytics, audit history, schedules, webhook deliveries |
 
-README's “Production-Ready” description and “Done” roadmap rows are source claims. Onboarding does not turn them into release approval.
+Sources: [README features](../README.md#key-features), [frontend routes](../frontend/src/app/routes.tsx), [API reference](api-reference.md), and [rule types guide](rule-types-guide.md).
 
-### Open Questions and Source Gaps
+## Core Product Capabilities
 
-- README lists eight rule types; the engine enum declares ten, while frontend RuleType declares nine labels. Reconcile naming, supported surfaces, and feature coverage before making a product-wide rule-type promise.
-- README Known Issues reports event publication failure affecting audit, analytics, and invalidation. Their descriptions below remain capability claims with this limitation.
-- README reports missing showcase seeds on fresh databases and an unavailable MinIO image. Operational readiness remains a verification question.
-- No CHANGELOG, standalone ROADMAP/MILESTONES “Future” section, pricing document, or commercial-license file was found. Future scope and commercial model beyond proprietary licensing remain unknown.
-- Product Owner must distinguish currently supported capabilities from the next release, name stakeholders, and validate success metrics before this draft becomes a business mandate.
+| Capability | User-facing purpose | Repository evidence |
+|---|---|---|
+| Rule authoring | Model decisions using tables, trees, scorecards, ensembles, decision models, flows, scripts, and event patterns | [Rule types guide](rule-types-guide.md), [engine modules](../engine/settings.gradle.kts) |
+| Decision execution | Validate, compile, and evaluate rules against supplied inputs, including bulk evaluation | [Engine API](../engine/ruleforge-core/src/main/java/io/ruleforge/core/RuleForgeEngine.java), [execution APIs](api-reference.md#rule-execution) |
+| Rule lifecycle and governance | Create and organize rules; manage versions, approvals, publication, archival, and comparisons | [Features](../README.md#key-features), [rule API hooks](../frontend/src/api/rules.api.ts), [frontend routes](../frontend/src/app/routes.tsx) |
+| Team and tenant administration | Manage organizations, members, permissions, spaces, and access credentials | [Authentication guide](auth-guide.md), [API reference](api-reference.md) |
+| Application and data integration | Call decisions through APIs or SDKs, enrich inputs using connectors, and exchange rule definitions | [API reference](api-reference.md), [SDKs](../sdks), [import/export](../README.md#key-features) |
+| Operational workflows and visibility | Schedule work, compare rule versions through experiments, inspect decision results, record activity, and deliver event notifications | [Features](../README.md#key-features), [services](../README.md#services) |
+| AI assistance | Assist rule authoring and analysis through generation, optimization suggestions, and natural-language interaction | [AI assistant guide](ai-assistant-guide.md), [AI service](../ai-service/pyproject.toml) |
+
+This capability inventory reflects documentation and source structure. Runtime behavior, supported combinations, performance, and release readiness require their own verification.
+
+## Principal User Journeys
+
+1. **Author and maintain a decision:** choose a rule representation, define conditions and outcomes, test inputs, compare revisions, and submit changes for review where required.
+2. **Integrate a decision into an application:** select a rule and version, supply input data, execute through the embedded engine or platform interface, and consume the result.
+3. **Govern change:** organize assets and permissions, review proposed versions, approve publication, and retain a history of changes.
+4. **Operate and improve:** inspect results and execution activity, investigate failures, manage schedules and integrations, and compare alternative rule versions.
+
+These journeys summarize the repository's current product surfaces. They do not define new sprint assignments or acceptance criteria.
+
+## Product Delivery Surfaces and Boundaries
+
+| Surface | Responsibility | Main consumers |
+|---|---|---|
+| Embeddable engine | Rule validation, compilation, and execution inside a Java application | Application developers |
+| Managed platform | Rule storage and lifecycle, organization administration, execution services, integrations, and operational workflows | Business teams and integrating applications |
+| Browser interface | Rule authoring, testing, administration, review, and visibility | Authors, administrators, reviewers, operators |
+| Java, Node.js, and Python SDKs | Client access to platform capabilities | Integration developers |
+| Optional AI service | Assisted authoring and analysis | Authors using AI-enabled workflows |
+
+External applications provide business inputs and consume decision outputs. Domain policies and decision definitions belong to the organizations configuring RuleForge. The repository describes financial services, insurance, healthcare, and e-commerce examples; those examples do not establish specific customer commitments or regulatory applicability.
+
+## Project Scope and Current State
+
+The repository contains engine modules, seven platform services, a frontend application, an AI service, SDKs, migrations, and local infrastructure scripts. Recent source changes include the Java 25 / Spring Boot upgrade and rule archival, locking, organization, and list-navigation improvements.
+
+This brief describes that existing product. A future release's MVP, priorities, delivery date, and approved non-goals have not been established by this revision. Existing feature briefs and their approvals retain their own scope.
+
+The current [PRD](prd.md) still leads with the historical Spaces feature and includes a later product-inventory supplement. It needs a separate product-wide restructuring before it can serve as the full RuleForge requirements baseline.
+
+## Intended Business Outcomes and Measurement
+
+The following are proposed outcomes for stakeholder validation. No numeric targets or current performance claims are inferred.
+
+| Proposed outcome | Candidate measurement | What remains to agree |
+|---|---|---|
+| Shorter time to change business decisions | Elapsed time from an agreed rule change to an approved published version | Baseline, target, owner, measurement window |
+| Reusable decision logic across applications | Active consuming applications and reuse of governed rules | Adoption baseline, target users, counting method |
+| More controlled rule changes | Share of applicable rule publications following the agreed review policy | Policy, exceptions, reporting owner, target |
+| Reliable decision execution | Correctness against agreed examples; execution success rate and latency under a defined workload | Reference cases, workload, service objectives, evidence owner |
+
+Product Owner and business stakeholders must select the measures and targets. Business Analyst can then refine prioritized requirements and acceptance criteria.
+
+## Constraints and Known Gaps
+
+| Area | Current evidence / open decision |
+|---|---|
+| Consumer compatibility | The current engine targets Java 25; embedding consumers must support it. See [README Java notes](../README.md#java-25-notes-for-developers). |
+| Delivery environment | Local scripts and Docker Compose are present. Production deployment ownership, region, availability commitments, and budget need confirmation. |
+| Tenant access and governance | Authentication, permissions, tenant context, and documented data-isolation controls are product concerns. Their effectiveness is outside this document review. |
+| Product licensing | README states proprietary, all rights reserved. Commercial terms and legal conclusions are not established here. |
+| Regulatory obligations and data sensitivity | No project-specific obligations or data classification have been confirmed. Example industry use cases are insufficient evidence. |
+| Operational limitations | README reports Kafka publication, fresh-database seed, and MinIO image issues affecting aspects of the local stack. See [known issues](../README.md#known-issues). |
+| Capability consistency | README, engine declarations, and frontend types differ in their rule-type catalogs. Supported representations and surfaces need reconciliation. |
+
+## Decisions Still Required
+
+| Decision | Suggested decision owner | Downstream effect |
+|---|---|---|
+| Confirm primary users, sponsor, and customer problems | Product Owner / business stakeholders | Establishes whose outcomes the product optimizes |
+| Agree business metrics and measurable targets | Product Owner / sponsor | Establishes success criteria |
+| Define next-release scope, priorities, and non-goals | Product Owner / stakeholders | Enables a focused requirements baseline |
+| Confirm data classification and regulatory obligations | Product Owner / InfoSec | Establishes applicable controls and acceptance evidence |
+| Reconcile capability support and operational claims | Solution Architect / Tech Lead / QE | Establishes an accurate supported-capability baseline |
+
+Decision dates and named owners have not been supplied. The overview can orient readers now; these gaps prevent treating it as a signed-off delivery mandate.
+
+## Sources and Related Artifacts
+
+- [README](../README.md): product description, feature catalog, integration surfaces, and known issues.
+- [Technology inventory](../.bmad/tech-stack.md): current repository detections and their limitations.
+- [Rule types guide](rule-types-guide.md) and [API reference](api-reference.md): documented authoring and integration behavior.
+- [Solution architecture](architecture/solution-architecture.md), [full architecture](architecture/RuleForge-Architecture-v2.md), and [engine architecture](architecture/RuleForge-Engine-Core-Architecture-v2.1.md): existing design context; target statements require current source and runtime validation.
+- [PRD](prd.md): historical Spaces requirements plus draft product inventory.
+- [Spaces Page Features brief](project-brief-spaces-page-features.md): preserved March 2026 feature scope and approval.
+- [Other feature briefs](project-brief-webhooks-auth.md): examples of separately scoped product changes.
+
+**Evidence classification:** The product description and capability inventory are derived_from_source. The requested correction to make this the whole-product brief is confirmed by the user's instruction. Proposed business measures and inferred user roles require validation; commercial commitments, quantitative outcomes, future-release scope, and stakeholder sign-off remain unknown.
