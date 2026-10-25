@@ -1,5 +1,9 @@
 # Project Brief — Spaces Page Features
 
+## Changelog
+
+- 2026-10-25: Add an unapproved brownfield product-inventory supplement from README and source history; preserve the original approved Spaces scope and prioritization.
+
 **Date:** 2026-03-14
 **Sponsor:** Engineering Lead, RuleForge Platform
 **Analyst:** BMAD Business Analyst Agent (Phase 1)
@@ -216,3 +220,74 @@ Users navigating to the Spaces section can see all spaces with rich metadata (de
 
 **Status:** APPROVED — Ready for PRD Creation
 **Sponsor Sign-Off:** Engineering Lead (BMAD Simulation, 2026-03-14)
+
+---
+
+## Brownfield Product Overview — Draft Supplement (2026-10-25)
+
+> **Status:** Draft — auto-seeded by /product-owner:onboard. Refine via /product-owner:create-brd. Source: README/manifest as of 2026-10-25.
+>
+> The preceding approved Spaces brief retains its original feature scope and historical approval. This supplement inventories the wider product and has no stakeholder sign-off.
+
+### Problem Statement
+
+RuleForge presents a way to author, manage, and execute business rules across an embeddable engine and a managed platform. The repository describes visual authoring, decision execution, governance, and operational visibility. The business problem, measured cost of current alternatives, and value of the next release require stakeholder validation.
+
+### Target Users
+
+[populate — validate primary users and decision makers with Product Owner]
+
+Candidate roles suggested by documented editing, administration, and SDK workflows are rule authors, organization administrators, and integrating developers. These are assumptions to validate rather than confirmed personas.
+
+### Success Metrics
+
+[populate — Product Owner: business outcome, baseline, measurable target, time horizon, metric owner, and collection method]
+
+Existing Spaces success criteria above remain scoped to that feature.
+
+### Scope
+
+**Documented capability inventory:** The repository describes rule authoring and execution, import/export, AI assistance, approvals, experiments, notifications, analytics, audit, webhooks, profile/session management, and client SDKs. The paired [PRD supplement](prd.md#brownfield-product-inventory--draft-supplement-2026-10-25) lists each README Key Features entry.
+
+**Out of scope for a future release:** [populate — validate non-goals and release boundaries; no future-scope section was detected]
+
+This inventory does not assign priorities, add approved work, or change the preceding Spaces MVP.
+
+### Constraints
+
+- Product licensing: proprietary, all rights reserved (README License).
+- Existing technology constraints: [technology inventory](../.bmad/tech-stack.md).
+- Timeline, budget, operational commitments, regulatory applicability, and data classification: unknown; Product Owner validation required.
+
+### Existing Artifacts
+
+- [Current README](../README.md)
+- [Project context](../.bmad/PROJECT-CONTEXT.md)
+- [Confirmed technology inventory](../.bmad/tech-stack.md)
+- [Solution architecture](architecture/solution-architecture.md)
+- [Enterprise architecture](architecture/enterprise-architecture.md)
+- [UX design](ux/DESIGN.md)
+- [ADR index](architecture/adr/ADR-INDEX.md)
+- [Existing PRD](prd.md) — approved Spaces scope followed by this proposed draft supplement.
+
+### Evidence and Interpretation
+
+| Claim | Evidence class | Source / limitation |
+|---|---|---|
+| RuleForge is an enterprise BRMS combining an embeddable engine and a platform | derived_from_source | README product description |
+| Financial services, insurance, healthcare, and e-commerce are example domains | derived_from_source | README use cases; these are not validated customer personas |
+| Feature inventory describes documented capabilities | derived_from_source | README Key Features; no current runtime verification |
+| Java 25 is required for the current engine | derived_from_source | README Java 25 notes; this constrains consumers embedding the engine |
+| Product licensing is proprietary, all rights reserved | derived_from_source | README License; not a legal assessment of dependency or SDK licenses |
+| Named business stakeholders, adoption baseline, budget, and go-live date | unknown | Not supplied by current product signals |
+| Applicable regulatory obligations and data classification | unknown | Sector examples do not establish HIPAA, GDPR, or other obligations |
+
+README's “Production-Ready” description and “Done” roadmap rows are source claims. Onboarding does not turn them into release approval.
+
+### Open Questions and Source Gaps
+
+- README lists eight rule types; the engine enum declares ten, while frontend RuleType declares nine labels. Reconcile naming, supported surfaces, and feature coverage before making a product-wide rule-type promise.
+- README Known Issues reports event publication failure affecting audit, analytics, and invalidation. Their descriptions below remain capability claims with this limitation.
+- README reports missing showcase seeds on fresh databases and an unavailable MinIO image. Operational readiness remains a verification question.
+- No CHANGELOG, standalone ROADMAP/MILESTONES “Future” section, pricing document, or commercial-license file was found. Future scope and commercial model beyond proprietary licensing remain unknown.
+- Product Owner must distinguish currently supported capabilities from the next release, name stakeholders, and validate success metrics before this draft becomes a business mandate.

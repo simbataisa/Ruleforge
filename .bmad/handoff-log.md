@@ -2,6 +2,8 @@
 
 ## Changelog
 
+- 2026-10-25: Add Product Owner onboarding handoff #029 on po/onboard-2026-10-25.
+
 - 2026-10-25: Add Tech Lead gate-declaration handoff #028 on tl/gate-config-2026-10-25.
 
 - 2026-10-25: Add onboarding handoff #027; retain historical numbering without restoring removed handoffs.
@@ -41,6 +43,7 @@ child file from the template, and updates this index. To log manually, copy
 |---|------|-----------|-------|---------|------|
 | 027 | 2026-10-25 | `bmad` → `tl` / next | onboard | Refreshed brownfield RuleForge context (Java 25, Spring Boot 4.1.1, React, FastAPI); gate detection unresolved | [view](handoffs/027-2026-10-25-bmad→next.md) |
 | 028 | 2026-10-25 | `tl` → reviewer / TQE / DevSecOps | gate configuration | Fixed validator compatibility and declared component commands; unmerged branch tl/gate-config-2026-10-25 | [view](handoffs/028-2026-10-25-tl→next.md) |
+| 029 | 2026-10-25 | `po` → stakeholders / `ba` | onboard | Applied draft product-wide supplements; preserved Spaces approval; business evidence needs clarification (po/onboard-2026-10-25) | [view](handoffs/029-2026-10-25-po→ba.md) |
 
 ## Integration Record — 2026-10-25
 

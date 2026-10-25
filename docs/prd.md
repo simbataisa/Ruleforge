@@ -1,5 +1,9 @@
 # Product Requirements Document — Spaces Page Features
 
+## Changelog
+
+- 2026-10-25: Add an unapproved brownfield product-inventory supplement from README and source history; preserve the original approved Spaces scope and prioritization.
+
 **Version:** 1.0
 **Date:** 2026-03-14
 **Author:** BMAD Product Owner Agent (Phase 2)
@@ -399,3 +403,123 @@ Feature: OrgSettings Space Navigation
 
 **Status:** APPROVED — Handoff to Solution Architect
 **Product Owner Sign-Off:** BMAD PO Agent, 2026-03-14
+
+---
+
+## Brownfield Product Inventory — Draft Supplement (2026-10-25)
+
+> **Status:** Draft — auto-seeded by /product-owner:onboard. Refine via /product-owner:create-prd. Source: README/manifest as of 2026-10-25.
+>
+> Existing Spaces requirements, acceptance criteria, priorities, and approval above retain their original scope. This supplement is unapproved and does not supersede those decisions.
+
+### Vision
+
+An enterprise Business Rules Management System for authoring, managing, and executing business decisions. Source: README product description.
+
+### User Personas
+
+[populate — validate users, goals, decision makers, and concerns]
+
+Rule authors, administrators, and integrating developers are candidate roles inferred from documented workflows. README sector examples are use cases, not confirmed personas or regulatory obligations.
+
+### Features
+
+Each row is a documented capability candidate; availability and acceptance are not verified by this inventory.
+
+| ID | Feature | Description | Priority | Source |
+|---|---|---|---|---|
+| F-001 | Decision Tables | Author tabular conditions and business outcomes. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-002 | Decision Trees | Author branching decision logic visually. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-003 | Scorecards | Calculate weighted scores from input characteristics. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-004 | Ensembles | Combine outcomes from multiple rules. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-005 | DMN 1.4 | Express and chain standardized decision models. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-006 | Rule Flows | Orchestrate decisions and actions through rule flows. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-007 | Scripting Rules | Execute scripted business logic with resource limits. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-008 | Complex Event Processing | Detect event patterns across sequences, aggregation, and frequency. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-009 | RFL Expression Language | Express reusable conditions and functions in RuleForge language. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-010 | Multi-Layer Caching | Reuse compiled decisions to support repeated rule execution. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-011 | Import/Export | Transfer single or multiple rule definitions between environments. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-012 | AI Assistant | Assist rule creation, optimization, conflict detection, and natural-language queries. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-013 | Approval Workflow | Review and approve or reject rule versions before publication. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-014 | A/B Testing | Compare outcomes from rule versions using traffic allocation. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-015 | Real-Time Notifications | Notify users of rule lifecycle activity. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-016 | Analytics Dashboard | Inspect execution volumes, results, and latency trends. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-017 | Audit Trail | Review and filter recorded activity and resource history. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-018 | Webhook Management | Register webhook endpoints and inspect delivery history. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-019 | User Profile | Maintain profile details, credentials, and session behavior. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-020 | Error Handling | Show loading, error, and retry feedback during product use. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-021 | Security Hardening | Protect user sessions and display security-related feedback. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-022 | Performance Optimization | Support responsive navigation and editing as views grow. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-023 | Monaco Code Editor | Edit scripts with syntax highlighting and completion. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-024 | Version Diff Viewer | Compare rule versions side by side. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-025 | Keyboard Shortcuts | Save and test from rule editors using keyboard shortcuts. | [populate priority] | [README: Key Features](../README.md#key-features) |
+| F-026 | Client SDKs | Integrate rule execution through Java, Node.js, and Python SDKs. | [populate priority] | [README: Key Features](../README.md#key-features) |
+
+> **Action:** PO scores each feature with RICE (Reach × Impact × Confidence ÷ Effort). New reach, impact, confidence, effort, and priority values require evidence; existing Spaces scores above are preserved.
+
+### Recent Source Deltas
+
+No CHANGELOG was found. Recent commit subjects and corresponding rule API hooks provide these additional candidates:
+
+| ID | Candidate delta | Evidence | Priority |
+|---|---|---|---|
+| D-001 | Archive and restore rules | feat(rules): archive and restore rules; solver refuses archived rules; frontend/src/api/rules.api.ts | [populate priority] |
+| D-002 | Lock/unlock rules, move to folders, bulk deletion and batch export | Recent feat(rules) commit; frontend/src/api/rules.api.ts | [populate priority] |
+| D-003 | Persist list filters and improve Rules page CRUD/navigation | Recent feat/fix(rules) commit subjects | [populate priority] |
+
+These deltas are derived from source history, not approved product requirements or new release assignments.
+
+### MVP Scope
+
+[populate — distinguish currently shipping capabilities from next-release scope]
+
+The original Spaces MVP above applies to its March 2026 scope. README roadmap completion labels do not define a new MVP.
+
+### Out of Scope
+
+[populate — future-release non-goals require Product Owner decisions]
+
+The preceding “Out of Scope (This Sprint)” list remains specific to the Spaces sprint and is not generalized to the whole platform.
+
+### Acceptance Criteria
+
+[populate per feature — Business Analyst refines via /business-analyst:create-user-story]
+
+For each prioritized feature: define observable outcome, permitted users, failure behavior, and acceptance evidence. Existing Spaces criteria remain preserved above.
+
+### Success Metrics
+
+[populate — see project-brief.md for project-level metrics]
+
+### Sources and Related Artifacts
+
+- [Current README](../README.md)
+- [Project context](../.bmad/PROJECT-CONTEXT.md)
+- [Confirmed technology inventory](../.bmad/tech-stack.md)
+- [Solution architecture](architecture/solution-architecture.md)
+- [Enterprise architecture](architecture/enterprise-architecture.md)
+- [UX design](ux/DESIGN.md)
+- [ADR index](architecture/adr/ADR-INDEX.md)
+- [Project brief supplement](project-brief.md#brownfield-product-overview--draft-supplement-2026-10-25).
+
+### Evidence and Interpretation
+
+| Claim | Evidence class | Source / limitation |
+|---|---|---|
+| RuleForge is an enterprise BRMS combining an embeddable engine and a platform | derived_from_source | README product description |
+| Financial services, insurance, healthcare, and e-commerce are example domains | derived_from_source | README use cases; these are not validated customer personas |
+| Feature inventory describes documented capabilities | derived_from_source | README Key Features; no current runtime verification |
+| Java 25 is required for the current engine | derived_from_source | README Java 25 notes; this constrains consumers embedding the engine |
+| Product licensing is proprietary, all rights reserved | derived_from_source | README License; not a legal assessment of dependency or SDK licenses |
+| Named business stakeholders, adoption baseline, budget, and go-live date | unknown | Not supplied by current product signals |
+| Applicable regulatory obligations and data classification | unknown | Sector examples do not establish HIPAA, GDPR, or other obligations |
+
+README's “Production-Ready” description and “Done” roadmap rows are source claims. Onboarding does not turn them into release approval.
+
+### Open Questions and Source Gaps
+
+- README lists eight rule types; the engine enum declares ten, while frontend RuleType declares nine labels. Reconcile naming, supported surfaces, and feature coverage before making a product-wide rule-type promise.
+- README Known Issues reports event publication failure affecting audit, analytics, and invalidation. Their descriptions below remain capability claims with this limitation.
+- README reports missing showcase seeds on fresh databases and an unavailable MinIO image. Operational readiness remains a verification question.
+- No CHANGELOG, standalone ROADMAP/MILESTONES “Future” section, pricing document, or commercial-license file was found. Future scope and commercial model beyond proprietary licensing remain unknown.
+- Product Owner must distinguish currently supported capabilities from the next release, name stakeholders, and validate success metrics before this draft becomes a business mandate.
