@@ -1,29 +1,49 @@
-# Historical Enterprise Architecture — Spaces Features
+# Historical Architecture — Spaces Features
+
+**Document role:** Historical feature requirements and sign-offs
+**Editorial revision:** 2026-10-25
+**Status:** Historical reference; requirements and approvals apply to the original Spaces epics.
+**Original design baseline:** Spaces Version 1.0 and Epic 2 notes, March 2026
 
 ## Changelog
 
-- 2026-10-25: Preserve the original feature-scoped architecture and historical sign-offs when proposing a whole-product enterprise inventory.
+- **2026-10-25 · ARC-DOC-001:** Reorganize the architecture reading path, consolidate repeated material, and separate source evidence from earlier proposals. See the [change record and section map](ARCHITECTURE-CHANGELOG.md#arc-doc-001--2026-10-25).
 
-> Historical feature architecture. Its original approvals and target statements apply to the documented Spaces epics; they are not current deployment evidence.
+## Reading path
 
-# Enterprise Architecture — Spaces Page Features
+Start with the [architecture overview](ARCHITECTURE-SUMMARY.md). Continue to the [platform guide](RuleForge-Architecture-v2.md) for application boundaries, the [engine guide](RuleForge-Engine-Core-Architecture-v2.1.md) for execution internals, or the [enterprise guide](enterprise-architecture.md) for deployment and operations. The [Spaces record](enterprise-architecture-spaces-features.md) preserves historical feature requirements.
 
-**Version:** 1.0
-**Date:** 2026-03-14
-**Author:** BMAD Enterprise Architect Agent (Phase 3b)
-**Input:** `docs/architecture/solution-architecture.md`, `docs/prd.md`
+## In this guide
 
----
+- [Feature context](#feature-context)
+- [Access and data safety](#access-and-data-safety)
+- [Audit and observability requirements](#audit-and-observability-requirements)
+- [Historical rollout and acceptance](#historical-rollout-and-acceptance)
+- [Space-scoped rule management](#space-scoped-rule-management)
 
-## Executive Summary
+## Historical scope
+
+This record preserves the original Spaces permission matrices, deletion/slug constraints, audit and observability requirements, rollback examples, and sign-offs. Reordering the requirements does not reapprove them or assert that examples and checklists match the current implementation.
+
+For current platform behavior consult source code and the [platform guide](RuleForge-Architecture-v2.md). For current operational evidence use the [enterprise guide](enterprise-architecture.md). Accepted decisions remain in the [ADR index](adr/ADR-INDEX.md).
+
+**Original authorship:** BMAD Enterprise Architect Agent, Phase 3b. Original inputs were the Spaces-era solution architecture and PRD; the canonical project brief now describes the whole product.
+
+
+## Feature context
+
+
+### Executive Summary
 
 The Spaces Page Features epic is an **evolutionary enhancement** to the existing RuleForge platform. No new cloud infrastructure is required. All changes run within the existing local development stack and production deployment. This document covers the RBAC/security governance, compliance posture, cascading-delete safety, and observability requirements for the new capabilities.
 
----
+## Access and data safety
 
-## RBAC Governance
 
-### Role Matrix for Space Operations
+### RBAC Governance
+
+
+#### Role Matrix for Space Operations
 
 | Operation | VIEWER | EDITOR | ADMIN | OWNER |
 |---|---|---|---|---|
@@ -40,7 +60,8 @@ The Spaces Page Features epic is an **evolutionary enhancement** to the existing
 - ADMIN can configure spaces (create, edit, approval settings) as part of their operational responsibilities.
 - VIEWER and EDITOR operate within spaces, not upon them — they lack the administrative authority to change the workspace structure.
 
-### Authorization Implementation
+
+#### Authorization Implementation
 
 The existing `OrganizationService` already provides:
 - `ensureMember(orgId, userId)` — verifies org membership
@@ -59,15 +80,16 @@ public void ensureOwner(UUID orgId, UUID userId) {
 
 This maps to Spring Security's `AccessDeniedException`, which the `GlobalExceptionHandler` maps to 403 Forbidden.
 
----
 
-## Cascading Delete Safety
+### Cascading Delete Safety
 
-### Risk
+
+#### Risk
 
 Deleting a space that contains rules, folders, or other associated data without safeguards results in silent data loss and broken references across the platform.
 
-### Policy
+
+#### Policy
 
 **Block deletes of non-empty spaces.** A space may only be deleted if it has zero rules associated with it.
 
@@ -79,7 +101,8 @@ DELETE /organizations/current/spaces/:id
   → if count = 0: proceed with DELETE
 ```
 
-### Error Response Contract
+
+#### Error Response Contract
 
 ```json
 {
@@ -94,15 +117,16 @@ DELETE /organizations/current/spaces/:id
 
 Frontend `ConfirmDialog` will show the rule count in the warning message. The delete button in the UI should be hidden/disabled (not just error on submit) when `ruleCount > 0`.
 
----
 
-## Slug Uniqueness Collision Handling
+### Slug Uniqueness Collision Handling
 
-### Risk
+
+#### Risk
 
 Two admins attempt to create spaces with the same name concurrently, or a rename creates a slug that already exists.
 
-### Policy
+
+#### Policy
 
 The `UNIQUE(org_id, slug)` database constraint is the authoritative guard. The service layer catches `DataIntegrityViolationException` and maps it to a 409:
 
@@ -118,7 +142,8 @@ try {
 }
 ```
 
-### Frontend Handling
+
+#### Frontend Handling
 
 The create and edit modals display the 409 error inline (not a global toast) so users understand the conflict is name-specific:
 
@@ -126,26 +151,11 @@ The create and edit modals display the 409 error inline (not a global toast) so 
 "A space named 'analytics' already exists. Try a different name."
 ```
 
----
 
-## Audit Logging
+### Compliance Posture
 
-All space mutation operations emit audit events via the existing `@AuditLog` annotation pattern:
 
-| Operation | Event Type | Resource Type |
-|---|---|---|
-| Create space | `SPACE_CREATED` | `SPACE` |
-| Update space | `SPACE_UPDATED` | `SPACE` |
-| Delete space | `SPACE_DELETED` | `SPACE` |
-| Update approval settings | `SPACE_APPROVAL_SETTINGS_UPDATED` | `SpaceApprovalSettings` |
-
-These flow through Kafka → event-service → `audit_events` table, consistent with all other audit events in the platform. No additional instrumentation is needed beyond adding `@AuditLog` to the new controller methods.
-
----
-
-## Compliance Posture
-
-### Multi-Tenancy Isolation
+#### Multi-Tenancy Isolation
 
 All space operations are scoped by `orgId` via `TenantContext`. The query pattern:
 
@@ -157,11 +167,13 @@ spaceRepository.findById(spaceId)
 
 This prevents cross-tenant space access even if a valid JWT exists for a different org.
 
-### Data Residency
+
+#### Data Residency
 
 No new data types are introduced. The `spaces.slug` and `spaces.description` fields are organizational metadata (not PII). They follow the same data residency rules as the existing `spaces` table.
 
-### Input Validation
+
+#### Input Validation
 
 New request DTOs require validation:
 
@@ -174,11 +186,27 @@ public record UpdateSpaceRequest(
 
 Slug generation from name is server-side only — users cannot inject arbitrary slug values.
 
----
+## Audit and observability requirements
 
-## Observability
 
-### New Metrics to Monitor
+### Audit Logging
+
+All space mutation operations emit audit events via the existing `@AuditLog` annotation pattern:
+
+| Operation | Event Type | Resource Type |
+|---|---|---|
+| Create space | `SPACE_CREATED` | `SPACE` |
+| Update space | `SPACE_UPDATED` | `SPACE` |
+| Delete space | `SPACE_DELETED` | `SPACE` |
+| Update approval settings | `SPACE_APPROVAL_SETTINGS_UPDATED` | `SpaceApprovalSettings` |
+
+These flow through Kafka → event-service → `audit_events` table, consistent with all other audit events in the platform. No additional instrumentation is needed beyond adding `@AuditLog` to the new controller methods.
+
+
+### Observability
+
+
+#### New Metrics to Monitor
 
 | Metric | Alert Threshold | Rationale |
 |---|---|---|
@@ -186,7 +214,8 @@ Slug generation from name is server-side only — users cannot inject arbitrary 
 | `spaces.delete.conflict_rate` | > 20% | High rate = users confused by non-empty space delete |
 | `spaces.list.p95_latency` | > 200ms | ruleCount query performance |
 
-### Key Log Events
+
+#### Key Log Events
 
 All new service methods emit structured logs:
 ```json
@@ -195,15 +224,18 @@ All new service methods emit structured logs:
 {"event": "space.slug.conflict", "requestedName": "...", "orgId": "..."}
 ```
 
-### Frontend Error Tracking
+
+#### Frontend Error Tracking
 
 All new page errors (SpaceDetailPage, SpaceSettingsPage) should be caught by the existing `ErrorBoundary` component, which provides user-friendly error messages and logs to the console.
 
----
+## Historical rollout and acceptance
 
-## Rollback Strategy
 
-### Database Migration (V047)
+### Rollback Strategy
+
+
+#### Database Migration (V047)
 
 The V047 migration is designed to be safe:
 - `ALTER TABLE ... ADD COLUMN IF NOT EXISTS` — idempotent
@@ -216,13 +248,13 @@ ALTER TABLE spaces DROP CONSTRAINT IF EXISTS spaces_slug_org_unique;
 ALTER TABLE spaces DROP COLUMN IF EXISTS slug;
 ```
 
-### Code Rollback
+
+#### Code Rollback
 
 Auth-service is stateless — reverting to the previous JAR reverts all new endpoints. The `description` field being unmapped again is safe (column exists in DB, just not read/written by app).
 
----
 
-## Summary: Enterprise Readiness Checklist
+### Summary: Enterprise Readiness Checklist
 
 | Concern | Status | Notes |
 |---|---|---|
@@ -238,11 +270,13 @@ Auth-service is stateless — reverting to the previous JAR reverts all new endp
 **Status:** COMPLETE — Ready for UX Design and Tech Lead Story Refinement
 **Enterprise Architect Sign-Off:** BMAD EA Agent, 2026-03-14
 
----
+## Space-scoped rule management
 
-## Appendix: Epic 2 — Space-Scoped Rule Management (2026-03-14)
 
-### RBAC Matrix for Rule Move/Copy Operations
+### Appendix: Epic 2 — Space-Scoped Rule Management (2026-03-14)
+
+
+#### RBAC Matrix for Rule Move/Copy Operations
 
 | Operation | VIEWER | EDITOR | ADMIN | OWNER |
 |-----------|--------|--------|-------|-------|
@@ -257,7 +291,8 @@ Auth-service is stateless — reverting to the previous JAR reverts all new endp
 - VIEWER is read-only across all operations.
 - Cross-space move/copy requires the user to have membership in the organization that owns both spaces — enforced by existing `TenantContext` and RLS.
 
-### Observability Requirements — New Endpoints
+
+#### Observability Requirements — New Endpoints
 
 | Endpoint | Metric | Alert Threshold |
 |----------|--------|----------------|
@@ -266,7 +301,8 @@ Auth-service is stateless — reverting to the previous JAR reverts all new endp
 | `POST /v1/rules/{id}/copy` | HTTP 5xx rate | >1% per 5 min → alert |
 | `GET /v1/spaces/{id}/rules` | P95 latency | >500ms → alert |
 
-### Audit Trail Requirements
+
+#### Audit Trail Requirements
 
 Move and Copy operations must emit audit events to the `rule.lifecycle` Kafka topic:
 
@@ -293,10 +329,18 @@ Move and Copy operations must emit audit events to the `rule.lifecycle` Kafka to
 }
 ```
 
-### Compliance Traceability
+
+#### Compliance Traceability
 
 - All move operations must be logged with `fromSpaceId` and `toSpaceId` for audit queries
 - Users must not be able to move rules across organizational boundaries (RLS enforced at DB, validated at service layer)
 - No data migration required — `space_id` column update is in-place with full history preserved in `rule_versions` table
 
 **Enterprise Architect Sign-Off (Epic 2):** BMAD EA Agent, 2026-03-14
+
+## Legacy section links
+
+Earlier headings remain addressable for existing links. Use the reading path above to find their current chapter.
+
+<a id="enterprise-architecture--spaces-page-features"></a>
+<a id="historical-enterprise-architecture--spaces-features"></a>

@@ -1,120 +1,62 @@
-# RuleForge — Scalable Rule Engine Platform
-## Comprehensive Architecture Design Document
+# RuleForge Platform Architecture
 
-**Version:** 2.0
-**Date:** February 2026
-**Author:** Enterprise Architecture Team
-**Status:** Draft for Review
+**Document role:** Application and integration design reference
+**Editorial revision:** 2026-10-25
+**Status:** Draft design reference; current configuration is summarized in the overview.
+**Original design baseline:** Version 2.0, February 2026
 
----
+## Changelog
 
-## Table of Contents
+- **2026-10-25 · ARC-DOC-001:** Reorganize the architecture reading path, consolidate repeated material, and separate source evidence from earlier proposals. See the [change record and section map](ARCHITECTURE-CHANGELOG.md#arc-doc-001--2026-10-25).
 
-1. [Executive Summary](#1-executive-summary)
-2. [Competitive Analysis & Positioning](#2-competitive-analysis--positioning)
-3. [Architecture Principles & Constraints](#3-architecture-principles--constraints)
-4. [System Context (C4 Level 1)](#4-system-context-c4-level-1)
-5. [Container Architecture (C4 Level 2)](#5-container-architecture-c4-level-2)
-6. [Component Architecture (C4 Level 3)](#6-component-architecture-c4-level-3)
-7. [Core Domain Model](#7-core-domain-model)
-8. [Rule Types & Execution Engine](#8-rule-types--execution-engine)
-9. [API Design](#9-api-design)
-10. [Data Architecture](#10-data-architecture)
-11. [Multi-Tenancy Architecture](#11-multi-tenancy-architecture)
-12. [Scalability & Performance Architecture](#12-scalability--performance-architecture)
-13. [Security Architecture](#13-security-architecture)
-14. [Deployment Architecture](#14-deployment-architecture)
-15. [Event-Driven Architecture & Audit](#15-event-driven-architecture--audit)
-16. [Analytics & BI Architecture](#16-analytics--bi-architecture)
-17. [AI Assistant Architecture](#17-ai-assistant-architecture)
-18. [SDK & Integration Architecture](#18-sdk--integration-architecture)
-19. [Technology Stack](#19-technology-stack)
-20. [Development Roadmap](#20-development-roadmap)
-21. [Appendices](#21-appendices)
+## Reading path
 
----
+Start with the [architecture overview](ARCHITECTURE-SUMMARY.md). Continue to the [platform guide](RuleForge-Architecture-v2.md) for application boundaries, the [engine guide](RuleForge-Engine-Core-Architecture-v2.1.md) for execution internals, or the [enterprise guide](enterprise-architecture.md) for deployment and operations. The [Spaces record](enterprise-architecture-spaces-features.md) preserves historical feature requirements.
 
-## 1. Executive Summary
+## In this guide
 
-### 1.1 Vision
+- [System boundaries and services](#system-boundaries-and-services)
+- [Rules, data, and tenancy](#rules-data-and-tenancy)
+- [Execution and integration](#execution-and-integration)
+- [Security design](#security-design)
+- [Reference schemas and operators](#reference-schemas-and-operators)
+- [Historical product planning](#historical-product-planning)
+- [Related enterprise designs](#related-enterprise-designs)
 
-RuleForge is an enterprise-grade Business Rules Management System (BRMS) designed to compete with platforms like DecisionRules.io, GoRules, and traditional engines like IBM ODM. It enables organizations to externalize, manage, and execute business rules through an intuitive visual interface while delivering sub-100ms execution performance at scale.
+## How to read the design
 
-### 1.2 Key Differentiators
+The body preserves application design material from the original Version 2.0 document. Its examples describe intended interfaces, relationships, and flows; they are not a substitute for current source contracts or release evidence. Use the [API reference](../api-reference.md) and implementation for integration work.
 
-| Capability | DecisionRules.io | IBM ODM | RuleForge (Target) |
-|---|---|---|---|
-| **Deployment** | SaaS / Managed Cloud / On-Prem | On-Prem / OpenShift | SaaS / Managed / On-Prem / Embedded |
-| **Rule Types** | Tables, Trees, Scripts, Flows | BAL, Tables, Flows | Tables, Trees, Scripts, Flows, DMN, CEP |
-| **Performance** | ~100K decisions/min | Varies by infra | 500K+ decisions/min |
-| **No-Code Editor** | Yes | Limited | Yes (advanced) |
-| **AI Assistant** | Basic (Gemini) | None native | LLM-powered (multi-model) |
-| **Open Standards** | Proprietary JSON | Proprietary | DMN 1.4 + proprietary |
-| **Embeddable Engine** | No (API-only) | Java EE only | Lightweight JAR + WASM |
-| **Event Processing** | No | Limited | CEP with Kafka Streams |
-| **Database Connector** | Roadmap | Yes | Native (SQL + NoSQL) |
-| **Pricing** | €49+/month | $100K+/year | Freemium + Enterprise |
+The current source baseline is Java 25, Spring Boot 4.1.1, a custom engine, seven JVM services, and an optional Python AI service. Current versions and entry points are consolidated in the [overview](ARCHITECTURE-SUMMARY.md#current-source-baseline).
 
-### 1.3 Target Use Cases
+Earlier gRPC/GraphQL, event-sourcing, WASM, BI integration, multi-region, managed-service, performance, and commercial statements below remain proposals or historical claims until separately verified. Benchmark and production targets are centralized in the [enterprise proposal reference](enterprise-architecture.md#earlier-production-proposals).
 
-- **Financial Services:** Credit scoring, fraud detection, KYC/AML compliance, loan origination
-- **Insurance:** Underwriting, claims processing, premium calculation, policy rating
-- **E-Commerce:** Dynamic pricing, promotion rules, product categorization, eligibility
-- **Healthcare:** Clinical decision support, eligibility verification, billing rules
-- **Logistics:** Route optimization rules, shipping rate calculation, customs compliance
+## System boundaries and services
 
----
+RuleForge separates reusable decision execution from the surrounding authoring, governance, integration, and operational platform. The engine can be embedded in a Java application; the managed platform exposes these capabilities through service APIs and the browser UI.
 
-## 2. Competitive Analysis & Positioning
+### Source-backed service map
 
-### 2.1 DecisionRules.io Feature Matrix
+| Runtime | Port | Responsibility |
+|---|---|---|
+| Auth | 8081 | Identity, organizations, membership, spaces, access credentials |
+| Management | 8082 | Rule assets, versions, folders, tags, import/export |
+| Solver | 8083 | Rule validation, compilation, execution and cache integration |
+| Event | 8084 | Audit/event processing and webhook delivery |
+| Analytics | 8085 | Decision logs and aggregate queries |
+| Scheduler | 8086 | Scheduled and batch work |
+| Connector | 8087 | External data enrichment |
+| Optional AI service | 8000 locally / 8088 full-stack host | Assisted authoring and analysis |
 
-Based on research, DecisionRules.io provides:
+Source: [platform settings](../../platform/settings.gradle.kts), [README services](../../README.md#services), and [Compose](../../infra/docker/docker-compose.yml). Shared ruleforge-common is a library, not another service.
 
-**Rule Types:**
-- Decision Tables (spreadsheet-style, Excel import/export)
-- Decision Trees (visual branching logic)
-- Scripting Rules (JavaScript with Monaco editor)
-- Rule Flows (orchestration of multiple rules)
-- Integration Flows (batch processing with external data)
-- Lookup Tables (reference data)
+### Design principles
 
-**Platform Features:**
-- Multi-tenant SaaS with 30+ AWS regions
-- MongoDB/CosmosDB storage backend
-- Microservices architecture (independent scaling)
-- Rule versioning with rollback
-- Test Bench for rule testing
-- Execution strategies: STANDARD, ARRAY, FIRST_MATCH
-- Bulk solve (batch input processing)
-- Kafka Solver API
-- Management API (CRUD, folder structure, tags)
-- SAML SSO (Entra ID, Okta, OAuth)
-- Organization/Team/Space hierarchy
-- Power BI integration for analytics
-- AI Assistant (Gemini-based table generation)
-- Rule Lock and Teamwork Indicator
-- Audit logs and event timeline
-- Webhook support
-- Multi-language SDKs (JS/TS, Python, PHP, Go, Java, C#)
+The original principles below are design intent. In particular, event sourcing, Kubernetes-first operation, gRPC, zero-downtime delivery, and end-to-end observability require independent implementation evidence.
 
-**Gaps We Can Exploit:**
-1. No DMN standard compliance
-2. No embeddable engine (API-only)
-3. Limited Complex Event Processing
-4. No real-time rule debugging/tracing
-5. Basic AI capabilities (only Gemini for table gen)
-6. No visual diff for rule versions
-7. No A/B testing for rules
-8. No built-in database connector (still on roadmap)
-9. No rule simulation with historical data
-10. No WASM-based client-side execution
+<a id="31-architecture-principles"></a>
 
----
-
-## 3. Architecture Principles & Constraints
-
-### 3.1 Architecture Principles
+#### Architecture Principles
 
 | # | Principle | Rationale |
 |---|---|---|
@@ -128,22 +70,9 @@ Based on research, DecisionRules.io provides:
 | AP-8 | **Progressive Complexity** | Simple things easy, complex things possible |
 | AP-9 | **Zero-Downtime Deployments** | Blue-green deployments, rule hot-reloading |
 | AP-10 | **Observability Built-In** | Structured logging, distributed tracing, metrics from day one |
+<a id="4-system-context-c4-level-1"></a>
 
-### 3.2 Quality Attribute Requirements
-
-| Attribute | Target | Measurement |
-|---|---|---|
-| **Availability** | 99.95% | Monthly uptime |
-| **Latency (P50)** | < 10ms | Single rule execution |
-| **Latency (P99)** | < 100ms | Single rule execution |
-| **Throughput** | 500K decisions/min per node | Load test |
-| **Scalability** | Linear to 100 nodes | Horizontal scale test |
-| **Recovery** | RTO < 5min, RPO < 1min | DR drill |
-| **Security** | SOC 2 Type II ready | Compliance audit |
-
----
-
-## 4. System Context (C4 Level 1)
+### System Context (C4 Level 1)
 
 ```mermaid
 C4Context
@@ -174,10 +103,9 @@ C4Context
     Rel(ruleforge, kafka, "Publishes/consumes events")
     Rel(ruleforge, database, "Enriches data during execution", "JDBC/HTTP")
 ```
+<a id="5-container-architecture-c4-level-2"></a>
 
----
-
-## 5. Container Architecture (C4 Level 2)
+### Container Architecture (C4 Level 2)
 
 ```mermaid
 C4Container
@@ -228,7 +156,10 @@ C4Container
     Rel(schedulerSvc, s3Storage, "Store results")
 ```
 
-### 5.1 Service Responsibilities
+
+<a id="51-service-responsibilities"></a>
+
+#### Service Responsibilities
 
 | Service | Responsibilities | Scaling Strategy |
 |---|---|---|
@@ -241,104 +172,16 @@ C4Container
 | **Scheduler Service** | Batch solve, integration flows, cron triggers | Horizontal (worker pool) |
 | **Connector Service** | DB connectors, HTTP callouts, data transforms | Horizontal (I/O-bound) |
 
----
+## Rules, data, and tenancy
 
-## 6. Component Architecture (C4 Level 3)
+<a id="7-core-domain-model"></a>
 
-### 6.1 Solver Service — Internal Components
+### Core Domain Model
 
-```mermaid
-graph TB
-    subgraph "Solver Service"
-        API[REST/gRPC Controller]
-        Router[Rule Router]
-        Cache[Rule Cache Manager]
 
-        subgraph "Execution Engines"
-            DTE[Decision Table Engine]
-            TRE[Decision Tree Engine]
-            SCE[Scripting Rule Engine]
-            FLE[Flow Orchestrator]
-            DMN[DMN Engine]
-            CEP[CEP Engine]
-        end
+<a id="71-domain-entities"></a>
 
-        subgraph "Rule Pipeline"
-            VAL[Input Validator]
-            ENR[Data Enricher]
-            EXEC[Rule Executor]
-            TRANS[Output Transformer]
-            AUDIT[Decision Logger]
-        end
-
-        subgraph "Support"
-            SANDBOX[Script Sandbox / GraalVM]
-            CONN[Connector Client]
-            METRICS[Metrics Collector]
-        end
-    end
-
-    API --> Router
-    Router --> Cache
-    Cache --> VAL
-    VAL --> ENR
-    ENR --> EXEC
-    EXEC --> DTE & TRE & SCE & FLE & DMN & CEP
-    EXEC --> TRANS
-    TRANS --> AUDIT
-    SCE --> SANDBOX
-    ENR --> CONN
-    EXEC --> METRICS
-```
-
-### 6.2 Rule Execution Pipeline
-
-```mermaid
-sequenceDiagram
-    participant C as Client
-    participant GW as API Gateway
-    participant S as Solver Service
-    participant RC as Redis Cache
-    participant DB as PostgreSQL
-    participant K as Kafka
-    participant ES as Elasticsearch
-
-    C->>GW: POST /api/v1/solve/{ruleId}
-    GW->>GW: Authenticate (JWT/API Key)
-    GW->>GW: Rate limit check
-    GW->>S: Forward request
-
-    S->>RC: Get compiled rule
-    alt Cache HIT
-        RC-->>S: Return compiled rule
-    else Cache MISS
-        S->>DB: Load rule definition
-        DB-->>S: Rule JSON
-        S->>S: Compile & optimize rule
-        S->>RC: Store compiled rule (TTL)
-        RC-->>S: OK
-    end
-
-    S->>S: Validate input against schema
-    S->>S: Execute rule pipeline
-    Note over S: Strategy: STANDARD | FIRST_MATCH | ARRAY
-
-    opt Data Enrichment Required
-        S->>S: Call Connector Service
-    end
-
-    S->>S: Transform output
-    S-->>C: Return results
-
-    S--)K: Publish decision event (async)
-    K--)ES: Index for analytics
-```
-
----
-
-## 7. Core Domain Model
-
-### 7.1 Domain Entities
+#### Domain Entities
 
 ```mermaid
 erDiagram
@@ -450,7 +293,10 @@ erDiagram
     }
 ```
 
-### 7.2 Rule Definition JSON Schema
+
+<a id="72-rule-definition-json-schema"></a>
+
+#### Rule Definition JSON Schema
 
 ```json
 {
@@ -518,121 +364,314 @@ erDiagram
   }
 }
 ```
+<a id="10-data-architecture"></a>
 
----
+### Data Architecture
 
-## 8. Rule Types & Execution Engine
 
-### 8.1 Supported Rule Types
+<a id="101-storage-strategy"></a>
+
+#### Storage Strategy
 
 ```mermaid
-mindmap
-  root((Rule Types))
-    Decision Table
-      Spreadsheet-style
-      Excel/CSV import-export
-      Operators: EQ, NEQ, GT, GTE, LT, LTE, BETWEEN, IN, CONTAINS, REGEX, IS_NULL
-      Functions: Math, Date, String, Array, Logical
-      Strategies: STANDARD, FIRST_MATCH, ARRAY
-    Decision Tree
-      Visual branching logic
-      IF-THEN-ELSE chains
-      Nested conditions
-      Drag-and-drop editor
-    Scripting Rule
-      JavaScript (GraalVM polyglot — works on any JDK 21+)
-      Language ID: "js", entry function: "evaluate"
-      Monaco editor with IntelliSense
-      Access to input/output models
-      Custom function library
-      Call embedded rules (DR.solve)
-    Rule Flow / Workflow
-      Orchestrate multiple rules
-      Conditional branching
-      Parallel execution
-      Loop/ForEach
-      Aggregation nodes
-      HTTP callout nodes
-      Script transform nodes
-    DMN (Decision Model & Notation)
-      Standard DMN 1.4
-      FEEL expression language
-      Import/export standard XML
-      Interop with Camunda/jBPM
-    Complex Event Processing
-      Temporal patterns
-      Sliding windows
-      Event correlation
-      In-memory evaluation (default) + Kafka Streams integration
-    Lookup Table
-      Reference data storage
-      Key-value pairs
-      Used within other rules
+graph LR
+    subgraph "Hot Path (Real-Time)"
+        Redis[("Redis Cluster<br/>• Compiled rules cache<br/>• Rate limiting counters<br/>• Session tokens<br/>• Feature flags")]
+    end
+
+    subgraph "Warm Path (Operational)"
+        PG[("PostgreSQL 16<br/>• Rule definitions<br/>• User/tenant data<br/>• API keys<br/>• Audit events<br/>• Workflow state")]
+    end
+
+    subgraph "Cold Path (Analytics)"
+        ES[("Elasticsearch 8<br/>• Decision logs<br/>• Full-text search<br/>• Aggregations<br/>• Dashboards")]
+    end
+
+    subgraph "Archive Path (Storage)"
+        S3[("S3 / MinIO<br/>• Rule exports<br/>• Batch results<br/>• Backups<br/>• Large payloads")]
+    end
+
+    Solver -->|Read| Redis
+    Solver -->|Fallback| PG
+    Solver -->|Log| ES
+    Mgmt -->|CRUD| PG
+    Mgmt -->|Invalidate| Redis
+    Analytics -->|Query| ES
+    Scheduler -->|Results| S3
 ```
 
-### 8.2 Execution Engine Architecture
 
-The core engine uses a **compiled rule** approach for performance:
+<a id="102-why-postgresql-over-mongodb"></a>
 
-```
-Rule Definition (JSON) → Compiler → Compiled Rule (Bytecode/AST) → Cache → Execute
-```
+#### Why PostgreSQL over MongoDB
 
-**Per rule type:**
+DecisionRules.io uses MongoDB, but for RuleForge we recommend PostgreSQL:
 
-| Rule Type | Compilation Strategy | Execution Model |
+| Criteria | PostgreSQL | MongoDB |
 |---|---|---|
-| Decision Table | Compile to optimized Rete-like network with indexed conditions | Row-scan with short-circuit (FIRST_MATCH) or full-scan (STANDARD) |
-| Decision Tree | Compile to optimized binary decision diagram (BDD) | Tree traversal with lazy evaluation |
-| Scripting Rule | Compile to GraalVM polyglot context | Sandboxed JS execution with CPU/memory limits |
-| Rule Flow | Compile to DAG with topological sort | Parallel executor with Futures |
-| DMN | Parse FEEL → compile to expression tree | Standard DMN evaluation |
-| CEP | Compile pattern to state machine | Kafka Streams processor |
+| **JSONB Support** | Native, indexed, queryable | Native JSON |
+| **ACID Transactions** | Full multi-table | Limited multi-document |
+| **Rule Versioning** | Strong with CTEs, window functions | Requires careful schema |
+| **Audit Trail** | Triggers + event sourcing | Change streams |
+| **Multi-Tenancy** | Row-level security (RLS) | Database-per-tenant or field |
+| **Analytics Queries** | Advanced aggregation, CTEs | Aggregation pipeline |
+| **Operational Maturity** | Battle-tested in banking | Good, but less in regulated |
+| **JSON Schema Validation** | CHECK constraints on JSONB | Built-in validation |
 
-### 8.3 JEasyRules Integration Points
+**Decision:** PostgreSQL with JSONB columns for rule definitions gives us the best of both worlds — flexible JSON storage with relational integrity, transactions, and row-level security for multi-tenancy.
 
-While the architecture is engine-agnostic, JEasyRules can serve as the **foundation for simple rule evaluation**:
 
-```java
-// Core engine abstraction
-public interface RuleEngine {
-    RuleResult evaluate(CompiledRule rule, RuleInput input, ExecutionContext context);
-    CompiledRule compile(RuleDefinition definition);
-    ValidationResult validate(RuleDefinition definition);
-}
+<a id="103-caching-strategy"></a>
 
-// JEasyRules adapter for basic rules
-public class JEasyRulesAdapter implements RuleEngine {
-    private final RulesEngine easyRulesEngine;
+#### Caching Strategy
 
-    @Override
-    public RuleResult evaluate(CompiledRule rule, RuleInput input, ExecutionContext ctx) {
-        Facts facts = new Facts();
-        facts.put("input", input.getData());
-        facts.put("output", new HashMap<>());
-        facts.put("context", ctx);
+```mermaid
+graph TB
+    subgraph "Multi-Layer Cache"
+        L1["L1: In-Process (Caffeine)<br/>Per JVM, 1000 rules<br/>TTL: 60s, Eviction: LRU"]
+        L2["L2: Distributed (Redis)<br/>Shared cluster<br/>TTL: 5min, Eviction: LFU"]
+        L3["L3: Source (PostgreSQL)<br/>Rule definitions<br/>Always fresh"]
+    end
 
-        Rules rules = rule.getEasyRules();
-        easyRulesEngine.fire(rules, facts);
+    L1 -->|Miss| L2
+    L2 -->|Miss| L3
 
-        return new RuleResult(facts.get("output"));
-    }
-}
+    subgraph "Invalidation"
+        PUB["Kafka Topic: rule.updated"]
+        INV1["Invalidate L2 key"]
+        INV2["Broadcast L1 invalidation"]
+    end
 
-// High-performance compiled engine for Decision Tables
-public class CompiledTableEngine implements RuleEngine {
-    // Uses pre-compiled condition indexes for O(1) lookups
-    // Falls back to linear scan for complex operators
-}
+    PUB --> INV1
+    PUB --> INV2
 ```
 
-**Recommendation:** Use JEasyRules as the **simple rule adapter** but build custom high-performance engines for Decision Tables and Trees, as JEasyRules' linear evaluation model won't meet the 500K decisions/min target for complex tables.
+**Cache Key Pattern:**
+```
+rule:{spaceId}:{ruleId}:{version}:compiled
+rule:{spaceId}:{ruleAlias}:latest:compiled
+```
+<a id="11-multi-tenancy-architecture"></a>
 
----
+### Multi-Tenancy Architecture
 
-## 9. API Design
 
-### 9.1 API Overview
+<a id="111-tenant-hierarchy"></a>
+
+#### Tenant Hierarchy
+
+```mermaid
+graph TB
+    ORG["Organization<br/>(Tenant)"]
+    ORG --> SPACE1["Space: Production"]
+    ORG --> SPACE2["Space: Staging"]
+    ORG --> SPACE3["Space: Development"]
+
+    SPACE1 --> FOLDER1["Folder: Lending"]
+    SPACE1 --> FOLDER2["Folder: KYC"]
+    FOLDER1 --> R1["Rule: Credit Scoring v3"]
+    FOLDER1 --> R2["Rule: Loan Eligibility v5"]
+    FOLDER2 --> R3["Rule: Customer Risk v2"]
+
+    ORG --> TEAM1["Team: Business Analysts"]
+    ORG --> TEAM2["Team: Developers"]
+    ORG --> TEAM3["Team: Ops"]
+
+    TEAM1 -.->|Read/Write Space Prod| SPACE1
+    TEAM2 -.->|Admin Space Dev| SPACE3
+    TEAM3 -.->|Read-Only All| SPACE1 & SPACE2 & SPACE3
+```
+
+
+<a id="112-isolation-model"></a>
+
+#### Isolation Model
+
+| Layer | Strategy | Implementation |
+|---|---|---|
+| **Compute** | Shared (namespaced) | Tenant ID in JWT, propagated to all services |
+| **Data** | Row-Level Security | PostgreSQL RLS policies on all tables |
+| **Cache** | Key-prefixed | `tenant:{orgId}:rule:{ruleId}:...` |
+| **Search** | Index-per-tenant | Elasticsearch index aliases per org |
+| **Storage** | Prefix-partitioned | S3 path: `/{orgId}/{spaceId}/...` |
+| **Network** | Shared (throttled) | Per-tenant rate limits in API Gateway |
+| **Encryption** | Per-tenant keys | AES-256 with tenant-specific KEK |
+
+
+<a id="113-row-level-security-example"></a>
+
+#### Row-Level Security Example
+
+```sql
+-- Enable RLS on rules table
+ALTER TABLE rules ENABLE ROW LEVEL SECURITY;
+
+-- Policy: users can only see rules in their space
+CREATE POLICY rules_tenant_isolation ON rules
+    USING (space_id IN (
+        SELECT s.id FROM spaces s
+        JOIN org_members om ON om.org_id = s.org_id
+        WHERE om.user_id = current_setting('app.current_user_id')::uuid
+    ));
+
+-- Set context per request
+SET app.current_user_id = '<user-uuid>';
+SET app.current_org_id = '<org-uuid>';
+```
+
+
+### Memory and cache sizing reference
+
+This sketch originally appeared in the engine performance chapter. It describes platform-level cache and pool sizing assumptions from the February 2026 design. It is not a measured memory budget or a verified serialization contract.
+
+<a id="legacy-engine-172-memory-architecture"></a>
+
+### Memory Architecture
+
+```mermaid
+graph TB
+    subgraph "Per-Request (Stack)"
+        WM_REQ["Working Memory<br/><i>Allocated per request<br/>Released after response<br/>~1-10 KB</i>"]
+    end
+
+    subgraph "Per-JVM (Heap)"
+        L1["L1 Cache: Caffeine<br/><i>2000 compiled rules<br/>~200 MB<br/>TTL: 60s</i>"]
+        CTX_POOL["GraalVM Context Pool<br/><i>Pre-warmed contexts<br/>~100 MB<br/>Pool size: 50</i>"]
+        IDX["Condition Indexes<br/><i>Interval trees, hashmaps<br/>Part of compiled rule</i>"]
+    end
+
+    subgraph "Cluster (Shared)"
+        L2["L2 Cache: Redis<br/><i>All compiled rules<br/>Serialized protobuf<br/>TTL: 5 min</i>"]
+    end
+
+    subgraph "Persistent"
+        DB["PostgreSQL<br/><i>Rule definitions (JSON)<br/>Source of truth</i>"]
+    end
+
+    WM_REQ -.->|"reads"| L1
+    L1 -->|"miss"| L2
+    L2 -->|"miss"| DB
+```
+
+## Execution and integration
+
+<a id="6-component-architecture-c4-level-3"></a>
+
+### Component Architecture (C4 Level 3)
+
+
+<a id="61-solver-service--internal-components"></a>
+
+#### Solver Service — Internal Components
+
+```mermaid
+graph TB
+    subgraph "Solver Service"
+        API[REST/gRPC Controller]
+        Router[Rule Router]
+        Cache[Rule Cache Manager]
+
+        subgraph "Execution Engines"
+            DTE[Decision Table Engine]
+            TRE[Decision Tree Engine]
+            SCE[Scripting Rule Engine]
+            FLE[Flow Orchestrator]
+            DMN[DMN Engine]
+            CEP[CEP Engine]
+        end
+
+        subgraph "Rule Pipeline"
+            VAL[Input Validator]
+            ENR[Data Enricher]
+            EXEC[Rule Executor]
+            TRANS[Output Transformer]
+            AUDIT[Decision Logger]
+        end
+
+        subgraph "Support"
+            SANDBOX[Script Sandbox / GraalVM]
+            CONN[Connector Client]
+            METRICS[Metrics Collector]
+        end
+    end
+
+    API --> Router
+    Router --> Cache
+    Cache --> VAL
+    VAL --> ENR
+    ENR --> EXEC
+    EXEC --> DTE & TRE & SCE & FLE & DMN & CEP
+    EXEC --> TRANS
+    TRANS --> AUDIT
+    SCE --> SANDBOX
+    ENR --> CONN
+    EXEC --> METRICS
+```
+
+
+<a id="62-rule-execution-pipeline"></a>
+
+#### Rule Execution Pipeline
+
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant GW as API Gateway
+    participant S as Solver Service
+    participant RC as Redis Cache
+    participant DB as PostgreSQL
+    participant K as Kafka
+    participant ES as Elasticsearch
+
+    C->>GW: POST /api/v1/solve/{ruleId}
+    GW->>GW: Authenticate (JWT/API Key)
+    GW->>GW: Rate limit check
+    GW->>S: Forward request
+
+    S->>RC: Get compiled rule
+    alt Cache HIT
+        RC-->>S: Return compiled rule
+    else Cache MISS
+        S->>DB: Load rule definition
+        DB-->>S: Rule JSON
+        S->>S: Compile & optimize rule
+        S->>RC: Store compiled rule (TTL)
+        RC-->>S: OK
+    end
+
+    S->>S: Validate input against schema
+    S->>S: Execute rule pipeline
+    Note over S: Strategy: STANDARD | FIRST_MATCH | ARRAY
+
+    opt Data Enrichment Required
+        S->>S: Call Connector Service
+    end
+
+    S->>S: Transform output
+    S-->>C: Return results
+
+    S--)K: Publish decision event (async)
+    K--)ES: Index for analytics
+```
+
+<a id="8-rule-types--execution-engine"></a>
+<a id="81-supported-rule-types"></a>
+<a id="82-execution-engine-architecture"></a>
+<a id="83-jeasyrules-integration-points"></a>
+### Engine boundary
+
+The custom engine compiles and evaluates rule definitions. Engine metamodels, execution modes, specialized evaluators, and SPI details are maintained in the [engine guide](RuleForge-Engine-Core-Architecture-v2.1.md#engine-foundations).
+
+The former JEasyRules adapter proposal is superseded by the custom-engine direction documented in that guide. Its outdated recommendation and repeated rule-type overview have been replaced with this reference. This edit does not introduce a new engine decision.
+
+<a id="9-api-design"></a>
+
+### API Design
+
+
+<a id="91-api-overview"></a>
+
+#### API Overview
 
 ```
 Base URL: https://api.ruleforge.io/v1
@@ -643,7 +682,10 @@ Authentication:
   - API keys scoped: SOLVER (execute only) vs MANAGEMENT (CRUD)
 ```
 
-### 9.2 Solver API (Rule Execution)
+
+<a id="92-solver-api-rule-execution"></a>
+
+#### Solver API (Rule Execution)
 
 ```yaml
 # Execute a rule (single input)
@@ -708,7 +750,10 @@ Response 202:
   { "jobId": "job-uuid", "status": "QUEUED" }
 ```
 
-### 9.3 Management API (Rule CRUD)
+
+<a id="93-management-api-rule-crud"></a>
+
+#### Management API (Rule CRUD)
 
 ```yaml
 # Rules
@@ -759,7 +804,10 @@ PUT    /v1/webhooks/{id}                   # Update webhook
 DELETE /v1/webhooks/{id}                   # Delete webhook
 ```
 
-### 9.4 Analytics API
+
+<a id="94-analytics-api"></a>
+
+#### Analytics API
 
 ```yaml
 GET    /v1/analytics/decisions              # Query decision logs
@@ -770,7 +818,10 @@ POST   /v1/analytics/reports                # Generate custom report
 GET    /v1/analytics/dashboard              # Dashboard metrics
 ```
 
-### 9.5 AI Assistant API
+
+<a id="95-ai-assistant-api"></a>
+
+#### AI Assistant API
 
 ```yaml
 POST   /v1/ai/generate-table               # Generate decision table from natural language
@@ -780,432 +831,14 @@ POST   /v1/ai/generate-test-data            # Generate test data for rule
 POST   /v1/ai/detect-conflicts              # Detect conflicting rules
 POST   /v1/ai/natural-language-query        # Query rules in natural language
 ```
+<a id="15-event-driven-architecture--audit"></a>
 
----
+### Event-Driven Architecture & Audit
 
-## 10. Data Architecture
 
-### 10.1 Storage Strategy
+<a id="151-event-topology"></a>
 
-```mermaid
-graph LR
-    subgraph "Hot Path (Real-Time)"
-        Redis[("Redis Cluster<br/>• Compiled rules cache<br/>• Rate limiting counters<br/>• Session tokens<br/>• Feature flags")]
-    end
-
-    subgraph "Warm Path (Operational)"
-        PG[("PostgreSQL 16<br/>• Rule definitions<br/>• User/tenant data<br/>• API keys<br/>• Audit events<br/>• Workflow state")]
-    end
-
-    subgraph "Cold Path (Analytics)"
-        ES[("Elasticsearch 8<br/>• Decision logs<br/>• Full-text search<br/>• Aggregations<br/>• Dashboards")]
-    end
-
-    subgraph "Archive Path (Storage)"
-        S3[("S3 / MinIO<br/>• Rule exports<br/>• Batch results<br/>• Backups<br/>• Large payloads")]
-    end
-
-    Solver -->|Read| Redis
-    Solver -->|Fallback| PG
-    Solver -->|Log| ES
-    Mgmt -->|CRUD| PG
-    Mgmt -->|Invalidate| Redis
-    Analytics -->|Query| ES
-    Scheduler -->|Results| S3
-```
-
-### 10.2 Why PostgreSQL over MongoDB
-
-DecisionRules.io uses MongoDB, but for RuleForge we recommend PostgreSQL:
-
-| Criteria | PostgreSQL | MongoDB |
-|---|---|---|
-| **JSONB Support** | Native, indexed, queryable | Native JSON |
-| **ACID Transactions** | Full multi-table | Limited multi-document |
-| **Rule Versioning** | Strong with CTEs, window functions | Requires careful schema |
-| **Audit Trail** | Triggers + event sourcing | Change streams |
-| **Multi-Tenancy** | Row-level security (RLS) | Database-per-tenant or field |
-| **Analytics Queries** | Advanced aggregation, CTEs | Aggregation pipeline |
-| **Operational Maturity** | Battle-tested in banking | Good, but less in regulated |
-| **JSON Schema Validation** | CHECK constraints on JSONB | Built-in validation |
-
-**Decision:** PostgreSQL with JSONB columns for rule definitions gives us the best of both worlds — flexible JSON storage with relational integrity, transactions, and row-level security for multi-tenancy.
-
-### 10.3 Caching Strategy
-
-```mermaid
-graph TB
-    subgraph "Multi-Layer Cache"
-        L1["L1: In-Process (Caffeine)<br/>Per JVM, 1000 rules<br/>TTL: 60s, Eviction: LRU"]
-        L2["L2: Distributed (Redis)<br/>Shared cluster<br/>TTL: 5min, Eviction: LFU"]
-        L3["L3: Source (PostgreSQL)<br/>Rule definitions<br/>Always fresh"]
-    end
-
-    L1 -->|Miss| L2
-    L2 -->|Miss| L3
-
-    subgraph "Invalidation"
-        PUB["Kafka Topic: rule.updated"]
-        INV1["Invalidate L2 key"]
-        INV2["Broadcast L1 invalidation"]
-    end
-
-    PUB --> INV1
-    PUB --> INV2
-```
-
-**Cache Key Pattern:**
-```
-rule:{spaceId}:{ruleId}:{version}:compiled
-rule:{spaceId}:{ruleAlias}:latest:compiled
-```
-
----
-
-## 11. Multi-Tenancy Architecture
-
-### 11.1 Tenant Hierarchy
-
-```mermaid
-graph TB
-    ORG["Organization<br/>(Tenant)"]
-    ORG --> SPACE1["Space: Production"]
-    ORG --> SPACE2["Space: Staging"]
-    ORG --> SPACE3["Space: Development"]
-
-    SPACE1 --> FOLDER1["Folder: Lending"]
-    SPACE1 --> FOLDER2["Folder: KYC"]
-    FOLDER1 --> R1["Rule: Credit Scoring v3"]
-    FOLDER1 --> R2["Rule: Loan Eligibility v5"]
-    FOLDER2 --> R3["Rule: Customer Risk v2"]
-
-    ORG --> TEAM1["Team: Business Analysts"]
-    ORG --> TEAM2["Team: Developers"]
-    ORG --> TEAM3["Team: Ops"]
-
-    TEAM1 -.->|Read/Write Space Prod| SPACE1
-    TEAM2 -.->|Admin Space Dev| SPACE3
-    TEAM3 -.->|Read-Only All| SPACE1 & SPACE2 & SPACE3
-```
-
-### 11.2 Isolation Model
-
-| Layer | Strategy | Implementation |
-|---|---|---|
-| **Compute** | Shared (namespaced) | Tenant ID in JWT, propagated to all services |
-| **Data** | Row-Level Security | PostgreSQL RLS policies on all tables |
-| **Cache** | Key-prefixed | `tenant:{orgId}:rule:{ruleId}:...` |
-| **Search** | Index-per-tenant | Elasticsearch index aliases per org |
-| **Storage** | Prefix-partitioned | S3 path: `/{orgId}/{spaceId}/...` |
-| **Network** | Shared (throttled) | Per-tenant rate limits in API Gateway |
-| **Encryption** | Per-tenant keys | AES-256 with tenant-specific KEK |
-
-### 11.3 Row-Level Security Example
-
-```sql
--- Enable RLS on rules table
-ALTER TABLE rules ENABLE ROW LEVEL SECURITY;
-
--- Policy: users can only see rules in their space
-CREATE POLICY rules_tenant_isolation ON rules
-    USING (space_id IN (
-        SELECT s.id FROM spaces s
-        JOIN org_members om ON om.org_id = s.org_id
-        WHERE om.user_id = current_setting('app.current_user_id')::uuid
-    ));
-
--- Set context per request
-SET app.current_user_id = '<user-uuid>';
-SET app.current_org_id = '<org-uuid>';
-```
-
----
-
-## 12. Scalability & Performance Architecture
-
-### 12.1 Performance Targets
-
-| Metric | Target | Strategy |
-|---|---|---|
-| Single rule latency (P50) | < 5ms | In-memory compiled rules, no I/O in hot path |
-| Single rule latency (P99) | < 50ms | Warm cache, connection pooling |
-| Flow execution (P50) | < 50ms | Parallel node execution, cached sub-rules |
-| Bulk solve 1000 inputs | < 2s | Thread pool, batch processing |
-| Throughput per node | 8,000+ req/s | Async I/O, non-blocking execution |
-| Cluster throughput | 500K+ decisions/min | 10-node cluster |
-| Rule compilation | < 500ms | Async background compilation |
-
-### 12.2 Horizontal Scaling Architecture
-
-```mermaid
-graph TB
-    LB["Load Balancer<br/>(L7 / Envoy)"]
-
-    subgraph "Solver Pool (Auto-Scaled)"
-        S1["Solver-1<br/>CPU: 4, RAM: 8G"]
-        S2["Solver-2<br/>CPU: 4, RAM: 8G"]
-        S3["Solver-N<br/>CPU: 4, RAM: 8G"]
-    end
-
-    subgraph "Management Pool"
-        M1["Mgmt-1"]
-        M2["Mgmt-2"]
-    end
-
-    subgraph "Worker Pool (Batch)"
-        W1["Worker-1"]
-        W2["Worker-N"]
-    end
-
-    LB --> S1 & S2 & S3
-    LB --> M1 & M2
-
-    KAFKA["Kafka"] --> W1 & W2
-
-    subgraph "Shared Data"
-        REDIS["Redis Cluster (3-node)"]
-        PG["PostgreSQL (Primary + 2 Replicas)"]
-    end
-
-    S1 & S2 & S3 --> REDIS
-    M1 & M2 --> PG
-    S1 & S2 & S3 -.->|Fallback| PG
-```
-
-### 12.3 Auto-Scaling Policy
-
-```yaml
-# Kubernetes HPA for Solver Service
-apiVersion: autoscaling/v2
-kind: HorizontalPodAutoscaler
-metadata:
-  name: solver-hpa
-spec:
-  scaleTargetRef:
-    apiVersion: apps/v1
-    kind: Deployment
-    name: solver-service
-  minReplicas: 3
-  maxReplicas: 50
-  metrics:
-    - type: Resource
-      resource:
-        name: cpu
-        target:
-          type: Utilization
-          averageUtilization: 65
-    - type: Pods
-      pods:
-        metric:
-          name: http_requests_per_second
-        target:
-          type: AverageValue
-          averageValue: "5000"
-  behavior:
-    scaleUp:
-      stabilizationWindowSeconds: 30
-      policies:
-        - type: Pods
-          value: 4
-          periodSeconds: 60
-    scaleDown:
-      stabilizationWindowSeconds: 300
-      policies:
-        - type: Pods
-          value: 2
-          periodSeconds: 120
-```
-
-### 12.4 Performance Optimization Techniques
-
-1. **Compiled Rules:** Rules are compiled to optimized AST/bytecode on publish, not on every execution
-2. **Rete-like Indexing:** Decision table conditions are indexed for O(log n) matching
-3. **GraalVM Polyglot:** Scripting rules run in pre-warmed GraalVM contexts (not V8/Nashorn)
-4. **Connection Pooling:** HikariCP for PostgreSQL, Lettuce for Redis
-5. **Async I/O:** Non-blocking Kafka producers, async audit logging
-6. **Zero-Copy:** Avoid unnecessary serialization in the execution pipeline
-7. **Virtual Threads:** Java 21 virtual threads for high concurrency with low overhead
-8. **Result Streaming:** Large bulk results streamed to S3, not buffered in memory
-
----
-
-## 13. Security Architecture
-
-### 13.1 Authentication & Authorization
-
-```mermaid
-graph LR
-    subgraph "Authentication"
-        JWT["JWT Tokens<br/>(UI Sessions)"]
-        APIKEY["API Keys<br/>(Machine-to-Machine)"]
-        SSO["SSO/SAML/OIDC<br/>(Enterprise)"]
-    end
-
-    subgraph "Authorization"
-        RBAC["Role-Based Access Control"]
-        ABAC["Attribute-Based Policies"]
-        RLS["Row-Level Security"]
-    end
-
-    subgraph "Roles"
-        OWNER["Owner: Full control"]
-        ADMIN["Admin: Manage space & users"]
-        EDITOR["Editor: Create & edit rules"]
-        VIEWER["Viewer: Read-only access"]
-        SOLVER["Solver: Execute only (API key)"]
-    end
-
-    JWT --> RBAC
-    APIKEY --> RBAC
-    SSO --> RBAC
-    RBAC --> OWNER & ADMIN & EDITOR & VIEWER & SOLVER
-    RBAC --> ABAC
-    ABAC --> RLS
-```
-
-### 13.2 Security Controls
-
-| Control | Implementation |
-|---|---|
-| **Encryption at Rest** | AES-256 for PostgreSQL (TDE), Redis encryption, S3 SSE-KMS |
-| **Encryption in Transit** | TLS 1.3 everywhere, mTLS between services |
-| **API Key Management** | Hashed storage (bcrypt), prefix for identification, rotation support |
-| **Secret Management** | HashiCorp Vault / AWS Secrets Manager |
-| **Script Sandboxing** | GraalVM isolated contexts, CPU/memory limits, no filesystem/network |
-| **Input Validation** | JSON Schema validation on all inputs, SQL injection prevention |
-| **Rate Limiting** | Per-tenant, per-API-key, sliding window in Redis |
-| **Audit Trail** | Immutable audit log for all rule changes and decisions |
-| **Vulnerability Scanning** | Trivy for containers, Snyk for dependencies |
-| **SOC 2 Compliance** | Audit logging, access controls, encryption, monitoring |
-
-### 13.3 Script Sandboxing Detail
-
-```java
-// GraalVM sandbox configuration for scripting rules
-Context context = Context.newBuilder("js")
-    .allowHostAccess(HostAccess.NONE)           // No Java interop
-    .allowIO(false)                               // No file system
-    .allowCreateThread(false)                     // No threading
-    .allowNativeAccess(false)                     // No native calls
-    .allowEnvironmentAccess(EnvironmentAccess.NONE) // No env vars
-    .option("engine.WarnInterpreterOnly", "false")
-    .resourceLimits(
-        ResourceLimits.newBuilder()
-            .statementLimit(100_000, null)         // Max 100K statements
-            .build()
-    )
-    .build();
-
-// Inject safe API
-context.getBindings("js").putMember("input", inputData);
-context.getBindings("js").putMember("output", outputData);
-context.getBindings("js").putMember("DR", drApiProxy); // Safe rule-calling API
-context.getBindings("js").putMember("Math", mathFunctions);
-context.getBindings("js").putMember("Date", safeDateFunctions);
-```
-
----
-
-## 14. Deployment Architecture
-
-### 14.1 Deployment Options
-
-```mermaid
-graph TB
-    subgraph "Option 1: SaaS (Multi-Tenant)"
-        SAAS_LB["Global LB<br/>(CloudFlare)"]
-        SAAS_R1["Region: US-East"]
-        SAAS_R2["Region: EU-West"]
-        SAAS_R3["Region: AP-Southeast"]
-        SAAS_LB --> SAAS_R1 & SAAS_R2 & SAAS_R3
-    end
-
-    subgraph "Option 2: Managed Private Cloud"
-        MPC["Dedicated K8s Namespace<br/>Customer's preferred region<br/>Managed by RuleForge team"]
-    end
-
-    subgraph "Option 3: Self-Hosted (On-Premise)"
-        ONPREM["Customer K8s Cluster<br/>Helm chart + Operator<br/>Air-gapped capable"]
-    end
-
-    subgraph "Option 4: Embedded Engine"
-        EMBED["ruleforge-engine.jar<br/>Lightweight library<br/>No platform dependency<br/>+ WASM for browser/edge"]
-    end
-```
-
-### 14.2 Kubernetes Deployment
-
-```yaml
-# Helm values.yaml (simplified)
-global:
-  domain: ruleforge.example.com
-  storageClass: gp3-encrypted
-
-solver:
-  replicas: 3
-  resources:
-    requests: { cpu: "2", memory: "4Gi" }
-    limits: { cpu: "4", memory: "8Gi" }
-  autoscaling:
-    enabled: true
-    minReplicas: 3
-    maxReplicas: 50
-    targetCPUUtilization: 65
-  env:
-    CACHE_L1_SIZE: "2000"
-    CACHE_L2_TTL: "300"
-    GRAALVM_SCRIPT_TIMEOUT_MS: "5000"
-
-management:
-  replicas: 2
-  resources:
-    requests: { cpu: "1", memory: "2Gi" }
-
-postgresql:
-  primary:
-    persistence:
-      size: 100Gi
-  readReplicas:
-    replicaCount: 2
-
-redis:
-  architecture: replication
-  sentinel:
-    enabled: true
-  master:
-    persistence:
-      size: 10Gi
-
-elasticsearch:
-  replicas: 3
-  persistence:
-    size: 200Gi
-
-kafka:
-  replicaCount: 3
-  persistence:
-    size: 100Gi
-```
-
-### 14.3 CI/CD & GitOps for Rules
-
-```mermaid
-graph LR
-    DEV["Dev Space<br/>Edit rules in UI"] -->|Promote| STG["Staging Space<br/>Automated testing"]
-    STG -->|Approve| PROD["Production Space<br/>Live traffic"]
-
-    GIT["Git Repository<br/>Rule definitions as code"] -->|PR| CI["CI Pipeline<br/>Lint + Test + Validate"]
-    CI -->|Merge| CD["CD Pipeline<br/>Deploy to target space"]
-    CD --> STG
-
-    WEBHOOK["Webhook on Publish"] --> GIT
-```
-
----
-
-## 15. Event-Driven Architecture & Audit
-
-### 15.1 Event Topology
+#### Event Topology
 
 ```mermaid
 graph LR
@@ -1239,7 +872,10 @@ graph LR
     T3 --> AUDIT
 ```
 
-### 15.2 Audit Event Schema
+
+<a id="152-audit-event-schema"></a>
+
+#### Audit Event Schema
 
 ```json
 {
@@ -1272,12 +908,14 @@ graph LR
   }
 }
 ```
+<a id="16-analytics--bi-architecture"></a>
 
----
+### Analytics & BI Architecture
 
-## 16. Analytics & BI Architecture
 
-### 16.1 Decision Analytics Pipeline
+<a id="161-decision-analytics-pipeline"></a>
+
+#### Decision Analytics Pipeline
 
 ```mermaid
 graph LR
@@ -1304,7 +942,10 @@ graph LR
     UI --> M1 & M2 & M3 & M4 & M5 & M6
 ```
 
-### 16.2 Built-In Analytics Features
+
+<a id="162-built-in-analytics-features"></a>
+
+#### Built-In Analytics Features
 
 | Feature | Description |
 |---|---|
@@ -1314,12 +955,14 @@ graph LR
 | **A/B Testing** | Route traffic between rule versions with statistical analysis |
 | **Impact Analysis** | "What-if" simulation: replay historical decisions against new rule version |
 | **Export to BI** | ODBC/JDBC connector, Power BI dataset, API export |
+<a id="17-ai-assistant-architecture"></a>
 
----
+### AI Assistant Architecture
 
-## 17. AI Assistant Architecture
 
-### 17.1 AI Capabilities
+<a id="171-ai-capabilities"></a>
+
+#### AI Capabilities
 
 ```mermaid
 graph TB
@@ -1342,7 +985,10 @@ graph TB
     GEN --> LOCAL
 ```
 
-### 17.2 AI Use Cases
+
+<a id="172-ai-use-cases"></a>
+
+#### AI Use Cases
 
 | Use Case | Input | Output |
 |---|---|---|
@@ -1352,12 +998,14 @@ graph TB
 | **Generate Tests** | Rule definition | Edge case test inputs with expected outputs |
 | **Detect Conflicts** | Set of rules in a flow | List of conflicting/overlapping conditions |
 | **Natural Language Query** | "Show me all rules that check credit score > 700" | Filtered rule list |
+<a id="18-sdk--integration-architecture"></a>
 
----
+### SDK & Integration Architecture
 
-## 18. SDK & Integration Architecture
 
-### 18.1 Multi-Language SDK Strategy
+<a id="181-multi-language-sdk-strategy"></a>
+
+#### Multi-Language SDK Strategy
 
 ```
 SDKs generated from OpenAPI 3.1 spec using openapi-generator:
@@ -1370,7 +1018,10 @@ SDKs generated from OpenAPI 3.1 spec using openapi-generator:
   ruleforge-sdk-php         (PHP)
 ```
 
-### 18.2 SDK Usage Example
+
+<a id="182-sdk-usage-example"></a>
+
+#### SDK Usage Example
 
 ```typescript
 import { RuleForge } from '@ruleforge/sdk-node';
@@ -1400,7 +1051,10 @@ const job = await rf.solveAsync('batch-scoring', largeDataset, {
 });
 ```
 
-### 18.3 Embedded Engine
+
+<a id="183-embedded-engine"></a>
+
+#### Embedded Engine
 
 ```xml
 <!-- Maven dependency for embedded usage -->
@@ -1427,7 +1081,10 @@ RuleResult result = engine.evaluate(rule, Map.of(
 ));
 ```
 
-### 18.4 Integration Patterns
+
+<a id="184-integration-patterns"></a>
+
+#### Integration Patterns
 
 ```mermaid
 graph TB
@@ -1456,57 +1113,267 @@ graph TB
     end
 ```
 
----
+## Security design
 
-## 19. Technology Stack
+<a id="13-security-architecture"></a>
 
-### 19.1 Backend
+### Security Architecture
 
-| Component | Technology | Rationale |
+
+<a id="131-authentication--authorization"></a>
+
+#### Authentication & Authorization
+
+```mermaid
+graph LR
+    subgraph "Authentication"
+        JWT["JWT Tokens<br/>(UI Sessions)"]
+        APIKEY["API Keys<br/>(Machine-to-Machine)"]
+        SSO["SSO/SAML/OIDC<br/>(Enterprise)"]
+    end
+
+    subgraph "Authorization"
+        RBAC["Role-Based Access Control"]
+        ABAC["Attribute-Based Policies"]
+        RLS["Row-Level Security"]
+    end
+
+    subgraph "Roles"
+        OWNER["Owner: Full control"]
+        ADMIN["Admin: Manage space & users"]
+        EDITOR["Editor: Create & edit rules"]
+        VIEWER["Viewer: Read-only access"]
+        SOLVER["Solver: Execute only (API key)"]
+    end
+
+    JWT --> RBAC
+    APIKEY --> RBAC
+    SSO --> RBAC
+    RBAC --> OWNER & ADMIN & EDITOR & VIEWER & SOLVER
+    RBAC --> ABAC
+    ABAC --> RLS
+```
+
+
+<a id="132-security-controls"></a>
+
+#### Security Controls
+
+| Control | Implementation |
+|---|---|
+| **Encryption at Rest** | AES-256 for PostgreSQL (TDE), Redis encryption, S3 SSE-KMS |
+| **Encryption in Transit** | TLS 1.3 everywhere, mTLS between services |
+| **API Key Management** | Hashed storage (bcrypt), prefix for identification, rotation support |
+| **Secret Management** | HashiCorp Vault / AWS Secrets Manager |
+| **Script Sandboxing** | GraalVM isolated contexts, CPU/memory limits, no filesystem/network |
+| **Input Validation** | JSON Schema validation on all inputs, SQL injection prevention |
+| **Rate Limiting** | Per-tenant, per-API-key, sliding window in Redis |
+| **Audit Trail** | Immutable audit log for all rule changes and decisions |
+| **Vulnerability Scanning** | Trivy for containers, Snyk for dependencies |
+| **SOC 2 Compliance** | Audit logging, access controls, encryption, monitoring |
+
+
+<a id="133-script-sandboxing-detail"></a>
+
+#### Script Sandboxing Detail
+
+```java
+// GraalVM sandbox configuration for scripting rules
+Context context = Context.newBuilder("js")
+    .allowHostAccess(HostAccess.NONE)           // No Java interop
+    .allowIO(false)                               // No file system
+    .allowCreateThread(false)                     // No threading
+    .allowNativeAccess(false)                     // No native calls
+    .allowEnvironmentAccess(EnvironmentAccess.NONE) // No env vars
+    .option("engine.WarnInterpreterOnly", "false")
+    .resourceLimits(
+        ResourceLimits.newBuilder()
+            .statementLimit(100_000, null)         // Max 100K statements
+            .build()
+    )
+    .build();
+
+// Inject safe API
+context.getBindings("js").putMember("input", inputData);
+context.getBindings("js").putMember("output", outputData);
+context.getBindings("js").putMember("DR", drApiProxy); // Safe rule-calling API
+context.getBindings("js").putMember("Math", mathFunctions);
+context.getBindings("js").putMember("Date", safeDateFunctions);
+```
+
+
+## Reference schemas and operators
+
+The following reference tables are preserved design material. Source APIs and parser/operator implementations determine accepted runtime values.
+
+
+### Appendix A: Decision Table Operators
+
+| Operator | Symbol | Description | Applies To |
+|---|---|---|---|
+| Equals | `EQ` | Exact match | All types |
+| Not Equals | `NEQ` | Not equal | All types |
+| Greater Than | `GT` | Greater than | Number, Date |
+| Greater Than or Equal | `GTE` | >= | Number, Date |
+| Less Than | `LT` | Less than | Number, Date |
+| Less Than or Equal | `LTE` | <= | Number, Date |
+| Between | `BETWEEN` | Inclusive range [a, b] | Number, Date |
+| In | `IN` | Value in set | String, Number |
+| Not In | `NOT_IN` | Value not in set | String, Number |
+| Contains | `CONTAINS` | Substring match | String |
+| Starts With | `STARTS_WITH` | Prefix match | String |
+| Ends With | `ENDS_WITH` | Suffix match | String |
+| Regex | `REGEX` | Regular expression | String |
+| Is Null | `IS_NULL` | Null check | All types |
+| Is Not Null | `IS_NOT_NULL` | Not null check | All types |
+| Is True | `IS_TRUE` | Boolean true | Boolean |
+| Is False | `IS_FALSE` | Boolean false | Boolean |
+| Array Contains | `ARR_CONTAINS` | Array includes value | Array |
+| Array Any | `ARR_ANY` | Any element matches | Array |
+| Array All | `ARR_ALL` | All elements match | Array |
+
+
+### Appendix B: Built-In Functions
+
+| Category | Functions |
+|---|---|
+| **Math** | `ABS`, `CEIL`, `FLOOR`, `ROUND`, `MIN`, `MAX`, `POW`, `SQRT`, `MOD`, `SUM`, `AVG` |
+| **String** | `UPPER`, `LOWER`, `TRIM`, `CONCAT`, `SUBSTRING`, `LENGTH`, `REPLACE`, `SPLIT`, `MATCH` |
+| **Date** | `NOW`, `TODAY`, `DATE_ADD`, `DATE_DIFF`, `DATE_FORMAT`, `YEAR`, `MONTH`, `DAY`, `IS_BEFORE`, `IS_AFTER` |
+| **Logical** | `IF`, `AND`, `OR`, `NOT`, `COALESCE`, `SWITCH`, `IS_NULL` |
+| **Array** | `COUNT`, `FIRST`, `LAST`, `FILTER`, `MAP`, `REDUCE`, `FLATTEN`, `UNIQUE`, `SORT` |
+| **Data** | `LOOKUP`, `SOLVE` (call another rule), `HTTP_GET`, `HTTP_POST` |
+| **Aggregation** | `SUM`, `AVG`, `MIN`, `MAX`, `COUNT`, `MEDIAN`, `PERCENTILE` |
+
+**Historical comparison:** external product capabilities and endpoint claims have not been revalidated.
+
+
+### Appendix C: Comparison with DecisionRules.io API
+
+| Endpoint | DecisionRules.io | RuleForge |
 |---|---|---|
-| **Language** | Java 21 (LTS) | Virtual threads, GraalVM compat, enterprise ecosystem |
-| **Framework** | Spring Boot 3.3 | Mature, battle-tested, great observability |
-| **Rule Engine** | Custom + JEasyRules adapter | JEasyRules for simple rules, custom for performance |
-| **Scripting** | GraalVM CE 23 (bundled polyglot runtime — works on any JDK 21+) | Polyglot, sandboxed, high performance JS |
-| **Database** | PostgreSQL 16 | JSONB, RLS, CTE, proven in banking |
-| **Cache** | Redis 7 Cluster | Sub-ms reads, pub/sub for invalidation |
-| **Search** | Elasticsearch 8 | Decision log analytics, full-text search |
-| **Messaging** | Apache Kafka 3.7 | Event streaming, async solve, CDC |
-| **Object Store** | S3 / MinIO | Exports, batch results, backups |
-| **API Gateway** | Kong / Envoy | Rate limiting, auth, routing |
-| **AI Service** | Python + FastAPI | LLM integration, ML model serving |
+| Solve rule | `POST /rule/solve/:ruleId/:version` | `POST /v1/solve/:ruleIdOrAlias/:version` |
+| Bulk solve | Same endpoint, array body | `POST /v1/solve/bulk/:ruleIdOrAlias` (dedicated) |
+| Async solve | Kafka Solver API | `POST /v1/solve/async/:ruleId` + callback |
+| Get rules | `GET /api/rule` | `GET /v1/rules` |
+| Create rule | `POST /api/rule` | `POST /v1/rules` |
+| Rule flow solve | Deprecated (merged into solver) | Unified solver endpoint |
+| Folder tree | `GET /api/folder/:nodeId` | `GET /v1/folders/:nodeId` |
+| Tags | `DELETE /api/tags/:id/:version` | `POST/DELETE /v1/rules/:id/tags` |
+| Import | Various per type | `POST /v1/rules/import` (unified) |
+| **Additional** | — | gRPC endpoint, GraphQL, version diff, A/B testing, AI endpoints |
 
-### 19.2 Frontend
+<a id="21-appendices"></a>
 
-| Component | Technology | Rationale |
-|---|---|---|
-| **Framework** | React 18 + TypeScript | Mature, large ecosystem |
-| **State** | Zustand + React Query | Lightweight, server-state focused |
-| **Table Editor** | Custom (AG Grid inspired) | Spreadsheet-style rule editing |
-| **Tree Editor** | React Flow | Visual decision tree builder |
-| **Flow Editor** | React Flow | DAG-based workflow designer |
-| **Code Editor** | Monaco Editor | VS Code engine for scripting rules |
-| **Charts** | Recharts + D3 | Analytics dashboards |
-| **UI Kit** | Shadcn/ui + Tailwind | Modern, accessible components |
+<a id="19-technology-stack"></a>
+<a id="191-backend"></a>
+<a id="192-frontend"></a>
+<a id="193-infrastructure"></a>
+### Technology reference
 
-### 19.3 Infrastructure
+Current declarations are maintained in the [overview baseline](ARCHITECTURE-SUMMARY.md#current-source-baseline) and linked manifests. The former Java 21 / Spring Boot 3.3 / JEasyRules technology table is replaced. Earlier infrastructure candidates are preserved in the [enterprise proposal reference](enterprise-architecture.md#legacy-platform-193-infrastructure).
 
-| Component | Technology | Rationale |
-|---|---|---|
-| **Container Orchestration** | Kubernetes 1.29+ | Standard for cloud-native |
-| **Service Mesh** | Istio (optional) | mTLS, traffic management |
-| **CI/CD** | GitHub Actions / ArgoCD | GitOps deployment |
-| **Monitoring** | Prometheus + Grafana | Metrics and dashboards |
-| **Logging** | OpenTelemetry + Loki | Structured logging |
-| **Tracing** | OpenTelemetry + Jaeger | Distributed tracing |
-| **Secret Mgmt** | HashiCorp Vault | Secrets, encryption keys |
-| **IaC** | Terraform / Pulumi | Infrastructure provisioning |
 
----
+## Historical product planning
 
-## 20. Development Roadmap
+The material in this chapter records the original author’s proposals and status assertions. External competitor claims, pricing, team size, dates, checkmarks, and achieved performance are historical context, not independently verified product or release evidence.
 
-### 20.1 Phased Delivery
+<a id="1-executive-summary"></a>
+
+### Executive Summary
+
+
+<a id="11-vision"></a>
+
+#### Vision
+
+RuleForge is an enterprise-grade Business Rules Management System (BRMS) designed to compete with platforms like DecisionRules.io, GoRules, and traditional engines like IBM ODM. It enables organizations to externalize, manage, and execute business rules through an intuitive visual interface while delivering sub-100ms execution performance at scale.
+
+
+<a id="12-key-differentiators"></a>
+
+#### Key Differentiators
+
+| Capability | DecisionRules.io | IBM ODM | RuleForge (Target) |
+|---|---|---|---|
+| **Deployment** | SaaS / Managed Cloud / On-Prem | On-Prem / OpenShift | SaaS / Managed / On-Prem / Embedded |
+| **Rule Types** | Tables, Trees, Scripts, Flows | BAL, Tables, Flows | Tables, Trees, Scripts, Flows, DMN, CEP |
+| **Performance** | ~100K decisions/min | Varies by infra | 500K+ decisions/min |
+| **No-Code Editor** | Yes | Limited | Yes (advanced) |
+| **AI Assistant** | Basic (Gemini) | None native | LLM-powered (multi-model) |
+| **Open Standards** | Proprietary JSON | Proprietary | DMN 1.4 + proprietary |
+| **Embeddable Engine** | No (API-only) | Java EE only | Lightweight JAR + WASM |
+| **Event Processing** | No | Limited | CEP with Kafka Streams |
+| **Database Connector** | Roadmap | Yes | Native (SQL + NoSQL) |
+| **Pricing** | €49+/month | $100K+/year | Freemium + Enterprise |
+
+
+<a id="13-target-use-cases"></a>
+
+#### Target Use Cases
+
+- **Financial Services:** Credit scoring, fraud detection, KYC/AML compliance, loan origination
+- **Insurance:** Underwriting, claims processing, premium calculation, policy rating
+- **E-Commerce:** Dynamic pricing, promotion rules, product categorization, eligibility
+- **Healthcare:** Clinical decision support, eligibility verification, billing rules
+- **Logistics:** Route optimization rules, shipping rate calculation, customs compliance
+<a id="2-competitive-analysis--positioning"></a>
+
+### Competitive Analysis & Positioning
+
+
+<a id="21-decisionrulesio-feature-matrix"></a>
+
+#### DecisionRules.io Feature Matrix
+
+Based on research, DecisionRules.io provides:
+
+**Rule Types:**
+- Decision Tables (spreadsheet-style, Excel import/export)
+- Decision Trees (visual branching logic)
+- Scripting Rules (JavaScript with Monaco editor)
+- Rule Flows (orchestration of multiple rules)
+- Integration Flows (batch processing with external data)
+- Lookup Tables (reference data)
+
+**Platform Features:**
+- Multi-tenant SaaS with 30+ AWS regions
+- MongoDB/CosmosDB storage backend
+- Microservices architecture (independent scaling)
+- Rule versioning with rollback
+- Test Bench for rule testing
+- Execution strategies: STANDARD, ARRAY, FIRST_MATCH
+- Bulk solve (batch input processing)
+- Kafka Solver API
+- Management API (CRUD, folder structure, tags)
+- SAML SSO (Entra ID, Okta, OAuth)
+- Organization/Team/Space hierarchy
+- Power BI integration for analytics
+- AI Assistant (Gemini-based table generation)
+- Rule Lock and Teamwork Indicator
+- Audit logs and event timeline
+- Webhook support
+- Multi-language SDKs (JS/TS, Python, PHP, Go, Java, C#)
+
+**Gaps We Can Exploit:**
+1. No DMN standard compliance
+2. No embeddable engine (API-only)
+3. Limited Complex Event Processing
+4. No real-time rule debugging/tracing
+5. Basic AI capabilities (only Gemini for table gen)
+6. No visual diff for rule versions
+7. No A/B testing for rules
+8. No built-in database connector (still on roadmap)
+9. No rule simulation with historical data
+10. No WASM-based client-side execution
+<a id="20-development-roadmap"></a>
+
+### Development Roadmap
+
+
+<a id="201-phased-delivery"></a>
+
+#### Phased Delivery
 
 ```mermaid
 gantt
@@ -1552,7 +1419,10 @@ gantt
     Full Platform GA                       :milestone, m4, 2027-06, 0d
 ```
 
-### 20.2 Team Structure
+
+<a id="202-team-structure"></a>
+
+#### Team Structure
 
 | Role | Count | Phase |
 |---|---|---|
@@ -1566,7 +1436,10 @@ gantt
 | Technical Writer | 1 | Phase 2+ |
 | **Total** | **12-16** | — |
 
-### 20.3 Implementation Status
+
+<a id="203-implementation-status"></a>
+
+#### Implementation Status
 
 > **All phases 1–5 are complete.** The roadmap above reflects the original plan; actual delivery was accelerated.
 
@@ -1576,7 +1449,10 @@ gantt
 - [x] Phase 4 (Advanced): AI Assistant, DMN 1.4, CEP, Hierarchy, Embedded JAR
 - [x] Phase 5 (Quality): Completeness, tests, local boot fixes, 24 Flyway migrations (V001–V024)
 
-### 20.4 Phase 1 MVP Success Criteria (Achieved)
+
+<a id="204-phase-1-mvp-success-criteria-achieved"></a>
+
+#### Phase 1 MVP Success Criteria (Achieved)
 
 - [x] Decision Tables with 10+ operators, 3 execution strategies
 - [x] Decision Trees with visual editor
@@ -1589,83 +1465,40 @@ gantt
 - [ ] 99.9% uptime in staging
 - [ ] OpenAPI 3.1 spec published
 
----
+## Related enterprise designs
 
-## 21. Appendices
+Production deployment, target NFRs, capacity examples, and cost assumptions are maintained in one place:
 
-### Appendix A: Decision Table Operators
+<a id="32-quality-attribute-requirements"></a>
 
-| Operator | Symbol | Description | Applies To |
-|---|---|---|---|
-| Equals | `EQ` | Exact match | All types |
-| Not Equals | `NEQ` | Not equal | All types |
-| Greater Than | `GT` | Greater than | Number, Date |
-| Greater Than or Equal | `GTE` | >= | Number, Date |
-| Less Than | `LT` | Less than | Number, Date |
-| Less Than or Equal | `LTE` | <= | Number, Date |
-| Between | `BETWEEN` | Inclusive range [a, b] | Number, Date |
-| In | `IN` | Value in set | String, Number |
-| Not In | `NOT_IN` | Value not in set | String, Number |
-| Contains | `CONTAINS` | Substring match | String |
-| Starts With | `STARTS_WITH` | Prefix match | String |
-| Ends With | `ENDS_WITH` | Suffix match | String |
-| Regex | `REGEX` | Regular expression | String |
-| Is Null | `IS_NULL` | Null check | All types |
-| Is Not Null | `IS_NOT_NULL` | Not null check | All types |
-| Is True | `IS_TRUE` | Boolean true | Boolean |
-| Is False | `IS_FALSE` | Boolean false | Boolean |
-| Array Contains | `ARR_CONTAINS` | Array includes value | Array |
-| Array Any | `ARR_ANY` | Any element matches | Array |
-| Array All | `ARR_ALL` | All elements match | Array |
+See [Quality Attribute Requirements](enterprise-architecture.md#legacy-platform-32-quality-attribute-requirements).
 
-### Appendix B: Built-In Functions
+<a id="12-scalability--performance-architecture"></a>
+<a id="121-performance-targets"></a>
+<a id="122-horizontal-scaling-architecture"></a>
+<a id="123-auto-scaling-policy"></a>
+<a id="124-performance-optimization-techniques"></a>
 
-| Category | Functions |
-|---|---|
-| **Math** | `ABS`, `CEIL`, `FLOOR`, `ROUND`, `MIN`, `MAX`, `POW`, `SQRT`, `MOD`, `SUM`, `AVG` |
-| **String** | `UPPER`, `LOWER`, `TRIM`, `CONCAT`, `SUBSTRING`, `LENGTH`, `REPLACE`, `SPLIT`, `MATCH` |
-| **Date** | `NOW`, `TODAY`, `DATE_ADD`, `DATE_DIFF`, `DATE_FORMAT`, `YEAR`, `MONTH`, `DAY`, `IS_BEFORE`, `IS_AFTER` |
-| **Logical** | `IF`, `AND`, `OR`, `NOT`, `COALESCE`, `SWITCH`, `IS_NULL` |
-| **Array** | `COUNT`, `FIRST`, `LAST`, `FILTER`, `MAP`, `REDUCE`, `FLATTEN`, `UNIQUE`, `SORT` |
-| **Data** | `LOOKUP`, `SOLVE` (call another rule), `HTTP_GET`, `HTTP_POST` |
-| **Aggregation** | `SUM`, `AVG`, `MIN`, `MAX`, `COUNT`, `MEDIAN`, `PERCENTILE` |
+See [Scalability & Performance Architecture](enterprise-architecture.md#legacy-platform-12-scalability--performance-architecture).
 
-### Appendix C: Comparison with DecisionRules.io API
+<a id="14-deployment-architecture"></a>
+<a id="141-deployment-options"></a>
+<a id="142-kubernetes-deployment"></a>
+<a id="143-cicd--gitops-for-rules"></a>
 
-| Endpoint | DecisionRules.io | RuleForge |
-|---|---|---|
-| Solve rule | `POST /rule/solve/:ruleId/:version` | `POST /v1/solve/:ruleIdOrAlias/:version` |
-| Bulk solve | Same endpoint, array body | `POST /v1/solve/bulk/:ruleIdOrAlias` (dedicated) |
-| Async solve | Kafka Solver API | `POST /v1/solve/async/:ruleId` + callback |
-| Get rules | `GET /api/rule` | `GET /v1/rules` |
-| Create rule | `POST /api/rule` | `POST /v1/rules` |
-| Rule flow solve | Deprecated (merged into solver) | Unified solver endpoint |
-| Folder tree | `GET /api/folder/:nodeId` | `GET /v1/folders/:nodeId` |
-| Tags | `DELETE /api/tags/:id/:version` | `POST/DELETE /v1/rules/:id/tags` |
-| Import | Various per type | `POST /v1/rules/import` (unified) |
-| **Additional** | — | gRPC endpoint, GraphQL, version diff, A/B testing, AI endpoints |
+See [Deployment Architecture](enterprise-architecture.md#legacy-platform-14-deployment-architecture).
 
-### Appendix D: Infrastructure Cost Estimate (AWS, Production)
+<a id="appendix-d-infrastructure-cost-estimate-aws-production"></a>
 
-| Component | Spec | Monthly Cost (est.) |
-|---|---|---|
-| EKS Cluster | 3 control plane | $220 |
-| Solver nodes (3x) | c6g.xlarge (4 vCPU, 8G) | $330 |
-| Management nodes (2x) | m6g.large (2 vCPU, 8G) | $150 |
-| RDS PostgreSQL | db.r6g.large, Multi-AZ, 100GB | $450 |
-| ElastiCache Redis | cache.r6g.large, 3-node | $400 |
-| OpenSearch | 3x r6g.large, 200GB | $600 |
-| MSK Kafka | kafka.m5.large, 3 broker | $500 |
-| ALB | Application Load Balancer | $30 |
-| S3 | 500GB + requests | $20 |
-| CloudWatch/Monitoring | Logs + metrics | $100 |
-| **Total** | | **~$2,800/month** |
+See [Appendix D: Infrastructure Cost Estimate (AWS, Production)](enterprise-architecture.md#legacy-platform-appendix-d-infrastructure-cost-estimate-aws-production).
 
-*Note: This is a baseline production setup. Costs scale with traffic and tenants.*
 
----
+<a id="3-architecture-principles--constraints"></a>
 
-**Document Version:** 2.0
-**Classification:** Internal — Architecture Team
-**Last Updated:** February 2026
-**Next Review:** March 2026
+## Legacy section links
+
+Earlier headings remain addressable for existing links. Use the reading path above to find their current chapter.
+
+<a id="comprehensive-architecture-design-document"></a>
+<a id="ruleforge--scalable-rule-engine-platform"></a>
+<a id="table-of-contents"></a>

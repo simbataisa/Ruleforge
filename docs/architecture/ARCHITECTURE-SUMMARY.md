@@ -1,148 +1,107 @@
-# RuleForge Architecture Summary
+# RuleForge Architecture Overview
 
-A concise architectural overview for developers. See linked documents at the bottom for full details.
+**Document role:** Starting point and document map
+**Editorial revision:** 2026-10-25
+**Status:** Source-backed overview; design proposals and historical material are linked explicitly.
 
-## System Overview
+## Changelog
 
-```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                        RuleForge System                                 │
-│                                                                         │
-│  ┌──────────────┐    ┌──────────────────┐    ┌───────────────────────┐  │
-│  │   Frontend    │───▶│  Kong Gateway    │───▶│  Platform Services    │  │
-│  │  React 18     │    │  Port 8000       │    │  Ports 8081-8087      │  │
-│  │  Port 3000    │    │  CORS, routing   │    │                       │  │
-│  └──────────────┘    └──────────────────┘    │  auth-service    8081 │  │
-│                                               │  management      8082 │  │
-│  ┌──────────────┐                             │  solver-service  8083 │  │
-│  │  AI Service   │◀──── Kong /v1/ai ─────────│  event-service   8084 │  │
-│  │  FastAPI      │                            │  analytics       8085 │  │
-│  │  Port 8000    │                            │  scheduler       8086 │  │
-│  └──────────────┘                             │  connector       8087 │  │
-│                                               └───────┬───────────────┘  │
-│                                                       │                  │
-│  ┌────────────────────────────────────────────────────┼────────────────┐ │
-│  │                     Data Stores                    │                │ │
-│  │  PostgreSQL 16 (5432)  Redis 7 (6379)  Kafka 3.7.1 (9092)         │ │
-│  │  Elasticsearch 8 (9200)  MinIO (9000)                              │ │
-│  └────────────────────────────────────────────────────────────────────┘ │
-└─────────────────────────────────────────────────────────────────────────┘
-```
+- **2026-10-25 · ARC-DOC-001:** Reorganize the architecture reading path, consolidate repeated material, and separate source evidence from earlier proposals. See the [change record and section map](ARCHITECTURE-CHANGELOG.md#arc-doc-001--2026-10-25).
 
-## Engine Architecture
+RuleForge is a Business Rules Management System for authoring, governing, and executing reusable decisions. It offers an embeddable Java engine and a managed platform with a browser interface, service APIs, SDKs, and optional AI assistance. The [project brief](../project-brief.md) explains the product and intended users.
 
-11 Gradle modules built with Java 21. The `ruleforge-core` module has zero external dependencies (SLF4J API + Jackson only), making it embeddable in any JVM application.
+## Start here
 
-### Module Dependency Graph
+| Your question | Read | What it owns |
+|---|---|---|
+| What are the main parts and current declarations? | This overview | Reading path and compact source baseline |
+| How do services, data, tenancy, and integration fit together? | [Platform architecture](RuleForge-Architecture-v2.md) | Application design, schemas, event flows and integration examples |
+| How does rule execution work internally? | [Engine architecture](RuleForge-Engine-Core-Architecture-v2.1.md) | Metamodel, facts, expressions, compilation, scheduling, specialized engines and extension APIs |
+| What is configured for deployment and operations? | [Enterprise architecture](enterprise-architecture.md) | Deployment evidence, environments, controls, observability, recovery and costs |
+| Why were the Spaces policies written that way? | [Historical Spaces requirements](enterprise-architecture-spaces-features.md) | Original feature constraints, rollback/checklist material and sign-offs |
+| What changed, moved, or was superseded? | [Architecture change log](ARCHITECTURE-CHANGELOG.md) | Editorial revisions and old-to-new section map |
 
-```
-ruleforge-core  (zero deps — standalone, embeddable)
-  ├── ruleforge-table       Decision Tables (indexed conditions)
-  ├── ruleforge-tree        Decision Trees (BDD compilation)
-  ├── ruleforge-script      GraalVM sandboxed JavaScript (bundled polyglot runtime)
-  ├── ruleforge-flow        DAG orchestrator (runtime SPI for engines)
-  ├── ruleforge-scorecard   Weighted scoring
-  ├── ruleforge-ensemble    Voting/averaging
-  ├── ruleforge-cep         Complex event processing (in-memory + Kafka Streams)
-  ├── ruleforge-dmn         DMN 1.4 / FEEL
-  └── ruleforge-hierarchy   Hierarchical resolution
+For a first read: overview → platform or engine according to your work → enterprise operating constraints. Consult the historical feature record when tracing a Spaces decision.
 
-ruleforge-spring-boot-starter  (depends on all modules + Spring Boot)
-```
+<a id="system-overview"></a>
 
-### Core Design Principles
+## System boundaries
 
-- **Multi-dimensional priority vectors**: `(salience, specificity, weight, recency, order)` — conflict resolution considers all five dimensions in order.
-- **7 execution modes**: FIRST_MATCH, ALL_MATCH, BEST_MATCH, SEQUENTIAL, PARALLEL, FORWARD_CHAIN, CASCADING.
-- **Condition indexing**: HashMap (EQ/IN), IntervalTree (BETWEEN), SortedArray (GT/LT), Trie (CONTAINS), Bitmap (IS_NULL) — indexed lookup instead of linear scans.
-- **Custom expression language "RFL"**: Hand-written recursive descent parser (no ANTLR), null-safe navigation (`?.`), lambda expressions.
-- **Forward chaining**: Iterative re-evaluation with cycle detection (max 100 iterations).
-- **10 SPI extension points**: OperatorExtension, FunctionExtension, ConflictResolutionStrategy, DataEnricherExtension, RuleLifecycleListener, and 5 more — extend without modifying core.
+| Part | Responsibility and interactions |
+|---|---|
+| Browser interface | Authors and administers rules; development API traffic proxies directly to services through Vite |
+| Platform services | Auth, management, solver, event, analytics, scheduler and connector services; detailed [service map](RuleForge-Architecture-v2.md#source-backed-service-map) |
+| Embedded engine | Validates, compiles and evaluates rules inside a Java consumer; also used by the platform |
+| Optional AI service | Assisted rule authoring and analysis; FastAPI process |
+| SDKs | Java, Node.js and Python clients for integrating applications |
+| Data and messaging | PostgreSQL, Redis, Kafka and Elasticsearch are declared locally; MinIO is configured with an unresolved usage/availability caveat |
 
-### Rule Types
+Two platform execution modes are documented: local host processes with infrastructure containers, and a full Compose stack in which Nginx proxies API traffic to Kong. These are distinct routing paths. Source configuration and connectivity gaps are recorded in [deployment topology](enterprise-architecture.md#1-deployment-topology).
 
-| Type | Module | Status |
-|------|--------|--------|
-| Decision Tables | ruleforge-table | Complete |
-| Decision Trees | ruleforge-tree | Complete |
-| GraalVM Scripts | ruleforge-script | Complete (works on any JDK 21+) |
-| DAG Flows | ruleforge-flow | Complete |
-| Scorecards | ruleforge-scorecard | Complete |
-| Ensemble | ruleforge-ensemble | Complete |
-| CEP | ruleforge-cep | Complete |
-| DMN 1.4 / FEEL | ruleforge-dmn | Complete |
-| Hierarchy | ruleforge-hierarchy | Complete |
+<a id="engine-architecture"></a>
+<a id="module-dependency-graph"></a>
+<a id="core-design-principles"></a>
+<a id="rule-types"></a>
+<a id="platform-architecture"></a>
+<a id="shared-module-ruleforge-common"></a>
+<a id="data-architecture"></a>
+<a id="security-architecture"></a>
+<a id="infrastructure"></a>
 
-## Platform Architecture
+## Current source baseline
 
-8 Spring Boot 3.3.5 microservices plus a shared `ruleforge-common` module. Composite Gradle build includes the engine via `includeBuild("../engine")`.
+| Area | Repository declaration | Source |
+|---|---|---|
+| Engine and JVM runtime | Java 25; twelve engine modules including aggregate/starter | [Properties](../../engine/gradle.properties), [settings](../../engine/settings.gradle.kts) |
+| Engine core dependencies | SLF4J API and Jackson | [Core build](../../engine/ruleforge-core/build.gradle.kts) |
+| Platform | Spring Boot 4.1.1; seven services and one shared library | [Build](../../platform/build.gradle.kts), [settings](../../platform/settings.gradle.kts) |
+| Tenant context | ScopedValue with explicit binding | [TenantContext](../../platform/ruleforge-common/src/main/java/io/ruleforge/common/tenant/TenantContext.java) |
+| Script runtime | Bundled GraalVM polyglot dependencies, version baseline 25.0.5 | [Engine properties](../../engine/gradle.properties) |
+| Frontend | React 18, TypeScript, Vite, Tailwind, Zustand and React Query declarations | [package.json](../../frontend/package.json) |
+| Local data infrastructure | PostgreSQL 16, Redis 7, Kafka 3.7.1, Elasticsearch 9.4.5, MinIO | [Infrastructure Compose](../../infra/docker/docker-compose.infra.yml) |
+| Gateway | Kong 3.6 in full Compose stack | [Application Compose](../../infra/docker/docker-compose.yml) |
 
-### Service Responsibilities
+This table confirms declarations and source structure. It does not assert passing tests, service availability, security-control effectiveness, support for every declared rule type, or completed release phases.
 
-| Service | Port | Purpose |
-|---------|------|---------|
-| auth-service | 8081 | JWT auth, API keys, RBAC, SSO config, user/org/space management |
-| management-service | 8082 | Rule CRUD, versioning, folders, tags, import/export |
-| solver-service | 8083 | Rule compilation + execution, L1 Caffeine -> L2 Redis -> L3 PostgreSQL caching |
-| event-service | 8084 | Kafka consumers for audit trail, webhooks |
-| analytics-service | 8085 | Decision log aggregation via Elasticsearch (Phase 3) |
-| scheduler-service | 8086 | Quartz-based batch scheduling |
-| connector-service | 8087 | JDBC/HTTP/Redis data enrichment |
+<a id="service-responsibilities"></a>
 
-### Shared Module: ruleforge-common
+## Follow a request
 
-JWT token provider, JWT/API key authentication filters, TenantContext (ThreadLocal), security constants, ErrorResponse/PageResponse DTOs, Kafka event schemas.
+1. An application calls a rule execution API, or a Java consumer invokes the engine directly.
+2. Platform execution resolves the rule/version and coordinates validation, compilation, input handling, and execution.
+3. The engine evaluates the selected representation against working memory and returns decision output and trace information.
+4. Platform components manage persistence, lifecycle, integrations, and operational records around that execution.
 
-## Data Architecture
+Detailed pipelines and schemas are in the [platform execution chapter](RuleForge-Architecture-v2.md#execution-and-integration) and [engine compilation chapter](RuleForge-Engine-Core-Architecture-v2.1.md#facts-expressions-and-compilation). Those chapters retain design examples whose exact contracts require current-source checks.
 
-- **PostgreSQL 16**: Primary operational database. JSONB for rule definitions, rule versions. 24 Flyway migrations (V001-V024).
-- **Row-Level Security**: All tenant tables have RLS policies. Session variable `app.current_org_id` enforces organization isolation.
-- **Redis 7**: L2 distributed cache for compiled rules. Key pattern: `tenant:{orgId}:rule:{ruleId}:{version}:compiled`. 256MB max, allkeys-lfu eviction.
-- **Kafka 3.7.1**: Event streaming in KRaft mode (no Zookeeper). Topics: `rule.lifecycle`, `rule.execution`, `user.activity`, `system.events`.
-- **Elasticsearch 8**: Decision log indexing and aggregation (Phase 3).
-- **MinIO**: S3-compatible object storage for rule exports and batch results.
+## Evidence and design status
 
-## Security Architecture
+| Label | Meaning in this set |
+|---|---|
+| Source-backed overview / source inventory | Repository declarations and cited source files, inspected on the editorial revision date |
+| Design reference | Intended structure or illustrative API/configuration; implementation parity is not presumed |
+| Earlier production proposal | Historical capacity, cloud, security, recovery, tooling or cost assumption requiring approval and verification |
+| Historical feature requirement | Requirements/sign-offs for the original feature scope, preserved for traceability |
+| Unknown | Missing requirements, decision, operational evidence or verification |
 
-- **JWT**: JJWT library, HMAC-SHA512. Access tokens (1hr) + refresh tokens (7d).
-- **API Keys**: SOLVER and MANAGEMENT types, SHA-256 hashed storage, prefix-based lookup.
-- **SSO**: Config CRUD for SAML 2.0 and OIDC providers (callback stubs, full implementation planned).
-- **RBAC**: 5 roles — OWNER, ADMIN, EDITOR, VIEWER, SOLVER.
-- **Multi-tenancy**: Organization -> Space -> Folder -> Rule hierarchy. PostgreSQL RLS enforced at the database level.
-- **Filter chain**: JwtAuthenticationFilter -> ApiKeyAuthenticationFilter. TenantContext cleared after each request.
+The platform and engine files retain their familiar versioned filenames for link continuity. Their February 2026 baselines describe design history; the editorial revision and change log identify later document maintenance.
 
-## Infrastructure
+<a id="implementation-status"></a>
 
-- **Docker Compose**: `infra/docker/docker-compose.infra.yml` (infrastructure only), `docker-compose.yml` (full stack).
-- **Kong 3.6**: API gateway with declarative config. CORS plugin, 10MB request size limit.
-- **Port assignments**: 3000 (frontend), 5432 (PostgreSQL), 6379 (Redis), 8000 (Kong), 8081-8087 (services), 9000 (MinIO), 9092 (Kafka), 9200 (Elasticsearch).
+## Known gaps and decisions
 
-## Implementation Status
+- [Enterprise decision list](enterprise-architecture.md#decisions-and-handoff-boundary): hosting, regions, NFR targets, environments, recovery, controls and budgets remain unresolved.
+- [Configuration gaps](enterprise-architecture.md#configuration-gaps-to-carry-forward): Kafka listener reachability and Kong webhook routing need validation.
+- [README known issues](../../README.md#known-issues): event publication, seed data, and MinIO limitations affect operational claims.
+- Rule-type names and counts differ between the README, core enum, and frontend declarations. Treat engine declarations, UI support, and verified behavior as separate questions.
+- Historical performance targets, production costs, competitor claims, roadmap checkmarks and commercial assumptions are not current measured or approved outcomes.
 
-| Component | Status | Phase |
-|-----------|--------|-------|
-| ruleforge-core | Complete | 1 |
-| ruleforge-table | Complete | 1 |
-| ruleforge-tree | Complete | 1 |
-| ruleforge-script | Complete | 2 |
-| ruleforge-flow | Complete | 2 |
-| ruleforge-scorecard | Complete | 3 |
-| ruleforge-ensemble | Complete | 3 |
-| ruleforge-cep | Complete | 4 |
-| ruleforge-dmn | Complete | 4 |
-| ruleforge-hierarchy | Complete | 4 |
-| ruleforge-spring-boot-starter | Complete | 2 |
-| auth-service | Complete | 1 |
-| management-service | Complete | 1+2 |
-| solver-service | Complete | 1 |
-| event-service | Complete | 1 |
-| analytics-service | Complete | 3 |
-| scheduler-service | Complete | 2 |
-| connector-service | Complete | 2 |
-| Frontend | Complete | 1+2 |
-| DB migrations (V001-V024) | Complete | 1-5 |
+<a id="for-more-detail"></a>
 
-## For More Detail
+## Maintaining this set
 
-- [Full Architecture](RuleForge-Architecture-v2.md) -- Comprehensive enterprise architecture (1,660 lines)
-- [Engine Architecture](RuleForge-Engine-Core-Architecture-v2.1.md) -- Deep engine internals (1,846 lines)
+Edit a topic in its owning document and link to it from other guides. Update the [shared change log](ARCHITECTURE-CHANGELOG.md) and the affected document's short changelog. Significant technical decisions use [ADRs](adr/ADR-INDEX.md); an editorial reorganization does not change Accepted decisions.
+
+When moving a section, record its old/new location and retain an anchor or redirect for existing links. Keep source observations, design intent, approval status, and operating evidence identifiable in the same section.
+
+<a id="ruleforge-architecture-summary"></a>

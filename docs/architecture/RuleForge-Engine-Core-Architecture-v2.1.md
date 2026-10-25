@@ -1,43 +1,48 @@
-# RuleForge — Rule Engine Core Architecture
+# RuleForge Engine Architecture
 
-## Custom-Built Robust Rule Execution Engine
+**Document role:** Rule execution design and extension reference
+**Editorial revision:** 2026-10-25
+**Status:** Draft design reference; source declarations take precedence over illustrative APIs.
+**Original design baseline:** Version 2.1, February 2026; custom engine supersedes the earlier JEasyRules design
 
-**Version:** 2.1
-**Date:** February 2026
-**Author:** Enterprise Architecture Team
-**Supersedes:** JEasyRules-based design (v1.0, October 2025)
-**Status:** Draft for Review
+## Changelog
 
----
+- **2026-10-25 · ARC-DOC-001:** Reorganize the architecture reading path, consolidate repeated material, and separate source evidence from earlier proposals. See the [change record and section map](ARCHITECTURE-CHANGELOG.md#arc-doc-001--2026-10-25).
 
-## Table of Contents
+## Reading path
 
-1. [Design Rationale — Why Not JEasyRules](#1-design-rationale)
-2. [Engine Architecture Overview](#2-engine-architecture-overview)
-3. [Rule Metamodel — The Type System](#3-rule-metamodel)
-4. [Priority & Salience System](#4-priority--salience-system)
-5. [Hierarchical Rule Composition](#5-hierarchical-rule-composition)
-6. [Weighted & Scoring Branches](#6-weighted--scoring-branches)
-7. [Execution Strategies & Conflict Resolution](#7-execution-strategies--conflict-resolution)
-8. [Decision Table Engine](#8-decision-table-engine)
-9. [Decision Tree Engine](#9-decision-tree-engine)
-10. [Rule Flow / Orchestration Engine](#10-rule-flow--orchestration-engine)
-11. [Scripting Engine (GraalVM)](#11-scripting-engine-graalvm)
-12. [Complex Event Processing Engine](#12-complex-event-processing-engine)
-13. [Working Memory & Fact Model](#13-working-memory--fact-model)
-14. [Rule Compilation Pipeline](#14-rule-compilation-pipeline)
-15. [Expression Language (RFL)](#15-expression-language-rfl)
-16. [Engine Extension Points (SPI)](#16-engine-extension-points-spi)
-17. [Performance Architecture](#17-performance-architecture)
-18. [Comparison with Industry Engines](#18-comparison-with-industry-engines)
-19. [Class Diagrams & Interfaces](#19-class-diagrams--interfaces)
-20. [Appendices](#20-appendices)
+Start with the [architecture overview](ARCHITECTURE-SUMMARY.md). Continue to the [platform guide](RuleForge-Architecture-v2.md) for application boundaries, the [engine guide](RuleForge-Engine-Core-Architecture-v2.1.md) for execution internals, or the [enterprise guide](enterprise-architecture.md) for deployment and operations. The [Spaces record](enterprise-architecture-spaces-features.md) preserves historical feature requirements.
 
----
+## In this guide
 
-## 1. Design Rationale
+- [Engine foundations](#engine-foundations)
+- [Facts, expressions, and compilation](#facts-expressions-and-compilation)
+- [Scheduling and rule composition](#scheduling-and-rule-composition)
+- [Specialized execution engines](#specialized-execution-engines)
+- [Extension and integration reference](#extension-and-integration-reference)
+- [Performance and historical design references](#performance-and-historical-design-references)
 
-### 1.1 Why Not JEasyRules
+## Current engine boundary
+
+The engine is Java 25 and consists of twelve Gradle modules, including the aggregate ruleforge-all and Spring Boot starter. The core declares SLF4J and Jackson dependencies. The GraalVM polyglot runtime is bundled; the current dependency baseline is 25.0.5.
+
+Sources: [module settings](../../engine/settings.gradle.kts), [engine properties](../../engine/gradle.properties), [core dependencies](../../engine/ruleforge-core/build.gradle.kts), and [public engine API](../../engine/ruleforge-core/src/main/java/io/ruleforge/core/RuleForgeEngine.java).
+
+The chapters below reorganize the Version 2.1 design for reading: foundations, facts and compilation, scheduling/composition, specialized engines, extension APIs, then performance and historical comparisons. API/class snippets, configuration examples, timings, pool sizes, and comparison tables remain design reference until checked against current implementation. They are not benchmark evidence.
+
+Platform service boundaries, Redis/SQL cache integration, tenancy, and external APIs are owned by the [platform guide](RuleForge-Architecture-v2.md). Hosting, operational controls, and recovery decisions are owned by the [enterprise guide](enterprise-architecture.md).
+
+
+## Engine foundations
+
+<a id="1-design-rationale"></a>
+
+### Design Rationale
+
+
+<a id="11-why-not-jeasyrules"></a>
+
+#### Why Not JEasyRules
 
 JEasyRules is excellent for simple embedded rule evaluation but fundamentally lacks the architecture needed for an enterprise BRMS:
 
@@ -54,7 +59,10 @@ JEasyRules is excellent for simple embedded rule evaluation but fundamentally la
 | **Expression language** | MVEL/SpEL (external)    | Custom RFL with type safety, null safety, domain functions                       |
 | **Extensibility**       | Limited                 | Full SPI for custom operators, functions, resolvers, listeners                   |
 
-### 1.2 Design Philosophy
+
+<a id="12-design-philosophy"></a>
+
+#### Design Philosophy
 
 Our engine follows these principles:
 
@@ -63,13 +71,15 @@ Our engine follows these principles:
 3. **Deterministic by default** — same input + same rules = same output, always
 4. **Observable execution** — every decision is traceable, explainable, auditable
 5. **Fail-safe** — rules that error don't crash the pipeline; fallback and circuit-breaker patterns built in
-6. **Embeddable** — the engine JAR works standalone with zero external dependencies
+6. **Embeddable** — the engine can be embedded with its declared SLF4J and Jackson dependencies
+<a id="2-engine-architecture-overview"></a>
 
----
+### Engine Architecture Overview
 
-## 2. Engine Architecture Overview
 
-### 2.1 High-Level Engine Components
+<a id="21-high-level-engine-components"></a>
+
+#### High-Level Engine Components
 
 ```mermaid
 ---
@@ -128,7 +138,10 @@ graph TB
     CHAIN --> TRANSFORM --> EXPLAIN --> AUDIT
 ```
 
-### 2.2 Engine Lifecycle
+
+<a id="22-engine-lifecycle"></a>
+
+#### Engine Lifecycle
 
 ```mermaid
 stateDiagram-v2
@@ -149,12 +162,14 @@ stateDiagram-v2
     Firing --> Output: No more rules to fire
     Output --> [*]
 ```
+<a id="3-rule-metamodel--the-type-system"></a>
 
----
+### Rule Metamodel — The Type System
 
-## 3. Rule Metamodel — The Type System
 
-### 3.1 Core Abstractions
+<a id="31-core-abstractions"></a>
+
+#### Core Abstractions
 
 Every rule in the system conforms to a unified metamodel, regardless of whether it's a table, tree, flow, or script:
 
@@ -235,7 +250,10 @@ classDiagram
     RuleSet "1" --> "*" RuleGroup
 ```
 
-### 3.2 Rule Type Taxonomy
+
+<a id="32-rule-type-taxonomy"></a>
+
+#### Rule Type Taxonomy
 
 ```mermaid
 ---
@@ -275,11 +293,229 @@ graph TB
     style REACTIVE fill:#ea4335,color:#fff
 ```
 
----
+## Facts, expressions, and compilation
 
-## 4. Priority & Salience System
+<a id="13-working-memory--fact-model"></a>
 
-### 4.1 Multi-Dimensional Priority
+### Working Memory & Fact Model
+
+
+<a id="131-working-memory-design"></a>
+
+#### Working Memory Design
+
+The Working Memory is the shared data space during rule evaluation, replacing JEasyRules' simple `Facts` map with a typed, tracked, observable model:
+
+```java
+public class WorkingMemory {
+    private final Map<String, Fact<?>> facts = new LinkedHashMap<>();
+    private final List<FactChange> changelog = new ArrayList<>();
+    private final Set<FactChangeListener> listeners = new CopyOnWriteArraySet<>();
+    private boolean modified = false;
+
+    // Type-safe fact operations
+    public <T> void assertFact(String path, T value, FactType<T> type) {
+        Fact<T> fact = new Fact<>(path, value, type, Instant.now());
+        facts.put(path, fact);
+        changelog.add(new FactChange(ChangeType.ASSERT, path, null, value));
+        modified = true;
+        notifyListeners(fact, ChangeType.ASSERT);
+    }
+
+    public <T> void modifyFact(String path, T newValue) {
+        Fact<?> existing = facts.get(path);
+        Object oldValue = existing != null ? existing.getValue() : null;
+        assertFact(path, newValue, (FactType<T>) existing.getType());
+        changelog.add(new FactChange(ChangeType.MODIFY, path, oldValue, newValue));
+    }
+
+    public void retractFact(String path) {
+        Fact<?> removed = facts.remove(path);
+        if (removed != null) {
+            changelog.add(new FactChange(ChangeType.RETRACT, path, removed.getValue(), null));
+            modified = true;
+        }
+    }
+
+    // Deep path access: "customer.address.city"
+    @SuppressWarnings("unchecked")
+    public <T> T get(String dotPath) {
+        return (T) PathResolver.resolve(facts, dotPath);
+    }
+
+    // Snapshot for cycle detection
+    public long factHash() {
+        return facts.values().stream()
+            .mapToLong(f -> Objects.hash(f.getPath(), f.getValue()))
+            .reduce(0L, (a, b) -> a * 31 + b);
+    }
+
+    // Full changelog for explainability
+    public List<FactChange> getChangelog() {
+        return Collections.unmodifiableList(changelog);
+    }
+}
+
+public record Fact<T>(
+    String path,
+    T value,
+    FactType<T> type,
+    Instant lastModified
+) {}
+
+public record FactChange(
+    ChangeType type,  // ASSERT, MODIFY, RETRACT
+    String path,
+    Object oldValue,
+    Object newValue
+) {}
+```
+
+
+<a id="132-fact-type-system"></a>
+
+#### Fact Type System
+
+```mermaid
+graph TB
+    subgraph "Fact Types"
+        STRING["STRING"]
+        NUMBER["NUMBER (double)"]
+        INTEGER["INTEGER (long)"]
+        BOOLEAN["BOOLEAN"]
+        DATE["DATE (LocalDate)"]
+        DATETIME["DATETIME (Instant)"]
+        ARRAY["ARRAY[T]"]
+        OBJECT["OBJECT (nested map)"]
+        MONEY["MONEY (BigDecimal + currency)"]
+        ENUM_T["ENUM (constrained string)"]
+        ANY["ANY (dynamic)"]
+    end
+```
+
+
+<a id="133-automatic-type-coercion"></a>
+
+#### Automatic Type Coercion
+
+```
+Input JSON "35" → INTEGER if schema says integer → long 35
+Input JSON 35.0 → INTEGER → long 35 (truncate)
+Input JSON "2026-02-20" → DATE → LocalDate.of(2026, 2, 20)
+Input JSON true → BOOLEAN → true
+Input JSON "true" → BOOLEAN → true (coerced)
+```
+<a id="15-expression-language-rfl"></a>
+
+### Expression Language (RFL)
+
+
+<a id="151-ruleforge-language-rfl--custom-expression-language"></a>
+
+#### RuleForge Language (RFL) — Custom Expression Language
+
+While supporting FEEL (DMN standard) for interoperability, RuleForge includes its own expression language for rule conditions and transformations:
+
+```
+// Conditions
+customer.age >= 18 AND customer.age <= 65
+customer.creditScore IN [700, 750, 800]
+customer.name STARTS_WITH "A"
+transaction.amount BETWEEN 1000 AND 50000
+customer.email MATCHES "^[a-z]+@company\\.com$"
+order.items ANY item -> item.price > 100
+order.items ALL item -> item.inStock == true
+
+// Null-safe navigation
+customer.address?.city ?? "UNKNOWN"
+
+// Functions
+ROUND(loan.amount * rate.annual / 12, 2)
+DATE_DIFF(NOW(), customer.dob, "YEARS")
+UPPER(TRIM(customer.name))
+SUM(order.items MAP item -> item.price * item.quantity)
+IF(customer.vip, amount * 0.9, amount)
+
+// Aggregations
+COUNT(transactions WHERE amount > 1000)
+AVG(reviews MAP r -> r.score) > 3.5
+
+// Rule reference (call another rule inline)
+SOLVE("credit-check", { score: customer.creditScore }).eligible == true
+LOOKUP("country-codes", customer.countryCode).region
+```
+
+
+<a id="152-rfl-grammar-ebnf-simplified"></a>
+
+#### RFL Grammar (EBNF Simplified)
+
+```ebnf
+expression     = logicalOr ;
+logicalOr      = logicalAnd ( "OR" logicalAnd )* ;
+logicalAnd     = comparison ( "AND" comparison )* ;
+comparison     = addition ( compOp addition )? ;
+compOp         = "==" | "!=" | ">" | ">=" | "<" | "<=" | "IN" | "NOT_IN"
+               | "BETWEEN" | "MATCHES" | "STARTS_WITH" | "ENDS_WITH"
+               | "CONTAINS" | "IS_NULL" | "IS_NOT_NULL" ;
+addition       = multiplication ( ("+" | "-") multiplication )* ;
+multiplication = unary ( ("*" | "/" | "%") unary )* ;
+unary          = ("NOT" | "-") unary | postfix ;
+postfix        = primary ( "." identifier | "?." identifier | "[" expression "]" | "(" arguments ")" )* ;
+primary        = number | string | boolean | "NULL" | identifier | "(" expression ")"
+               | function_call | array_literal | lambda ;
+function_call  = identifier "(" arguments ")" ;
+lambda         = identifier "->" expression ;
+arguments      = ( expression ( "," expression )* )? ;
+```
+<a id="14-rule-compilation-pipeline"></a>
+
+### Rule Compilation Pipeline
+
+
+<a id="141-pipeline-stages"></a>
+
+#### Pipeline Stages
+
+```mermaid
+graph LR
+    JSON["Rule Definition<br/>(JSON)"]
+    JSON --> PARSE["1. Parse<br/><i>Validate JSON schema<br/>Build internal model</i>"]
+    PARSE --> ANALYZE["2. Analyze<br/><i>Type checking<br/>Reference validation<br/>Dependency resolution</i>"]
+    ANALYZE --> OPTIMIZE["3. Optimize<br/><i>Constant folding<br/>Dead branch elimination<br/>Common subexpression</i>"]
+    OPTIMIZE --> INDEX["4. Index<br/><i>Build condition indexes<br/>Interval trees, hashmaps</i>"]
+    INDEX --> COMPILE["5. Compile<br/><i>Expressions → bytecode<br/>Conditions → matchers</i>"]
+    COMPILE --> CACHE["6. Cache<br/><i>L1 (Caffeine) + L2 (Redis)</i>"]
+
+    style JSON fill:#f0f0f0,color:#000
+    style CACHE fill:#34a853,color:#fff
+```
+
+
+<a id="142-compilation-optimizations"></a>
+
+#### Compilation Optimizations
+
+| Optimization                  | Description                                                             | Impact                  |
+| ----------------------------- | ----------------------------------------------------------------------- | ----------------------- |
+| **Constant Folding**          | Pre-compute expressions with only constants: `365 * 24 * 60` → `525600` | Eliminates runtime math |
+| **Dead Branch Elimination**   | Remove branches that can never match (contradictory conditions)         | Reduces tree depth      |
+| **Common Subexpression**      | `IF age > 18 AND age < 65` shares the `age` lookup                      | Fewer memory reads      |
+| **Condition Reordering**      | Evaluate cheapest conditions first (O(1) before O(n))                   | Faster short-circuit    |
+| **Hash Compilation**          | Compile IN operators to HashSet lookups                                 | O(1) vs O(k)            |
+| **Regex Pre-compilation**     | Compile REGEX patterns once at compile time                             | Avoid recompilation     |
+| **Expression Specialization** | Generate specialized bytecode for common patterns                       | JIT-friendly            |
+
+## Scheduling and rule composition
+
+<a id="4-priority--salience-system"></a>
+
+### Priority & Salience System
+
+
+<a id="41-multi-dimensional-priority"></a>
+
+#### Multi-Dimensional Priority
 
 Unlike JEasyRules' single integer priority, RuleForge uses a **multi-dimensional priority vector** for sophisticated conflict resolution:
 
@@ -295,7 +531,10 @@ Priority Vector = (salience, specificity, weight, recency, order)
 | **Recency**     | Timestamp       | When the fact that activated the rule was last modified    | More recent facts = higher priority       |
 | **Order**       | 0 to N          | Declaration order within a rule group (tiebreaker)         | Row 1 before Row 2                        |
 
-### 4.2 Priority Resolution Algorithm
+
+<a id="42-priority-resolution-algorithm"></a>
+
+#### Priority Resolution Algorithm
 
 ```java
 public class PriorityVector implements Comparable<PriorityVector> {
@@ -329,7 +568,10 @@ public class PriorityVector implements Comparable<PriorityVector> {
 }
 ```
 
-### 4.3 Salience Patterns
+
+<a id="43-salience-patterns"></a>
+
+#### Salience Patterns
 
 ```json
 {
@@ -370,7 +612,10 @@ public class PriorityVector implements Comparable<PriorityVector> {
 }
 ```
 
-### 4.4 Activation Groups & Agenda Groups
+
+<a id="44-activation-groups--agenda-groups"></a>
+
+#### Activation Groups & Agenda Groups
 
 ```mermaid
 graph TB
@@ -403,12 +648,162 @@ graph TB
 | **Ruleflow Group**   | Rules only active when their group is activated by a flow node           | Stage-gated execution in workflows                  |
 | **No-Loop**          | Prevents a rule from re-firing when it modifies its own triggering facts | Avoid infinite loops in forward chaining            |
 | **Lock-on-Active**   | Once an agenda group fires, no new activations are added to it           | Prevent cascading re-evaluation                     |
+<a id="7-execution-strategies--conflict-resolution"></a>
 
----
+### Execution Strategies & Conflict Resolution
 
-## 5. Hierarchical Rule Composition
 
-### 5.1 Composition Model
+<a id="71-execution-modes"></a>
+
+#### Execution Modes
+
+| Mode            | Description                                                       | Use Case                         |
+| --------------- | ----------------------------------------------------------------- | -------------------------------- |
+| `FIRST_MATCH`   | Stop at first matching rule (by priority)                         | Eligibility, routing             |
+| `ALL_MATCH`     | Fire all matching rules, collect results                          | Validation, multi-output         |
+| `BEST_MATCH`    | Score all matches, return highest-scored                          | Recommendation, pricing          |
+| `SEQUENTIAL`    | Fire all rules in priority order, each can see previous results   | Pipeline processing              |
+| `PARALLEL`      | Fire all matching rules concurrently, aggregate results           | Performance-critical multi-check |
+| `FORWARD_CHAIN` | Rete-style: fire → modify facts → re-evaluate → fire until stable | Inference, derivation            |
+| `CASCADING`     | Fire through hierarchy levels until a result is produced          | Hierarchical overrides           |
+
+
+<a id="72-conflict-resolution-strategies"></a>
+
+#### Conflict Resolution Strategies
+
+When multiple rules match at the same priority level:
+
+```mermaid
+graph LR
+    CS["Conflict Set<br/>(Multiple matching rules)"]
+
+    CS --> S1["PRIORITY<br/><i>Highest salience wins</i>"]
+    CS --> S2["SPECIFICITY<br/><i>Most conditions wins</i>"]
+    CS --> S3["RECENCY<br/><i>Most recently activated wins</i>"]
+    CS --> S4["WEIGHTED<br/><i>Highest weight wins</i>"]
+    CS --> S5["RANDOM<br/><i>Random selection (A/B testing)</i>"]
+    CS --> S6["VOTING<br/><i>Ensemble: majority/weighted</i>"]
+    CS --> S7["CUSTOM<br/><i>User-defined Java/JS function</i>"]
+```
+
+
+<a id="73-conflict-resolution-implementation"></a>
+
+#### Conflict Resolution Implementation
+
+```java
+public interface ConflictResolutionStrategy {
+    List<ActivatedRule> resolve(List<ActivatedRule> conflictSet, ExecutionContext ctx);
+}
+
+public class CompositeConflictResolver implements ConflictResolutionStrategy {
+    private final List<ConflictResolutionStrategy> chain;
+
+    /**
+     * Applies resolvers in order. Each resolver narrows the conflict set.
+     * Chain: Priority → Specificity → Recency → Declaration Order
+     */
+    @Override
+    public List<ActivatedRule> resolve(List<ActivatedRule> conflictSet, ExecutionContext ctx) {
+        List<ActivatedRule> remaining = conflictSet;
+        for (ConflictResolutionStrategy resolver : chain) {
+            remaining = resolver.resolve(remaining, ctx);
+            if (remaining.size() <= 1) break;
+        }
+        return remaining;
+    }
+}
+
+// Built-in strategies
+public class PriorityResolver implements ConflictResolutionStrategy {
+    @Override
+    public List<ActivatedRule> resolve(List<ActivatedRule> set, ExecutionContext ctx) {
+        int maxSalience = set.stream().mapToInt(r -> r.metadata().salience()).max().orElse(0);
+        return set.stream().filter(r -> r.metadata().salience() == maxSalience).toList();
+    }
+}
+
+public class SpecificityResolver implements ConflictResolutionStrategy {
+    @Override
+    public List<ActivatedRule> resolve(List<ActivatedRule> set, ExecutionContext ctx) {
+        int maxConditions = set.stream().mapToInt(r -> r.conditionCount()).max().orElse(0);
+        return set.stream().filter(r -> r.conditionCount() == maxConditions).toList();
+    }
+}
+
+public class WeightedRandomResolver implements ConflictResolutionStrategy {
+    // For A/B testing: probabilistic selection weighted by rule weights
+    @Override
+    public List<ActivatedRule> resolve(List<ActivatedRule> set, ExecutionContext ctx) {
+        double totalWeight = set.stream().mapToDouble(r -> r.metadata().weight()).sum();
+        double random = ThreadLocalRandom.current().nextDouble() * totalWeight;
+
+        double cumulative = 0;
+        for (ActivatedRule rule : set) {
+            cumulative += rule.metadata().weight();
+            if (random <= cumulative) return List.of(rule);
+        }
+        return List.of(set.getLast());
+    }
+}
+```
+
+
+<a id="74-forward-chaining-with-cycle-detection"></a>
+
+#### Forward Chaining with Cycle Detection
+
+```java
+public class ForwardChainingEngine {
+    private static final int MAX_ITERATIONS = 100;
+
+    public RuleSetResult evaluate(RuleSet ruleSet, WorkingMemory wm) {
+        Agenda agenda = new Agenda(ruleSet, wm);
+        Set<String> firedRuleSnapshots = new HashSet<>(); // Cycle detection
+        int iteration = 0;
+
+        while (agenda.hasActivations() && iteration < MAX_ITERATIONS) {
+            iteration++;
+
+            // 1. Resolve conflicts to pick next rule(s) to fire
+            List<ActivatedRule> toFire = agenda.resolveConflicts();
+
+            for (ActivatedRule rule : toFire) {
+                // 2. Cycle detection: same rule + same facts = skip
+                String snapshot = rule.id() + ":" + wm.factHash();
+                if (firedRuleSnapshots.contains(snapshot) && rule.metadata().noLoop()) {
+                    continue;
+                }
+                firedRuleSnapshots.add(snapshot);
+
+                // 3. Fire the rule
+                RuleResult result = rule.execute(wm);
+
+                // 4. If working memory was modified, re-evaluate matches
+                if (wm.isModified()) {
+                    agenda.reEvaluate(wm);
+                    wm.clearModificationFlag();
+                }
+            }
+        }
+
+        if (iteration >= MAX_ITERATIONS) {
+            throw new RuleEngineException("Forward chaining exceeded max iterations. Possible infinite loop.");
+        }
+
+        return new RuleSetResult(wm.getOutputFacts(), iteration);
+    }
+}
+```
+<a id="5-hierarchical-rule-composition"></a>
+
+### Hierarchical Rule Composition
+
+
+<a id="51-composition-model"></a>
+
+#### Composition Model
 
 Rules compose hierarchically, enabling reuse, override, and inheritance:
 
@@ -442,7 +837,10 @@ graph TB
     ONLINE --> AB_TEST
 ```
 
-### 5.2 Inheritance & Override Semantics
+
+<a id="52-inheritance--override-semantics"></a>
+
+#### Inheritance & Override Semantics
 
 ```java
 public class HierarchicalRuleResolver {
@@ -485,7 +883,10 @@ public class HierarchicalRuleResolver {
 }
 ```
 
-### 5.3 Hierarchical Rule Definition
+
+<a id="53-hierarchical-rule-definition"></a>
+
+#### Hierarchical Rule Definition
 
 ```json
 {
@@ -551,7 +952,10 @@ public class HierarchicalRuleResolver {
 }
 ```
 
-### 5.4 Hierarchy Resolution Visualization
+
+<a id="54-hierarchy-resolution-visualization"></a>
+
+#### Hierarchy Resolution Visualization
 
 ```mermaid
 sequenceDiagram
@@ -579,11 +983,148 @@ sequenceDiagram
     Resolver-->>Client: Evaluate effective rule (4 rows)
 ```
 
----
+## Specialized execution engines
 
-## 6. Weighted & Scoring Branches
+<a id="8-decision-table-engine"></a>
 
-### 6.1 Scorecard Rule Type
+### Decision Table Engine
+
+
+<a id="81-indexed-evaluation"></a>
+
+#### Indexed Evaluation
+
+Instead of linear row scanning (O(n) per row × m conditions), the Decision Table Engine uses a **condition index** for fast lookups:
+
+```mermaid
+graph TB
+    subgraph "Condition Index (Built at Compile Time)"
+        IDX["Column Indexes"]
+        IDX --> I1["age: Interval Tree<br/>[18,25]→{row1,row4}<br/>[25,65]→{row2,row3}"]
+        IDX --> I2["creditScore: Sorted Array<br/>≥750→{row2}<br/>≥650→{row2,row3}"]
+        IDX --> I3["employmentType: Hash Map<br/>FULL_TIME→{row1,row2,row3}<br/>PART_TIME→{row3}"]
+    end
+
+    subgraph "Evaluation"
+        INPUT["Input: age=35, creditScore=720, type=FULL_TIME"]
+        INPUT --> Q1["age index: {row2, row3}"]
+        INPUT --> Q2["creditScore index: {row2, row3}"]
+        INPUT --> Q3["type index: {row1, row2, row3}"]
+        Q1 --> INTERSECT["Set Intersection:<br/>{row2, row3}"]
+        Q2 --> INTERSECT
+        Q3 --> INTERSECT
+        INTERSECT --> RESULT["Matching Rows: {row2, row3}<br/>Apply execution strategy"]
+    end
+```
+
+
+<a id="82-index-types-by-operator"></a>
+
+#### Index Types by Operator
+
+| Operator                  | Index Structure                              | Lookup Complexity            |
+| ------------------------- | -------------------------------------------- | ---------------------------- |
+| `EQ`, `NEQ`               | HashMap                                      | O(1)                         |
+| `IN`, `NOT_IN`            | HashMap (multi-value)                        | O(k) where k = set size      |
+| `GT`, `GTE`, `LT`, `LTE`  | Sorted Array + Binary Search                 | O(log n)                     |
+| `BETWEEN`                 | Interval Tree                                | O(log n + k)                 |
+| `CONTAINS`, `STARTS_WITH` | Trie                                         | O(m) where m = string length |
+| `REGEX`                   | Pre-compiled Pattern (no index, linear scan) | O(n)                         |
+| `IS_NULL`, `IS_NOT_NULL`  | Bitmap                                       | O(1)                         |
+
+
+<a id="83-execution-strategies"></a>
+
+#### Execution Strategies
+
+```java
+public enum TableExecutionStrategy {
+    /**
+     * Returns all rows that match the input.
+     * Order: by priority vector, then declaration order.
+     */
+    STANDARD,
+
+    /**
+     * Returns only the first matching row (highest priority).
+     * Short-circuits evaluation.
+     */
+    FIRST_MATCH,
+
+    /**
+     * Evaluates the input against each row independently.
+     * Returns array of results (one per input in bulk).
+     */
+    ARRAY,
+
+    /**
+     * Collects all matching rows, then aggregates their outputs.
+     * Aggregation functions: SUM, AVG, MIN, MAX, CONCAT, MERGE.
+     */
+    AGGREGATE,
+
+    /**
+     * Scores each matching row using weighted scoring,
+     * returns the top-N results ranked by score.
+     */
+    RANKED
+}
+```
+<a id="9-decision-tree-engine"></a>
+
+### Decision Tree Engine
+
+
+<a id="91-tree-node-types"></a>
+
+#### Tree Node Types
+
+```mermaid
+graph TB
+    subgraph "Node Types"
+        COND["ConditionNode<br/><i>Evaluates expression<br/>Routes to branches</i>"]
+        ACTION["ActionNode (Leaf)<br/><i>Sets output values</i>"]
+        SUB["SubRuleNode<br/><i>Delegates to another rule<br/>(any type)</i>"]
+        SCORE_N["ScoreNode<br/><i>Adds weighted score<br/>to accumulator</i>"]
+        GATE["GateNode<br/><i>AND/OR gate combining<br/>multiple parent branches</i>"]
+    end
+```
+
+
+<a id="92-advanced-tree-features"></a>
+
+#### Advanced Tree Features
+
+| Feature                     | Description                                                                      |
+| --------------------------- | -------------------------------------------------------------------------------- |
+| **Multi-branch conditions** | A condition node can have N branches (not just true/false) — e.g., ranges, enums |
+| **Default branch**          | Mandatory fallback for unmatched conditions                                      |
+| **Branch weights**          | Each branch carries a confidence weight for probabilistic decisions              |
+| **Sub-rule delegation**     | A tree node can invoke any other rule (table, scorecard, another tree)           |
+| **Score accumulation**      | Nodes accumulate a running score through the tree path                           |
+| **Early termination**       | `HALT` action immediately returns result without traversing remaining branches   |
+| **Parallel branches**       | Fork-join: evaluate multiple branches in parallel, merge results                 |
+
+
+<a id="93-compiled-tree--binary-decision-diagram-bdd"></a>
+
+#### Compiled Tree — Binary Decision Diagram (BDD)
+
+For performance, complex trees are compiled to BDDs:
+
+```
+Raw Tree (5 levels, 31 nodes) → BDD optimization → Reduced BDD (12 unique nodes)
+```
+
+This eliminates redundant condition checks when the same variable appears at multiple levels.
+<a id="6-weighted--scoring-branches"></a>
+
+### Weighted & Scoring Branches
+
+
+<a id="61-scorecard-rule-type"></a>
+
+#### Scorecard Rule Type
 
 A first-class **ScorecardRule** supports weighted scoring — essential for credit scoring, risk assessment, and eligibility evaluation:
 
@@ -642,7 +1183,10 @@ graph TB
     end
 ```
 
-### 6.2 Scorecard Definition Schema
+
+<a id="62-scorecard-definition-schema"></a>
+
+#### Scorecard Definition Schema
 
 ```json
 {
@@ -757,7 +1301,10 @@ graph TB
 }
 ```
 
-### 6.3 Weighted Decision Trees
+
+<a id="63-weighted-decision-trees"></a>
+
+#### Weighted Decision Trees
 
 Standard decision trees use hard branching (IF-THEN-ELSE). Weighted trees add **confidence scores** and **probabilistic branching**:
 
@@ -800,7 +1347,10 @@ graph TB
 
 This enables **threshold-based output selection**: if composite confidence < 0.6, escalate to MANUAL_REVIEW regardless of the leaf node's decision.
 
-### 6.4 Ensemble Rules (Voting / Averaging)
+
+<a id="64-ensemble-rules-voting--averaging"></a>
+
+#### Ensemble Rules (Voting / Averaging)
 
 Multiple rules can be combined as an ensemble, similar to ML ensemble methods:
 
@@ -842,265 +1392,14 @@ Multiple rules can be combined as an ensemble, similar to ML ensemble methods:
 | `WEIGHTED_AVERAGE` | Weighted average of numeric scores                 |
 | `MAX_CONFIDENCE`   | Take the result from the highest-confidence member |
 | `STACK`            | Feed member outputs into a meta-rule               |
+<a id="10-rule-flow--orchestration-engine"></a>
 
----
+### Rule Flow / Orchestration Engine
 
-## 7. Execution Strategies & Conflict Resolution
 
-### 7.1 Execution Modes
+<a id="101-flow-node-types"></a>
 
-| Mode            | Description                                                       | Use Case                         |
-| --------------- | ----------------------------------------------------------------- | -------------------------------- |
-| `FIRST_MATCH`   | Stop at first matching rule (by priority)                         | Eligibility, routing             |
-| `ALL_MATCH`     | Fire all matching rules, collect results                          | Validation, multi-output         |
-| `BEST_MATCH`    | Score all matches, return highest-scored                          | Recommendation, pricing          |
-| `SEQUENTIAL`    | Fire all rules in priority order, each can see previous results   | Pipeline processing              |
-| `PARALLEL`      | Fire all matching rules concurrently, aggregate results           | Performance-critical multi-check |
-| `FORWARD_CHAIN` | Rete-style: fire → modify facts → re-evaluate → fire until stable | Inference, derivation            |
-| `CASCADING`     | Fire through hierarchy levels until a result is produced          | Hierarchical overrides           |
-
-### 7.2 Conflict Resolution Strategies
-
-When multiple rules match at the same priority level:
-
-```mermaid
-graph LR
-    CS["Conflict Set<br/>(Multiple matching rules)"]
-
-    CS --> S1["PRIORITY<br/><i>Highest salience wins</i>"]
-    CS --> S2["SPECIFICITY<br/><i>Most conditions wins</i>"]
-    CS --> S3["RECENCY<br/><i>Most recently activated wins</i>"]
-    CS --> S4["WEIGHTED<br/><i>Highest weight wins</i>"]
-    CS --> S5["RANDOM<br/><i>Random selection (A/B testing)</i>"]
-    CS --> S6["VOTING<br/><i>Ensemble: majority/weighted</i>"]
-    CS --> S7["CUSTOM<br/><i>User-defined Java/JS function</i>"]
-```
-
-### 7.3 Conflict Resolution Implementation
-
-```java
-public interface ConflictResolutionStrategy {
-    List<ActivatedRule> resolve(List<ActivatedRule> conflictSet, ExecutionContext ctx);
-}
-
-public class CompositeConflictResolver implements ConflictResolutionStrategy {
-    private final List<ConflictResolutionStrategy> chain;
-
-    /**
-     * Applies resolvers in order. Each resolver narrows the conflict set.
-     * Chain: Priority → Specificity → Recency → Declaration Order
-     */
-    @Override
-    public List<ActivatedRule> resolve(List<ActivatedRule> conflictSet, ExecutionContext ctx) {
-        List<ActivatedRule> remaining = conflictSet;
-        for (ConflictResolutionStrategy resolver : chain) {
-            remaining = resolver.resolve(remaining, ctx);
-            if (remaining.size() <= 1) break;
-        }
-        return remaining;
-    }
-}
-
-// Built-in strategies
-public class PriorityResolver implements ConflictResolutionStrategy {
-    @Override
-    public List<ActivatedRule> resolve(List<ActivatedRule> set, ExecutionContext ctx) {
-        int maxSalience = set.stream().mapToInt(r -> r.metadata().salience()).max().orElse(0);
-        return set.stream().filter(r -> r.metadata().salience() == maxSalience).toList();
-    }
-}
-
-public class SpecificityResolver implements ConflictResolutionStrategy {
-    @Override
-    public List<ActivatedRule> resolve(List<ActivatedRule> set, ExecutionContext ctx) {
-        int maxConditions = set.stream().mapToInt(r -> r.conditionCount()).max().orElse(0);
-        return set.stream().filter(r -> r.conditionCount() == maxConditions).toList();
-    }
-}
-
-public class WeightedRandomResolver implements ConflictResolutionStrategy {
-    // For A/B testing: probabilistic selection weighted by rule weights
-    @Override
-    public List<ActivatedRule> resolve(List<ActivatedRule> set, ExecutionContext ctx) {
-        double totalWeight = set.stream().mapToDouble(r -> r.metadata().weight()).sum();
-        double random = ThreadLocalRandom.current().nextDouble() * totalWeight;
-
-        double cumulative = 0;
-        for (ActivatedRule rule : set) {
-            cumulative += rule.metadata().weight();
-            if (random <= cumulative) return List.of(rule);
-        }
-        return List.of(set.getLast());
-    }
-}
-```
-
-### 7.4 Forward Chaining with Cycle Detection
-
-```java
-public class ForwardChainingEngine {
-    private static final int MAX_ITERATIONS = 100;
-
-    public RuleSetResult evaluate(RuleSet ruleSet, WorkingMemory wm) {
-        Agenda agenda = new Agenda(ruleSet, wm);
-        Set<String> firedRuleSnapshots = new HashSet<>(); // Cycle detection
-        int iteration = 0;
-
-        while (agenda.hasActivations() && iteration < MAX_ITERATIONS) {
-            iteration++;
-
-            // 1. Resolve conflicts to pick next rule(s) to fire
-            List<ActivatedRule> toFire = agenda.resolveConflicts();
-
-            for (ActivatedRule rule : toFire) {
-                // 2. Cycle detection: same rule + same facts = skip
-                String snapshot = rule.id() + ":" + wm.factHash();
-                if (firedRuleSnapshots.contains(snapshot) && rule.metadata().noLoop()) {
-                    continue;
-                }
-                firedRuleSnapshots.add(snapshot);
-
-                // 3. Fire the rule
-                RuleResult result = rule.execute(wm);
-
-                // 4. If working memory was modified, re-evaluate matches
-                if (wm.isModified()) {
-                    agenda.reEvaluate(wm);
-                    wm.clearModificationFlag();
-                }
-            }
-        }
-
-        if (iteration >= MAX_ITERATIONS) {
-            throw new RuleEngineException("Forward chaining exceeded max iterations. Possible infinite loop.");
-        }
-
-        return new RuleSetResult(wm.getOutputFacts(), iteration);
-    }
-}
-```
-
----
-
-## 8. Decision Table Engine
-
-### 8.1 Indexed Evaluation
-
-Instead of linear row scanning (O(n) per row × m conditions), the Decision Table Engine uses a **condition index** for fast lookups:
-
-```mermaid
-graph TB
-    subgraph "Condition Index (Built at Compile Time)"
-        IDX["Column Indexes"]
-        IDX --> I1["age: Interval Tree<br/>[18,25]→{row1,row4}<br/>[25,65]→{row2,row3}"]
-        IDX --> I2["creditScore: Sorted Array<br/>≥750→{row2}<br/>≥650→{row2,row3}"]
-        IDX --> I3["employmentType: Hash Map<br/>FULL_TIME→{row1,row2,row3}<br/>PART_TIME→{row3}"]
-    end
-
-    subgraph "Evaluation"
-        INPUT["Input: age=35, creditScore=720, type=FULL_TIME"]
-        INPUT --> Q1["age index: {row2, row3}"]
-        INPUT --> Q2["creditScore index: {row2, row3}"]
-        INPUT --> Q3["type index: {row1, row2, row3}"]
-        Q1 --> INTERSECT["Set Intersection:<br/>{row2, row3}"]
-        Q2 --> INTERSECT
-        Q3 --> INTERSECT
-        INTERSECT --> RESULT["Matching Rows: {row2, row3}<br/>Apply execution strategy"]
-    end
-```
-
-### 8.2 Index Types by Operator
-
-| Operator                  | Index Structure                              | Lookup Complexity            |
-| ------------------------- | -------------------------------------------- | ---------------------------- |
-| `EQ`, `NEQ`               | HashMap                                      | O(1)                         |
-| `IN`, `NOT_IN`            | HashMap (multi-value)                        | O(k) where k = set size      |
-| `GT`, `GTE`, `LT`, `LTE`  | Sorted Array + Binary Search                 | O(log n)                     |
-| `BETWEEN`                 | Interval Tree                                | O(log n + k)                 |
-| `CONTAINS`, `STARTS_WITH` | Trie                                         | O(m) where m = string length |
-| `REGEX`                   | Pre-compiled Pattern (no index, linear scan) | O(n)                         |
-| `IS_NULL`, `IS_NOT_NULL`  | Bitmap                                       | O(1)                         |
-
-### 8.3 Execution Strategies
-
-```java
-public enum TableExecutionStrategy {
-    /**
-     * Returns all rows that match the input.
-     * Order: by priority vector, then declaration order.
-     */
-    STANDARD,
-
-    /**
-     * Returns only the first matching row (highest priority).
-     * Short-circuits evaluation.
-     */
-    FIRST_MATCH,
-
-    /**
-     * Evaluates the input against each row independently.
-     * Returns array of results (one per input in bulk).
-     */
-    ARRAY,
-
-    /**
-     * Collects all matching rows, then aggregates their outputs.
-     * Aggregation functions: SUM, AVG, MIN, MAX, CONCAT, MERGE.
-     */
-    AGGREGATE,
-
-    /**
-     * Scores each matching row using weighted scoring,
-     * returns the top-N results ranked by score.
-     */
-    RANKED
-}
-```
-
----
-
-## 9. Decision Tree Engine
-
-### 9.1 Tree Node Types
-
-```mermaid
-graph TB
-    subgraph "Node Types"
-        COND["ConditionNode<br/><i>Evaluates expression<br/>Routes to branches</i>"]
-        ACTION["ActionNode (Leaf)<br/><i>Sets output values</i>"]
-        SUB["SubRuleNode<br/><i>Delegates to another rule<br/>(any type)</i>"]
-        SCORE_N["ScoreNode<br/><i>Adds weighted score<br/>to accumulator</i>"]
-        GATE["GateNode<br/><i>AND/OR gate combining<br/>multiple parent branches</i>"]
-    end
-```
-
-### 9.2 Advanced Tree Features
-
-| Feature                     | Description                                                                      |
-| --------------------------- | -------------------------------------------------------------------------------- |
-| **Multi-branch conditions** | A condition node can have N branches (not just true/false) — e.g., ranges, enums |
-| **Default branch**          | Mandatory fallback for unmatched conditions                                      |
-| **Branch weights**          | Each branch carries a confidence weight for probabilistic decisions              |
-| **Sub-rule delegation**     | A tree node can invoke any other rule (table, scorecard, another tree)           |
-| **Score accumulation**      | Nodes accumulate a running score through the tree path                           |
-| **Early termination**       | `HALT` action immediately returns result without traversing remaining branches   |
-| **Parallel branches**       | Fork-join: evaluate multiple branches in parallel, merge results                 |
-
-### 9.3 Compiled Tree — Binary Decision Diagram (BDD)
-
-For performance, complex trees are compiled to BDDs:
-
-```
-Raw Tree (5 levels, 31 nodes) → BDD optimization → Reduced BDD (12 unique nodes)
-```
-
-This eliminates redundant condition checks when the same variable appears at multiple levels.
-
----
-
-## 10. Rule Flow / Orchestration Engine
-
-### 10.1 Flow Node Types
+#### Flow Node Types
 
 ```mermaid
 graph LR
@@ -1139,7 +1438,10 @@ graph LR
     end
 ```
 
-### 10.2 Flow Execution Model
+
+<a id="102-flow-execution-model"></a>
+
+#### Flow Execution Model
 
 ```java
 public class FlowOrchestrator {
@@ -1187,7 +1489,10 @@ public class FlowOrchestrator {
 }
 ```
 
-### 10.3 Flow Error Handling Patterns
+
+<a id="103-flow-error-handling-patterns"></a>
+
+#### Flow Error Handling Patterns
 
 ```json
 {
@@ -1220,16 +1525,18 @@ public class FlowOrchestrator {
   }
 }
 ```
+<a id="11-scripting-engine-graalvm"></a>
 
----
+### Scripting Engine (GraalVM)
 
-## 11. Scripting Engine (GraalVM)
-
-> **Runtime note:** The scripting engine works on **any JDK 21+** — GraalVM is NOT required.
+> **Runtime note (current source baseline):** The engine targets **Java 25**. A separate GraalVM JDK is not required; the polyglot runtime is supplied through module dependencies.
 > The GraalVM polyglot runtime (`org.graalvm.polyglot:polyglot` + `org.graalvm.polyglot:js-community`)
 > is bundled as dependencies in `ruleforge-script/build.gradle.kts`.
 
-### 11.1 Sandboxed Execution
+
+<a id="111-sandboxed-execution"></a>
+
+#### Sandboxed Execution
 
 ```java
 public class ScriptingEngine {
@@ -1291,7 +1598,10 @@ public class ScriptingEngine {
 }
 ```
 
-### 11.2 Safe API Surface (`DR` Object)
+
+<a id="112-safe-api-surface-dr-object"></a>
+
+#### Safe API Surface (`DR` Object)
 
 ```javascript
 // Available inside scripting rules:
@@ -1327,12 +1637,14 @@ return output;
 > - Scripts **must** define a function named `evaluate` (not `execute`)
 > - The engine calls `context.getBindings("js").getMember("evaluate")` to invoke the script
 > - Example: `function evaluate(input) { output.result = input.age >= 18; return output; }`
+<a id="12-complex-event-processing-engine"></a>
 
----
+### Complex Event Processing Engine
 
-## 12. Complex Event Processing Engine
 
-### 12.1 CEP Pattern Types
+<a id="121-cep-pattern-types"></a>
+
+#### CEP Pattern Types
 
 | Pattern         | Description                 | Example                                          |
 | --------------- | --------------------------- | ------------------------------------------------ |
@@ -1342,7 +1654,10 @@ return output;
 | **Frequency**   | Count exceeding threshold   | > 5 failed logins in 10 minutes                  |
 | **Correlation** | Events sharing attributes   | Same card_id across 3+ merchants in 5 minutes    |
 
-### 12.2 CEP Architecture
+
+<a id="122-cep-architecture"></a>
+
+#### CEP Architecture
 
 ```mermaid
 graph LR
@@ -1364,203 +1679,16 @@ graph LR
     PATTERN --> ROCKS
 ```
 
----
+## Extension and integration reference
 
-## 13. Working Memory & Fact Model
+<a id="16-engine-extension-points-spi"></a>
 
-### 13.1 Working Memory Design
+### Engine Extension Points (SPI)
 
-The Working Memory is the shared data space during rule evaluation, replacing JEasyRules' simple `Facts` map with a typed, tracked, observable model:
 
-```java
-public class WorkingMemory {
-    private final Map<String, Fact<?>> facts = new LinkedHashMap<>();
-    private final List<FactChange> changelog = new ArrayList<>();
-    private final Set<FactChangeListener> listeners = new CopyOnWriteArraySet<>();
-    private boolean modified = false;
+<a id="161-service-provider-interfaces"></a>
 
-    // Type-safe fact operations
-    public <T> void assertFact(String path, T value, FactType<T> type) {
-        Fact<T> fact = new Fact<>(path, value, type, Instant.now());
-        facts.put(path, fact);
-        changelog.add(new FactChange(ChangeType.ASSERT, path, null, value));
-        modified = true;
-        notifyListeners(fact, ChangeType.ASSERT);
-    }
-
-    public <T> void modifyFact(String path, T newValue) {
-        Fact<?> existing = facts.get(path);
-        Object oldValue = existing != null ? existing.getValue() : null;
-        assertFact(path, newValue, (FactType<T>) existing.getType());
-        changelog.add(new FactChange(ChangeType.MODIFY, path, oldValue, newValue));
-    }
-
-    public void retractFact(String path) {
-        Fact<?> removed = facts.remove(path);
-        if (removed != null) {
-            changelog.add(new FactChange(ChangeType.RETRACT, path, removed.getValue(), null));
-            modified = true;
-        }
-    }
-
-    // Deep path access: "customer.address.city"
-    @SuppressWarnings("unchecked")
-    public <T> T get(String dotPath) {
-        return (T) PathResolver.resolve(facts, dotPath);
-    }
-
-    // Snapshot for cycle detection
-    public long factHash() {
-        return facts.values().stream()
-            .mapToLong(f -> Objects.hash(f.getPath(), f.getValue()))
-            .reduce(0L, (a, b) -> a * 31 + b);
-    }
-
-    // Full changelog for explainability
-    public List<FactChange> getChangelog() {
-        return Collections.unmodifiableList(changelog);
-    }
-}
-
-public record Fact<T>(
-    String path,
-    T value,
-    FactType<T> type,
-    Instant lastModified
-) {}
-
-public record FactChange(
-    ChangeType type,  // ASSERT, MODIFY, RETRACT
-    String path,
-    Object oldValue,
-    Object newValue
-) {}
-```
-
-### 13.2 Fact Type System
-
-```mermaid
-graph TB
-    subgraph "Fact Types"
-        STRING["STRING"]
-        NUMBER["NUMBER (double)"]
-        INTEGER["INTEGER (long)"]
-        BOOLEAN["BOOLEAN"]
-        DATE["DATE (LocalDate)"]
-        DATETIME["DATETIME (Instant)"]
-        ARRAY["ARRAY[T]"]
-        OBJECT["OBJECT (nested map)"]
-        MONEY["MONEY (BigDecimal + currency)"]
-        ENUM_T["ENUM (constrained string)"]
-        ANY["ANY (dynamic)"]
-    end
-```
-
-### 13.3 Automatic Type Coercion
-
-```
-Input JSON "35" → INTEGER if schema says integer → long 35
-Input JSON 35.0 → INTEGER → long 35 (truncate)
-Input JSON "2026-02-20" → DATE → LocalDate.of(2026, 2, 20)
-Input JSON true → BOOLEAN → true
-Input JSON "true" → BOOLEAN → true (coerced)
-```
-
----
-
-## 14. Rule Compilation Pipeline
-
-### 14.1 Pipeline Stages
-
-```mermaid
-graph LR
-    JSON["Rule Definition<br/>(JSON)"]
-    JSON --> PARSE["1. Parse<br/><i>Validate JSON schema<br/>Build internal model</i>"]
-    PARSE --> ANALYZE["2. Analyze<br/><i>Type checking<br/>Reference validation<br/>Dependency resolution</i>"]
-    ANALYZE --> OPTIMIZE["3. Optimize<br/><i>Constant folding<br/>Dead branch elimination<br/>Common subexpression</i>"]
-    OPTIMIZE --> INDEX["4. Index<br/><i>Build condition indexes<br/>Interval trees, hashmaps</i>"]
-    INDEX --> COMPILE["5. Compile<br/><i>Expressions → bytecode<br/>Conditions → matchers</i>"]
-    COMPILE --> CACHE["6. Cache<br/><i>L1 (Caffeine) + L2 (Redis)</i>"]
-
-    style JSON fill:#f0f0f0,color:#000
-    style CACHE fill:#34a853,color:#fff
-```
-
-### 14.2 Compilation Optimizations
-
-| Optimization                  | Description                                                             | Impact                  |
-| ----------------------------- | ----------------------------------------------------------------------- | ----------------------- |
-| **Constant Folding**          | Pre-compute expressions with only constants: `365 * 24 * 60` → `525600` | Eliminates runtime math |
-| **Dead Branch Elimination**   | Remove branches that can never match (contradictory conditions)         | Reduces tree depth      |
-| **Common Subexpression**      | `IF age > 18 AND age < 65` shares the `age` lookup                      | Fewer memory reads      |
-| **Condition Reordering**      | Evaluate cheapest conditions first (O(1) before O(n))                   | Faster short-circuit    |
-| **Hash Compilation**          | Compile IN operators to HashSet lookups                                 | O(1) vs O(k)            |
-| **Regex Pre-compilation**     | Compile REGEX patterns once at compile time                             | Avoid recompilation     |
-| **Expression Specialization** | Generate specialized bytecode for common patterns                       | JIT-friendly            |
-
----
-
-## 15. Expression Language (RFL)
-
-### 15.1 RuleForge Language (RFL) — Custom Expression Language
-
-While supporting FEEL (DMN standard) for interoperability, RuleForge includes its own expression language for rule conditions and transformations:
-
-```
-// Conditions
-customer.age >= 18 AND customer.age <= 65
-customer.creditScore IN [700, 750, 800]
-customer.name STARTS_WITH "A"
-transaction.amount BETWEEN 1000 AND 50000
-customer.email MATCHES "^[a-z]+@company\\.com$"
-order.items ANY item -> item.price > 100
-order.items ALL item -> item.inStock == true
-
-// Null-safe navigation
-customer.address?.city ?? "UNKNOWN"
-
-// Functions
-ROUND(loan.amount * rate.annual / 12, 2)
-DATE_DIFF(NOW(), customer.dob, "YEARS")
-UPPER(TRIM(customer.name))
-SUM(order.items MAP item -> item.price * item.quantity)
-IF(customer.vip, amount * 0.9, amount)
-
-// Aggregations
-COUNT(transactions WHERE amount > 1000)
-AVG(reviews MAP r -> r.score) > 3.5
-
-// Rule reference (call another rule inline)
-SOLVE("credit-check", { score: customer.creditScore }).eligible == true
-LOOKUP("country-codes", customer.countryCode).region
-```
-
-### 15.2 RFL Grammar (EBNF Simplified)
-
-```ebnf
-expression     = logicalOr ;
-logicalOr      = logicalAnd ( "OR" logicalAnd )* ;
-logicalAnd     = comparison ( "AND" comparison )* ;
-comparison     = addition ( compOp addition )? ;
-compOp         = "==" | "!=" | ">" | ">=" | "<" | "<=" | "IN" | "NOT_IN"
-               | "BETWEEN" | "MATCHES" | "STARTS_WITH" | "ENDS_WITH"
-               | "CONTAINS" | "IS_NULL" | "IS_NOT_NULL" ;
-addition       = multiplication ( ("+" | "-") multiplication )* ;
-multiplication = unary ( ("*" | "/" | "%") unary )* ;
-unary          = ("NOT" | "-") unary | postfix ;
-postfix        = primary ( "." identifier | "?." identifier | "[" expression "]" | "(" arguments ")" )* ;
-primary        = number | string | boolean | "NULL" | identifier | "(" expression ")"
-               | function_call | array_literal | lambda ;
-function_call  = identifier "(" arguments ")" ;
-lambda         = identifier "->" expression ;
-arguments      = ( expression ( "," expression )* )? ;
-```
-
----
-
-## 16. Engine Extension Points (SPI)
-
-### 16.1 Service Provider Interfaces
+#### Service Provider Interfaces
 
 ```java
 // Custom operator
@@ -1602,7 +1730,10 @@ public interface CompilationPhaseExtension {
 }
 ```
 
-### 16.2 Extension Registration
+
+<a id="162-extension-registration"></a>
+
+#### Extension Registration
 
 ```java
 // Java SPI (ServiceLoader) or programmatic
@@ -1617,134 +1748,14 @@ RuleForgeEngine engine = RuleForgeEngine.builder()
     .addCompilationPhase(new RegulatoryComplianceChecker())
     .build();
 ```
+<a id="19-class-diagrams--interfaces"></a>
 
----
+### Class Diagrams & Interfaces
 
-## 17. Performance Architecture
 
-### 17.1 Benchmark Targets
+<a id="191-core-engine-interfaces"></a>
 
-| Scenario                                  | Target  | Notes                        |
-| ----------------------------------------- | ------- | ---------------------------- |
-| Simple table (10 rows, 5 conditions)      | < 0.1ms | Indexed lookup               |
-| Medium table (1000 rows, 10 conditions)   | < 1ms   | Indexed + intersection       |
-| Complex table (10K rows, 20 conditions)   | < 5ms   | Parallel scan for REGEX      |
-| Decision tree (50 nodes)                  | < 0.5ms | BDD traversal                |
-| Scorecard (10 categories)                 | < 0.3ms | Parallel category evaluation |
-| Rule flow (10 nodes, 3 parallel)          | < 10ms  | Async orchestration          |
-| Scripting rule (moderate complexity)      | < 5ms   | Pre-warmed GraalVM           |
-| Ensemble (5 members, weighted vote)       | < 15ms  | Parallel member execution    |
-| Forward chaining (20 rules, 5 iterations) | < 20ms  | Agenda with caching          |
-| Bulk solve (1000 inputs × simple table)   | < 500ms | Thread pool                  |
-
-### 17.2 Memory Architecture
-
-```mermaid
-graph TB
-    subgraph "Per-Request (Stack)"
-        WM_REQ["Working Memory<br/><i>Allocated per request<br/>Released after response<br/>~1-10 KB</i>"]
-    end
-
-    subgraph "Per-JVM (Heap)"
-        L1["L1 Cache: Caffeine<br/><i>2000 compiled rules<br/>~200 MB<br/>TTL: 60s</i>"]
-        CTX_POOL["GraalVM Context Pool<br/><i>Pre-warmed contexts<br/>~100 MB<br/>Pool size: 50</i>"]
-        IDX["Condition Indexes<br/><i>Interval trees, hashmaps<br/>Part of compiled rule</i>"]
-    end
-
-    subgraph "Cluster (Shared)"
-        L2["L2 Cache: Redis<br/><i>All compiled rules<br/>Serialized protobuf<br/>TTL: 5 min</i>"]
-    end
-
-    subgraph "Persistent"
-        DB["PostgreSQL<br/><i>Rule definitions (JSON)<br/>Source of truth</i>"]
-    end
-
-    WM_REQ -.->|"reads"| L1
-    L1 -->|"miss"| L2
-    L2 -->|"miss"| DB
-```
-
-### 17.3 Thread Model (Java 21 Virtual Threads)
-
-```java
-@Configuration
-public class EngineThreadConfig {
-
-    // Rule evaluation uses virtual threads for massive concurrency
-    @Bean
-    public ExecutorService solverExecutor() {
-        return Executors.newVirtualThreadPerTaskExecutor();
-    }
-
-    // Parallel flow nodes use a bounded virtual thread pool
-    @Bean
-    public ExecutorService flowNodeExecutor() {
-        return Executors.newFixedThreadPool(
-            Runtime.getRuntime().availableProcessors() * 4,
-            Thread.ofVirtual().factory()
-        );
-    }
-
-    // Script execution uses platform threads (GraalVM requirement)
-    @Bean
-    public ExecutorService scriptExecutor() {
-        return new ThreadPoolExecutor(
-            10, 50, 60L, TimeUnit.SECONDS,
-            new LinkedBlockingQueue<>(1000),
-            new ThreadPoolExecutor.CallerRunsPolicy()
-        );
-    }
-}
-```
-
----
-
-## 18. Comparison with Industry Engines
-
-### 18.1 Architecture Comparison
-
-| Feature                 | Drools (Rete)                       | IBM ODM              | Easy Rules          | RuleForge (Ours)                            |
-| ----------------------- | ----------------------------------- | -------------------- | ------------------- | ------------------------------------------- |
-| **Algorithm**           | Rete/Phreak                         | Rete                 | Linear scan         | Hybrid: Indexed + Rete-inspired             |
-| **Rule priority**       | Salience (integer)                  | Priority + agendas   | Integer priority    | Multi-dimensional vector                    |
-| **Hierarchical rules**  | Rule templates, guided rules        | BAL, decision tables | CompositeRule       | Full hierarchy + inheritance                |
-| **Weighted scoring**    | Manual (Drools Scorecards)          | Scorecard package    | Not supported       | First-class ScorecardRule + Ensemble        |
-| **Conflict resolution** | Priority, recency, specificity      | Priority, rule order | First match         | 7+ strategies, composable chain             |
-| **Forward chaining**    | Full Rete network                   | Yes                  | No                  | Rete-inspired with agenda + cycle detection |
-| **Expression language** | DRL (Java-like)                     | BAL                  | MVEL/SpEL           | RFL (custom) + FEEL (DMN)                   |
-| **Script support**      | Java, DRL                           | Java                 | Java                | JavaScript (GraalVM sandboxed)              |
-| **Embeddable**          | Yes (heavy: ~30MB)                  | No                   | Yes (light: ~100KB) | Yes (moderate: ~5MB)                        |
-| **REST API**            | KIE Server                          | Decision Server      | Not built-in        | First-class, auto-generated SDKs            |
-| **Performance**         | Good (Rete overhead for small sets) | Good                 | Simple (linear)     | Excellent (indexed + compiled)              |
-| **Learning curve**      | Steep (DRL, complex API)            | Very steep           | Very easy           | Moderate (rich but documented)              |
-
-### 18.2 When to Use What
-
-```mermaid
-graph TB
-    Q1{"How complex<br/>are your rules?"}
-    Q1 -->|"Simple IF-THEN"| EASY["JEasyRules / Simple If-Else<br/><i>< 50 rules, no inference</i>"]
-    Q1 -->|"Moderate (tables, trees)"| Q2{"Need visual editor<br/>& multi-tenancy?"}
-    Q1 -->|"Complex (chaining, CEP)"| Q3{"On-premise<br/>Java shop?"}
-
-    Q2 -->|"Yes"| RF["✅ RuleForge<br/><i>Full BRMS platform</i>"]
-    Q2 -->|"No, just a library"| Q4{"Need scoring?"}
-    Q4 -->|"Yes"| RF
-    Q4 -->|"No"| EASY
-
-    Q3 -->|"Yes, large enterprise"| DROOLS["Drools / IBM ODM<br/><i>Enterprise, heavy</i>"]
-    Q3 -->|"No, cloud-native"| RF
-
-    style RF fill:#1a73e8,color:#fff
-    style EASY fill:#34a853,color:#fff
-    style DROOLS fill:#ff6d01,color:#fff
-```
-
----
-
-## 19. Class Diagrams & Interfaces
-
-### 19.1 Core Engine Interfaces
+#### Core Engine Interfaces
 
 ```java
 // ━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
@@ -1857,11 +1868,128 @@ public record EvaluationOptions(
 }
 ```
 
----
+## Performance and historical design references
 
-## 20. Appendices
+Benchmark values, thread-pool examples, product comparisons, and build-vs-buy scores are historical design assumptions. They are not measured results or refreshed competitor research.
 
-### Appendix A: Engine Module Structure
+<a id="17-performance-architecture"></a>
+
+### Performance Architecture
+
+
+<a id="171-benchmark-targets"></a>
+
+#### Benchmark Targets
+
+| Scenario                                  | Target  | Notes                        |
+| ----------------------------------------- | ------- | ---------------------------- |
+| Simple table (10 rows, 5 conditions)      | < 0.1ms | Indexed lookup               |
+| Medium table (1000 rows, 10 conditions)   | < 1ms   | Indexed + intersection       |
+| Complex table (10K rows, 20 conditions)   | < 5ms   | Parallel scan for REGEX      |
+| Decision tree (50 nodes)                  | < 0.5ms | BDD traversal                |
+| Scorecard (10 categories)                 | < 0.3ms | Parallel category evaluation |
+| Rule flow (10 nodes, 3 parallel)          | < 10ms  | Async orchestration          |
+| Scripting rule (moderate complexity)      | < 5ms   | Pre-warmed GraalVM           |
+| Ensemble (5 members, weighted vote)       | < 15ms  | Parallel member execution    |
+| Forward chaining (20 rules, 5 iterations) | < 20ms  | Agenda with caching          |
+| Bulk solve (1000 inputs × simple table)   | < 500ms | Thread pool                  |
+
+
+<a id="172-memory-architecture"></a>
+
+#### Memory Architecture
+
+Platform cache/pool memory assumptions are consolidated in the [platform memory reference](RuleForge-Architecture-v2.md#legacy-engine-172-memory-architecture). Working memory remains local to an evaluation; use the facts chapter for its model.
+
+
+<a id="173-thread-model-java-21-virtual-threads"></a>
+
+#### Thread Model (Java 21 Virtual Threads)
+
+```java
+@Configuration
+public class EngineThreadConfig {
+
+    // Rule evaluation uses virtual threads for massive concurrency
+    @Bean
+    public ExecutorService solverExecutor() {
+        return Executors.newVirtualThreadPerTaskExecutor();
+    }
+
+    // Parallel flow nodes use a bounded virtual thread pool
+    @Bean
+    public ExecutorService flowNodeExecutor() {
+        return Executors.newFixedThreadPool(
+            Runtime.getRuntime().availableProcessors() * 4,
+            Thread.ofVirtual().factory()
+        );
+    }
+
+    // Script execution uses platform threads (GraalVM requirement)
+    @Bean
+    public ExecutorService scriptExecutor() {
+        return new ThreadPoolExecutor(
+            10, 50, 60L, TimeUnit.SECONDS,
+            new LinkedBlockingQueue<>(1000),
+            new ThreadPoolExecutor.CallerRunsPolicy()
+        );
+    }
+}
+```
+<a id="18-comparison-with-industry-engines"></a>
+
+### Comparison with Industry Engines
+
+
+<a id="181-architecture-comparison"></a>
+
+#### Architecture Comparison
+
+| Feature                 | Drools (Rete)                       | IBM ODM              | Easy Rules          | RuleForge (Ours)                            |
+| ----------------------- | ----------------------------------- | -------------------- | ------------------- | ------------------------------------------- |
+| **Algorithm**           | Rete/Phreak                         | Rete                 | Linear scan         | Hybrid: Indexed + Rete-inspired             |
+| **Rule priority**       | Salience (integer)                  | Priority + agendas   | Integer priority    | Multi-dimensional vector                    |
+| **Hierarchical rules**  | Rule templates, guided rules        | BAL, decision tables | CompositeRule       | Full hierarchy + inheritance                |
+| **Weighted scoring**    | Manual (Drools Scorecards)          | Scorecard package    | Not supported       | First-class ScorecardRule + Ensemble        |
+| **Conflict resolution** | Priority, recency, specificity      | Priority, rule order | First match         | 7+ strategies, composable chain             |
+| **Forward chaining**    | Full Rete network                   | Yes                  | No                  | Rete-inspired with agenda + cycle detection |
+| **Expression language** | DRL (Java-like)                     | BAL                  | MVEL/SpEL           | RFL (custom) + FEEL (DMN)                   |
+| **Script support**      | Java, DRL                           | Java                 | Java                | JavaScript (GraalVM sandboxed)              |
+| **Embeddable**          | Yes (heavy: ~30MB)                  | No                   | Yes (light: ~100KB) | Yes (moderate: ~5MB)                        |
+| **REST API**            | KIE Server                          | Decision Server      | Not built-in        | First-class, auto-generated SDKs            |
+| **Performance**         | Good (Rete overhead for small sets) | Good                 | Simple (linear)     | Excellent (indexed + compiled)              |
+| **Learning curve**      | Steep (DRL, complex API)            | Very steep           | Very easy           | Moderate (rich but documented)              |
+
+
+<a id="182-when-to-use-what"></a>
+
+#### When to Use What
+
+```mermaid
+graph TB
+    Q1{"How complex<br/>are your rules?"}
+    Q1 -->|"Simple IF-THEN"| EASY["JEasyRules / Simple If-Else<br/><i>< 50 rules, no inference</i>"]
+    Q1 -->|"Moderate (tables, trees)"| Q2{"Need visual editor<br/>& multi-tenancy?"}
+    Q1 -->|"Complex (chaining, CEP)"| Q3{"On-premise<br/>Java shop?"}
+
+    Q2 -->|"Yes"| RF["✅ RuleForge<br/><i>Full BRMS platform</i>"]
+    Q2 -->|"No, just a library"| Q4{"Need scoring?"}
+    Q4 -->|"Yes"| RF
+    Q4 -->|"No"| EASY
+
+    Q3 -->|"Yes, large enterprise"| DROOLS["Drools / IBM ODM<br/><i>Enterprise, heavy</i>"]
+    Q3 -->|"No, cloud-native"| RF
+
+    style RF fill:#1a73e8,color:#fff
+    style EASY fill:#34a853,color:#fff
+    style DROOLS fill:#ff6d01,color:#fff
+```
+<a id="20-appendices"></a>
+
+### Appendices
+
+
+#### Appendix A: Engine Module Structure
 
 ```
 ruleforge-engine/
@@ -1909,7 +2037,8 @@ ruleforge-engine/
 └── ruleforge-spring-boot-starter/     # Spring Boot auto-configuration
 ```
 
-### Appendix B: Configuration Reference
+
+#### Appendix B: Configuration Reference
 
 ```yaml
 ruleforge:
@@ -1963,7 +2092,8 @@ ruleforge:
       scan-packages: ["com.company.rules.extensions"]
 ```
 
-### Appendix C: Decision Matrix — Build vs. Buy
+
+#### Appendix C: Decision Matrix — Build vs. Buy
 
 | Criteria              | Weight | Build Custom | Use Drools | Use JEasyRules + Extend |
 | --------------------- | ------ | ------------ | ---------- | ----------------------- |
@@ -1979,9 +2109,14 @@ ruleforge:
 
 **Recommendation:** Build a custom engine. The 45% improvement in weighted score justifies the investment, especially given the competitive requirement for hierarchical rules and weighted scoring that neither Drools nor JEasyRules handle well natively.
 
----
+<a id="3-rule-metamodel"></a>
 
-**Document Version:** 2.1
-**Classification:** Internal — Architecture Team
-**Last Updated:** February 2026
-**Next Review:** March 2026
+For the metamodel, read [engine foundations](#engine-foundations).
+
+## Legacy section links
+
+Earlier headings remain addressable for existing links. Use the reading path above to find their current chapter.
+
+<a id="custom-built-robust-rule-execution-engine"></a>
+<a id="ruleforge--rule-engine-core-architecture"></a>
+<a id="table-of-contents"></a>

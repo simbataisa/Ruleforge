@@ -1,10 +1,34 @@
 # Enterprise Architecture — RuleForge
 
-> **Status:** Draft — auto-seeded by /enterprise-architect:onboard. Source: IaC + CI/CD + manifests as of 2026-10-25. Owner: Enterprise Architect
+**Document role:** Deployment and operating evidence, enterprise decisions, and historical production proposals.
+**Editorial revision:** 2026-10-25
+**Status:** Draft source inventory; production choices remain unresolved.
+**Owner:** Enterprise Architect
 
 ## Changelog
 
-- 2026-10-25: Propose a whole-product enterprise inventory from repository deployment and runtime configuration. Preserve the original Spaces-focused architecture separately; accepted ADRs remain unchanged.
+- **2026-10-25 · ARC-DOC-001:** Consolidate production proposals from the platform design, improve navigation, and preserve source/evidence boundaries. See [section map](ARCHITECTURE-CHANGELOG.md#arc-doc-001--2026-10-25).
+
+- 2026-10-25: Record a whole-product enterprise inventory from repository deployment and runtime configuration. Preserve the original Spaces-focused architecture separately; accepted ADRs remain unchanged.
+
+## Reading path
+
+Start with the [architecture overview](ARCHITECTURE-SUMMARY.md). Continue to the [platform guide](RuleForge-Architecture-v2.md) for application boundaries, the [engine guide](RuleForge-Engine-Core-Architecture-v2.1.md) for execution internals, or the [enterprise guide](enterprise-architecture.md) for deployment and operations. The [Spaces record](enterprise-architecture-spaces-features.md) preserves historical feature requirements.
+
+## In this guide
+
+- [Scope and Evidence](#scope-and-evidence)
+- [1. Deployment Topology](#1-deployment-topology)
+- [2. Cloud Provider and Regions](#2-cloud-provider-and-regions)
+- [3. Multi-Environment Strategy](#3-multi-environment-strategy)
+- [4. CI/CD Pipeline](#4-cicd-pipeline)
+- [5. Observability](#5-observability)
+- [6. Compliance Posture and Enterprise Controls](#6-compliance-posture-and-enterprise-controls)
+- [7. FinOps](#7-finops)
+- [8. Disaster Recovery](#8-disaster-recovery)
+- [9. Existing Architecture Decisions](#9-existing-architecture-decisions)
+- [Decisions and Handoff Boundary](#decisions-and-handoff-boundary)
+- [Earlier production proposals](#earlier-production-proposals)
 
 ## Scope and Evidence
 
@@ -46,7 +70,7 @@ The topology below is declared configuration. Containers, endpoints, controls, b
 
 Sources: [infrastructure Compose](../../infra/docker/docker-compose.infra.yml), [application Compose](../../infra/docker/docker-compose.yml), [sample service Dockerfile](../../platform/ruleforge-auth-service/Dockerfile), [frontend Dockerfile](../../frontend/Dockerfile), [AI Dockerfile](../../ai-service/Dockerfile).
 
-**Topology diagram:** pending review of this inventory; no deployed topology diagram is asserted.
+For the declared execution modes, read the table above. Earlier conceptual infrastructure diagrams are grouped under [earlier production proposals](#earlier-production-proposals).
 
 ### Configuration gaps to carry forward
 
@@ -130,7 +154,7 @@ Open inputs: demand model (throughput, concurrency, rule sizes, retained data), 
 | PostgreSQL | Named pg_data volume | RTO, RPO, backup cadence, retention, restore testing, and owner unknown |
 | Elasticsearch | Named es_data volume | Recovery/rebuild strategy, dependency on authoritative data, objectives and drills unknown |
 | MinIO | Named minio_data volume; current usage disputed by README | Confirm scope before defining object backup and recovery |
-| Kafka | No persistent volume declared; local retention 24h and replication factor 1 | Durability, replay/recovery policy, RTO/RPO, and drills unknown |
+| Kafka | No persistent volume declared; local retention 24h and offsets-topic replication factor 1 | Durability, replay/recovery policy, RTO/RPO, and drills unknown |
 | Redis | No persistent volume declared; eviction enabled | Confirm cache/token recovery semantics and any authoritative data before defining recovery controls |
 
 Named volumes and source-controlled migrations do not constitute tested backups. No backup jobs, restore runbooks, HA failover evidence, or DR drills were found in the scanned operational sources.
@@ -139,7 +163,7 @@ The original feature-scoped document is preserved in the [historical Spaces arch
 
 ## 9. Existing Architecture Decisions
 
-The existing [ADR index](adr/ADR-INDEX.md) records ten Accepted solution decisions. Their status and content are preserved. No --with-adrs option was supplied, so onboarding creates no starter ADRs.
+The existing [ADR index](adr/ADR-INDEX.md) records ten Accepted solution decisions. Their status and content are preserved. This document revision creates no new ADRs.
 
 - [ADR-001: Slug Generation Strategy for Spaces](adr/ADR-001-slug-generation.md)
 - [ADR-002: ruleCount Computation Strategy](adr/ADR-002-rulecount-strategy.md)
@@ -167,3 +191,286 @@ These ADRs cover Spaces, rule assignment, and webhook decisions. They do not col
 | Routing and broker connectivity discrepancies | SA / engineering / QE | Establishes trustworthy container-mode behavior |
 
 **Disposition:** needs_clarification for a production architecture mandate. This inventory can inform Solution Architect onboarding after section review. It is not an EA completion sentinel, a Tech Lead GO, a release gate, or permission to provision infrastructure.
+
+
+## Earlier production proposals
+
+The following material is moved from the February 2026 platform design. It records design options and assumptions for future evaluation. It is not the configuration inventory above, an approved SLO, a chosen provider, a cost quote, or an operating runbook.
+
+| Reference | How to read it |
+|---|---|
+| Quality attributes and scaling | Candidate targets and example capacity policies; no current load-test or DR evidence |
+| Deployment and delivery | Kubernetes, cloud, and promotion examples; no corresponding production estate established |
+| Infrastructure tool choices | Earlier candidates requiring platform approval |
+| AWS cost worksheet | Historical assumptions only; no current pricing research, budget approval, or provider selection |
+
+<a id="legacy-platform-32-quality-attribute-requirements"></a>
+
+#### Quality Attribute Requirements
+
+| Attribute | Target | Measurement |
+|---|---|---|
+| **Availability** | 99.95% | Monthly uptime |
+| **Latency (P50)** | < 10ms | Single rule execution |
+| **Latency (P99)** | < 100ms | Single rule execution |
+| **Throughput** | 500K decisions/min per node | Load test |
+| **Scalability** | Linear to 100 nodes | Horizontal scale test |
+| **Recovery** | RTO < 5min, RPO < 1min | DR drill |
+| **Security** | SOC 2 Type II ready | Compliance audit |
+<a id="legacy-platform-12-scalability--performance-architecture"></a>
+
+### Scalability & Performance Architecture
+
+
+<a id="legacy-platform-121-performance-targets"></a>
+
+#### Performance Targets
+
+| Metric | Target | Strategy |
+|---|---|---|
+| Single rule latency (P50) | < 5ms | In-memory compiled rules, no I/O in hot path |
+| Single rule latency (P99) | < 50ms | Warm cache, connection pooling |
+| Flow execution (P50) | < 50ms | Parallel node execution, cached sub-rules |
+| Bulk solve 1000 inputs | < 2s | Thread pool, batch processing |
+| Throughput per node | 8,000+ req/s | Async I/O, non-blocking execution |
+| Cluster throughput | 500K+ decisions/min | 10-node cluster |
+| Rule compilation | < 500ms | Async background compilation |
+
+
+<a id="legacy-platform-122-horizontal-scaling-architecture"></a>
+
+#### Horizontal Scaling Architecture
+
+```mermaid
+graph TB
+    LB["Load Balancer<br/>(L7 / Envoy)"]
+
+    subgraph "Solver Pool (Auto-Scaled)"
+        S1["Solver-1<br/>CPU: 4, RAM: 8G"]
+        S2["Solver-2<br/>CPU: 4, RAM: 8G"]
+        S3["Solver-N<br/>CPU: 4, RAM: 8G"]
+    end
+
+    subgraph "Management Pool"
+        M1["Mgmt-1"]
+        M2["Mgmt-2"]
+    end
+
+    subgraph "Worker Pool (Batch)"
+        W1["Worker-1"]
+        W2["Worker-N"]
+    end
+
+    LB --> S1 & S2 & S3
+    LB --> M1 & M2
+
+    KAFKA["Kafka"] --> W1 & W2
+
+    subgraph "Shared Data"
+        REDIS["Redis Cluster (3-node)"]
+        PG["PostgreSQL (Primary + 2 Replicas)"]
+    end
+
+    S1 & S2 & S3 --> REDIS
+    M1 & M2 --> PG
+    S1 & S2 & S3 -.->|Fallback| PG
+```
+
+
+<a id="legacy-platform-123-auto-scaling-policy"></a>
+
+#### Auto-Scaling Policy
+
+```yaml
+# Kubernetes HPA for Solver Service
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: solver-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: solver-service
+  minReplicas: 3
+  maxReplicas: 50
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 65
+    - type: Pods
+      pods:
+        metric:
+          name: http_requests_per_second
+        target:
+          type: AverageValue
+          averageValue: "5000"
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 30
+      policies:
+        - type: Pods
+          value: 4
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 120
+```
+
+
+<a id="legacy-platform-124-performance-optimization-techniques"></a>
+
+#### Performance Optimization Techniques
+
+1. **Compiled Rules:** Rules are compiled to optimized AST/bytecode on publish, not on every execution
+2. **Rete-like Indexing:** Decision table conditions are indexed for O(log n) matching
+3. **GraalVM Polyglot:** Scripting rules run in pre-warmed GraalVM contexts (not V8/Nashorn)
+4. **Connection Pooling:** HikariCP for PostgreSQL, Lettuce for Redis
+5. **Async I/O:** Non-blocking Kafka producers, async audit logging
+6. **Zero-Copy:** Avoid unnecessary serialization in the execution pipeline
+7. **Virtual Threads:** Java 21 virtual threads for high concurrency with low overhead
+8. **Result Streaming:** Large bulk results streamed to S3, not buffered in memory
+<a id="legacy-platform-14-deployment-architecture"></a>
+
+### Deployment Architecture
+
+
+<a id="legacy-platform-141-deployment-options"></a>
+
+#### Deployment Options
+
+```mermaid
+graph TB
+    subgraph "Option 1: SaaS (Multi-Tenant)"
+        SAAS_LB["Global LB<br/>(CloudFlare)"]
+        SAAS_R1["Region: US-East"]
+        SAAS_R2["Region: EU-West"]
+        SAAS_R3["Region: AP-Southeast"]
+        SAAS_LB --> SAAS_R1 & SAAS_R2 & SAAS_R3
+    end
+
+    subgraph "Option 2: Managed Private Cloud"
+        MPC["Dedicated K8s Namespace<br/>Customer's preferred region<br/>Managed by RuleForge team"]
+    end
+
+    subgraph "Option 3: Self-Hosted (On-Premise)"
+        ONPREM["Customer K8s Cluster<br/>Helm chart + Operator<br/>Air-gapped capable"]
+    end
+
+    subgraph "Option 4: Embedded Engine"
+        EMBED["ruleforge-engine.jar<br/>Lightweight library<br/>No platform dependency<br/>+ WASM for browser/edge"]
+    end
+```
+
+
+<a id="legacy-platform-142-kubernetes-deployment"></a>
+
+#### Kubernetes Deployment
+
+```yaml
+# Helm values.yaml (simplified)
+global:
+  domain: ruleforge.example.com
+  storageClass: gp3-encrypted
+
+solver:
+  replicas: 3
+  resources:
+    requests: { cpu: "2", memory: "4Gi" }
+    limits: { cpu: "4", memory: "8Gi" }
+  autoscaling:
+    enabled: true
+    minReplicas: 3
+    maxReplicas: 50
+    targetCPUUtilization: 65
+  env:
+    CACHE_L1_SIZE: "2000"
+    CACHE_L2_TTL: "300"
+    GRAALVM_SCRIPT_TIMEOUT_MS: "5000"
+
+management:
+  replicas: 2
+  resources:
+    requests: { cpu: "1", memory: "2Gi" }
+
+postgresql:
+  primary:
+    persistence:
+      size: 100Gi
+  readReplicas:
+    replicaCount: 2
+
+redis:
+  architecture: replication
+  sentinel:
+    enabled: true
+  master:
+    persistence:
+      size: 10Gi
+
+elasticsearch:
+  replicas: 3
+  persistence:
+    size: 200Gi
+
+kafka:
+  replicaCount: 3
+  persistence:
+    size: 100Gi
+```
+
+
+<a id="legacy-platform-143-cicd--gitops-for-rules"></a>
+
+#### CI/CD & GitOps for Rules
+
+```mermaid
+graph LR
+    DEV["Dev Space<br/>Edit rules in UI"] -->|Promote| STG["Staging Space<br/>Automated testing"]
+    STG -->|Approve| PROD["Production Space<br/>Live traffic"]
+
+    GIT["Git Repository<br/>Rule definitions as code"] -->|PR| CI["CI Pipeline<br/>Lint + Test + Validate"]
+    CI -->|Merge| CD["CD Pipeline<br/>Deploy to target space"]
+    CD --> STG
+
+    WEBHOOK["Webhook on Publish"] --> GIT
+```
+<a id="legacy-platform-193-infrastructure"></a>
+
+#### Infrastructure
+
+| Component | Technology | Rationale |
+|---|---|---|
+| **Container Orchestration** | Kubernetes 1.29+ | Standard for cloud-native |
+| **Service Mesh** | Istio (optional) | mTLS, traffic management |
+| **CI/CD** | GitHub Actions / ArgoCD | GitOps deployment |
+| **Monitoring** | Prometheus + Grafana | Metrics and dashboards |
+| **Logging** | OpenTelemetry + Loki | Structured logging |
+| **Tracing** | OpenTelemetry + Jaeger | Distributed tracing |
+| **Secret Mgmt** | HashiCorp Vault | Secrets, encryption keys |
+| **IaC** | Terraform / Pulumi | Infrastructure provisioning |
+<a id="legacy-platform-appendix-d-infrastructure-cost-estimate-aws-production"></a>
+
+#### Appendix D: Infrastructure Cost Estimate (AWS, Production)
+
+| Component | Spec | Monthly Cost (est.) |
+|---|---|---|
+| EKS Cluster | 3 control plane | $220 |
+| Solver nodes (3x) | c6g.xlarge (4 vCPU, 8G) | $330 |
+| Management nodes (2x) | m6g.large (2 vCPU, 8G) | $150 |
+| RDS PostgreSQL | db.r6g.large, Multi-AZ, 100GB | $450 |
+| ElastiCache Redis | cache.r6g.large, 3-node | $400 |
+| OpenSearch | 3x r6g.large, 200GB | $600 |
+| MSK Kafka | kafka.m5.large, 3 broker | $500 |
+| ALB | Application Load Balancer | $30 |
+| S3 | 500GB + requests | $20 |
+| CloudWatch/Monitoring | Logs + metrics | $100 |
+| **Total** | | **~$2,800/month** |
+
+*Historical worksheet note: the original author described this as a baseline production setup. Its amounts and assumptions have not been refreshed or adopted.*
